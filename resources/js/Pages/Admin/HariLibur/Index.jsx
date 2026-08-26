@@ -6,6 +6,7 @@ import Button from '@/Components/ui/Button';
 import {
     CalendarX, Plus, Pencil, Trash2, X, Check,
     AlertTriangle, Clock, Sun, RefreshCw, Loader2, AlertCircle,
+    ArrowUpNarrowWide, ArrowDownNarrowWide,
 } from 'lucide-react';
 import { useState, useCallback, useEffect } from 'react';
 
@@ -357,14 +358,20 @@ export default function HariLiburIndex({ libur, jamSlots, filters }) {
     const flash     = props.flash ?? {};
 
     const [bulan,      setBulan]      = useState(filters.bulan ?? new Date().toISOString().slice(0, 7));
+    const [sort,       setSort]       = useState(filters.sort ?? 'asc');
     const [modal,      setModal]      = useState(null);
     const [syncItem,   setSyncItem]   = useState(null);
     const [deleteItem, setDeleteItem] = useState(null);
 
-    const nav = useCallback((b) => {
-        setBulan(b);
-        router.get('/admin/hari-libur', { bulan: b }, { preserveState: true, replace: true });
-    }, []);
+    const nav = useCallback((b, s) => {
+        const newBulan = b ?? bulan;
+        const newSort  = s ?? sort;
+        setBulan(newBulan);
+        setSort(newSort);
+        router.get('/admin/hari-libur', { bulan: newBulan, sort: newSort }, { preserveState: true, replace: true });
+    }, [bulan, sort]);
+
+    const toggleSort = () => nav(bulan, sort === 'asc' ? 'desc' : 'asc');
 
     const confirmDelete = () => {
         if (!deleteItem) return;
@@ -422,7 +429,7 @@ export default function HariLiburIndex({ libur, jamSlots, filters }) {
                         <div className="flex items-center gap-3 flex-wrap">
                             <div>
                                 <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Bulan</label>
-                                <input type="month" value={bulan} onChange={e => nav(e.target.value)}
+                                <input type="month" value={bulan} onChange={e => nav(e.target.value, sort)}
                                     className="rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-1.5 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-rose-400" />
                             </div>
                             <div className="text-sm text-gray-500 dark:text-gray-400 mt-5">
@@ -446,11 +453,21 @@ export default function HariLiburIndex({ libur, jamSlots, filters }) {
 
                 {/* Table */}
                 <Card>
-                    <CardHeader>
+                    <CardHeader className="flex items-center justify-between">
                         <CardTitle className="flex items-center gap-2">
                             <CalendarX className="h-4 w-4 text-gray-400" />
                             Daftar Hari Libur
                         </CardTitle>
+                        <button
+                            onClick={toggleSort}
+                            title={sort === 'asc' ? 'Urutan: Terlama → Terbaru (klik untuk balik)' : 'Urutan: Terbaru → Terlama (klik untuk balik)'}
+                            className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                        >
+                            {sort === 'asc'
+                                ? <><ArrowUpNarrowWide className="h-3.5 w-3.5" /> Terlama</>
+                                : <><ArrowDownNarrowWide className="h-3.5 w-3.5" /> Terbaru</>
+                            }
+                        </button>
                     </CardHeader>
                     <CardBody className="p-0">
                         {libur.length === 0 ? (

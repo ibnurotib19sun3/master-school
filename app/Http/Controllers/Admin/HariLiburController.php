@@ -20,9 +20,11 @@ class HariLiburController extends Controller
         $bulan = $request->get('bulan', now()->format('Y-m'));
         [$tahun, $bln] = explode('-', $bulan);
 
+        $sort  = in_array($request->get('sort'), ['asc', 'desc']) ? $request->get('sort') : 'asc';
+
         $libur = HariLibur::whereYear('tanggal', $tahun)
             ->whereMonth('tanggal', $bln)
-            ->orderBy('tanggal')
+            ->orderBy('tanggal', $sort)
             ->get();
 
         $sekolah  = PengaturanSekolah::current();
@@ -31,7 +33,7 @@ class HariLiburController extends Controller
         return Inertia::render('Admin/HariLibur/Index', [
             'libur'    => $libur,
             'jamSlots' => $jamSlots,
-            'filters'  => ['bulan' => $bulan],
+            'filters'  => ['bulan' => $bulan, 'sort' => $sort],
         ]);
     }
 

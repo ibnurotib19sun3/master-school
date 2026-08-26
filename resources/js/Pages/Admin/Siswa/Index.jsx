@@ -184,6 +184,17 @@ export default function SiswaIndex({ siswa, rombel, filters }) {
                             </>
                         ) : (
                             <>
+                                {/* Per-page dropdown */}
+                                <select
+                                    value={currentPerPage}
+                                    onChange={(e) => setPerPage(e.target.value)}
+                                    className="rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-sky-500"
+                                >
+                                    {PER_PAGE_OPTIONS.map(({ value, label }) => (
+                                        <option key={value} value={value}>{label} data</option>
+                                    ))}
+                                </select>
+
                                 {/* Search */}
                                 <div className="relative">
                                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
@@ -230,82 +241,6 @@ export default function SiswaIndex({ siswa, rombel, filters }) {
                 </CardHeader>
 
                 <CardBody className="p-0">
-                    {/* ── Top control bar: per-page (kiri) + pagination (kanan) ── */}
-                    <div className="px-4 py-2.5 border-b border-gray-100 dark:border-gray-800 flex flex-wrap items-center justify-between gap-3">
-                        {/* Kiri: per-page selector */}
-                        <div className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400">
-                            <span className="whitespace-nowrap">Tampilkan</span>
-                            <div className="flex gap-1">
-                                {PER_PAGE_OPTIONS.map(({ value, label }) => (
-                                    <button
-                                        key={value}
-                                        onClick={() => setPerPage(value)}
-                                        className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-colors ${
-                                            String(currentPerPage) === value
-                                                ? 'bg-sky-600 text-white'
-                                                : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700'
-                                        }`}
-                                    >
-                                        {label}
-                                    </button>
-                                ))}
-                            </div>
-                            <span className="whitespace-nowrap">data</span>
-                        </div>
-
-                        {/* Kanan: pagination */}
-                        {siswa.last_page > 1 ? (
-                            <>
-                                {/* Mobile: prev / info / next */}
-                                <div className="flex sm:hidden items-center gap-2">
-                                    <Link
-                                        href={siswa.prev_page_url ?? '#'}
-                                        className={`flex items-center gap-1 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-                                            siswa.prev_page_url
-                                                ? 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700'
-                                                : 'opacity-35 pointer-events-none bg-gray-100 dark:bg-gray-800 text-gray-400'
-                                        }`}
-                                    >
-                                        ‹ Prev
-                                    </Link>
-                                    <span className="text-xs text-gray-500 dark:text-gray-400 tabular-nums">
-                                        {siswa.from}–{siswa.to} / {siswa.total}
-                                    </span>
-                                    <Link
-                                        href={siswa.next_page_url ?? '#'}
-                                        className={`flex items-center gap-1 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-                                            siswa.next_page_url
-                                                ? 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700'
-                                                : 'opacity-35 pointer-events-none bg-gray-100 dark:bg-gray-800 text-gray-400'
-                                        }`}
-                                    >
-                                        Next ›
-                                    </Link>
-                                </div>
-
-                                {/* Desktop: semua link halaman */}
-                                <div className="hidden sm:flex items-center gap-1 flex-wrap justify-end">
-                                    {siswa.links.map((link, i) => (
-                                        <Link
-                                            key={i}
-                                            href={link.url ?? '#'}
-                                            className={`px-3 py-1 text-sm rounded-lg transition-colors ${
-                                                link.active
-                                                    ? 'bg-sky-600 text-white'
-                                                    : 'text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800'
-                                            } ${!link.url ? 'opacity-40 pointer-events-none' : ''}`}
-                                            dangerouslySetInnerHTML={{ __html: link.label }}
-                                        />
-                                    ))}
-                                </div>
-                            </>
-                        ) : (
-                            <p className="text-sm text-gray-500 dark:text-gray-400 whitespace-nowrap">
-                                {siswa.total} siswa
-                            </p>
-                        )}
-                    </div>
-
                     <div className="overflow-x-auto">
                         <table className="w-full text-sm">
                             <thead className="bg-gray-50 dark:bg-gray-900/50 text-xs uppercase text-gray-500">
@@ -376,6 +311,60 @@ export default function SiswaIndex({ siswa, rombel, filters }) {
                                 )}
                             </tbody>
                         </table>
+                    </div>
+
+                    {/* ── Pagination footer ── */}
+                    <div className="px-4 py-3 border-t border-gray-100 dark:border-gray-800">
+                        <div className="flex flex-wrap items-center justify-between gap-3">
+                            {/* Keterangan data */}
+                            <p className="text-sm text-gray-500 dark:text-gray-400 whitespace-nowrap">
+                                {siswa.total === 0
+                                    ? 'Tidak ada data'
+                                    : <>Menampilkan <span className="font-medium text-gray-700 dark:text-gray-300">{siswa.from}–{siswa.to}</span> dari <span className="font-medium text-gray-700 dark:text-gray-300">{siswa.total}</span> siswa{siswa.last_page > 1 && <> · Halaman <span className="font-medium text-gray-700 dark:text-gray-300">{siswa.current_page}</span> dari <span className="font-medium text-gray-700 dark:text-gray-300">{siswa.last_page}</span></>}</>
+                                }
+                            </p>
+
+                            {/* Navigasi halaman */}
+                            {siswa.last_page > 1 && (
+                                <>
+                                    {/* Mobile: prev / next */}
+                                    <div className="flex sm:hidden items-center gap-2">
+                                        <Link
+                                            href={siswa.prev_page_url ?? '#'}
+                                            className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                                                siswa.prev_page_url
+                                                    ? 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700'
+                                                    : 'opacity-35 pointer-events-none bg-gray-100 dark:bg-gray-800 text-gray-400'
+                                            }`}
+                                        >‹ Prev</Link>
+                                        <Link
+                                            href={siswa.next_page_url ?? '#'}
+                                            className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                                                siswa.next_page_url
+                                                    ? 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700'
+                                                    : 'opacity-35 pointer-events-none bg-gray-100 dark:bg-gray-800 text-gray-400'
+                                            }`}
+                                        >Next ›</Link>
+                                    </div>
+
+                                    {/* Desktop: semua link halaman */}
+                                    <div className="hidden sm:flex items-center gap-1 flex-wrap">
+                                        {siswa.links.map((link, i) => (
+                                            <Link
+                                                key={i}
+                                                href={link.url ?? '#'}
+                                                className={`px-3 py-1 text-sm rounded-lg transition-colors ${
+                                                    link.active
+                                                        ? 'bg-sky-600 text-white'
+                                                        : 'text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800'
+                                                } ${!link.url ? 'opacity-40 pointer-events-none' : ''}`}
+                                                dangerouslySetInnerHTML={{ __html: link.label }}
+                                            />
+                                        ))}
+                                    </div>
+                                </>
+                            )}
+                        </div>
                     </div>
 
                 </CardBody>
