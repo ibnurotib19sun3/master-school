@@ -585,7 +585,7 @@ class LaporanController extends Controller
         $piketHadir = AbsensiPiket::join('jadwal', 'absensi_piket.jadwal_id', '=', 'jadwal.id')
             ->join('pembelajaran', 'jadwal.pembelajaran_id', '=', 'pembelajaran.id')
             ->whereBetween('absensi_piket.tanggal', [$from->toDateString(), $effectiveTo->toDateString()])
-            ->whereIn('absensi_piket.status_guru', ['Hadir', 'Tugas_Sekolah'])
+            ->whereIn('absensi_piket.status_guru', ['Hadir'])
             ->select(
                 'absensi_piket.jadwal_id',
                 'absensi_piket.tanggal',
@@ -666,7 +666,7 @@ class LaporanController extends Controller
             ->join('rombel', 'pembelajaran.rombel_id', '=', 'rombel.id')
             ->whereBetween('absensi_piket.tanggal', [$from->toDateString(), $effectiveTo->toDateString()])
             ->where('pembelajaran.guru_id', $guru->id)
-            ->whereIn('absensi_piket.status_guru', ['Hadir', 'Tugas_Sekolah'])
+            ->whereIn('absensi_piket.status_guru', ['Hadir'])
             ->select(
                 'absensi_piket.tanggal',
                 'absensi_piket.jadwal_id',

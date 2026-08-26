@@ -2,6 +2,7 @@ import AppLayout from '@/Layouts/AppLayout';
 import { router, Link } from '@inertiajs/react';
 import { Card, CardBody, CardHeader, CardTitle } from '@/Components/ui/Card';
 import { BookCheck, TrendingUp, AlertCircle, CheckCircle2, XCircle, Filter, Search } from 'lucide-react';
+import { useState } from 'react';
 
 const bulanNames = [
     '', 'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
@@ -40,13 +41,17 @@ function StatusBadge({ persen }) {
 
 export default function KeaktifanJurnal({ rekap, bulan }) {
     const [tahun, bln] = bulan.split('-');
+    const [q, setQ] = useState('');
 
     const totHadir  = rekap.reduce((s, r) => s + r.jam_hadir, 0);
     const totTerisi = rekap.reduce((s, r) => s + r.jam_terisi, 0);
     const totKosong = rekap.reduce((s, r) => s + r.jam_kosong, 0);
     const totPersen = totHadir > 0 ? Math.round((totTerisi / totHadir) * 100 * 10) / 10 : 0;
 
-    const sorted = [...rekap].sort((a, b) => b.persen - a.persen);
+    const sorted  = [...rekap].sort((a, b) => b.persen - a.persen);
+    const visible = q.trim()
+        ? sorted.filter(r => r.nama.toLowerCase().includes(q.toLowerCase()))
+        : sorted;
 
     const handleBulan = (e) => {
         router.get('/admin/laporan/keaktifan-jurnal', { bulan: e.target.value }, { preserveState: true });
@@ -109,11 +114,21 @@ export default function KeaktifanJurnal({ rekap, bulan }) {
 
             {/* Tabel per guru */}
             <Card>
-                <CardHeader>
+                <CardHeader className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                     <CardTitle className="flex items-center gap-2">
                         <TrendingUp className="h-4 w-4 text-sky-500" />
                         Rekap Per Guru
                     </CardTitle>
+                    <div className="relative">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                        <input
+                            type="text"
+                            value={q}
+                            onChange={e => setQ(e.target.value)}
+                            placeholder="Cari nama guru..."
+                            className="pl-9 pr-4 py-1.5 text-sm rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-1 focus:ring-sky-500 w-48"
+                        />
+                    </div>
                 </CardHeader>
                 <CardBody className="p-0">
                     {rekap.length === 0 ? (
@@ -138,7 +153,7 @@ export default function KeaktifanJurnal({ rekap, bulan }) {
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
-                                    {sorted.map((row, idx) => (
+                                    {visible.map((row, idx) => (
                                         <tr key={row.id} className="hover:bg-gray-50 dark:hover:bg-gray-800/50">
                                             <td className="px-4 py-3 text-gray-400 text-xs">{idx + 1}</td>
                                             <td className="px-4 py-3 font-medium text-gray-900 dark:text-gray-100">{row.nama}</td>
