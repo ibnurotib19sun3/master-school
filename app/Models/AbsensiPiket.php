@@ -15,8 +15,8 @@ class AbsensiPiket extends Model
     ];
 
     protected $casts = [
-        'tanggal'       => 'date',
-        'deadline_tugas' => 'date',
+        'tanggal'       => 'date:Y-m-d',
+        'deadline_tugas' => 'date:Y-m-d',
     ];
 
     public function jadwal(): BelongsTo

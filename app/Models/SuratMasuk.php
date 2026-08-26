@@ -14,7 +14,7 @@ class SuratMasuk extends Model
     ];
     protected function casts(): array
     {
-        return ['tgl_surat' => 'date', 'tgl_diterima' => 'date'];
+        return ['tgl_surat' => 'date:Y-m-d', 'tgl_diterima' => 'date:Y-m-d'];
     }
 
     public function pembuat()

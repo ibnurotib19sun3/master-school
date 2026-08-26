@@ -17,8 +17,8 @@ class SuratKeluar extends Model
     protected function casts(): array
     {
         return [
-            'tgl_surat'  => 'date',
-            'tgl_keluar' => 'date',
+            'tgl_surat'  => 'date:Y-m-d',
+            'tgl_keluar' => 'date:Y-m-d',
             'tte_at'     => 'datetime',
         ];
     }

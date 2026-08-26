@@ -11,7 +11,7 @@ class HariLibur extends Model
     protected $fillable = ['tanggal', 'nama', 'keterangan', 'jam_tertentu'];
 
     protected $casts = [
-        'tanggal'      => 'date',
+        'tanggal'      => 'date:Y-m-d',
         'jam_tertentu' => 'array',
     ];
 

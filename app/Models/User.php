@@ -27,7 +27,7 @@ class User extends Authenticatable
     {
         return [
             'email_verified_at' => 'datetime',
-            'tanggal_lahir' => 'date',
+            'tanggal_lahir' => 'date:Y-m-d',
             'password' => 'hashed',
             'is_active' => 'boolean',
             'last_seen_at' => 'datetime',

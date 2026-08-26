@@ -22,7 +22,7 @@ class Guru extends Model
     protected function casts(): array
     {
         return [
-            'tanggal_masuk' => 'date',
+            'tanggal_masuk' => 'date:Y-m-d',
             'is_aktif'      => 'boolean',
             'bidang_studi'  => 'array',
             'jabatan'       => 'array',
