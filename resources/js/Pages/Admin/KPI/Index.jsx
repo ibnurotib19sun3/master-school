@@ -6,9 +6,9 @@ import Badge from '@/Components/ui/Badge';
 import { Select, Textarea } from '@/Components/ui/Input';
 import {
     Calculator, Save, TrendingUp, CheckCircle2, AlertCircle,
-    CalendarDays, UserCheck, BookOpen, RefreshCw, Crown,
+    CalendarDays, UserCheck, BookOpen, RefreshCw, Crown, Search, X, ChevronDown,
 } from 'lucide-react';
-import { useState } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 
 const BULAN_LABELS = [
     'Januari','Februari','Maret','April','Mei','Juni',
@@ -25,6 +25,81 @@ function bulanOptions() {
         opts.push({ value: val, label: lbl });
     }
     return opts.reverse();
+}
+
+function PersonSearchSelect({ list, value, onChange, placeholder, emptyLabel }) {
+    const [open, setOpen]   = useState(false);
+    const [query, setQuery] = useState('');
+    const ref               = useRef(null);
+    const inputRef          = useRef(null);
+
+    const selected = list.find((p) => String(p.id) === String(value));
+    const label    = selected ? (selected.user?.name ?? '-') : emptyLabel;
+    const filtered = query
+        ? list.filter((p) => (p.user?.name ?? '').toLowerCase().includes(query.toLowerCase()))
+        : list;
+
+    const pick = useCallback((id) => { onChange(id); setOpen(false); setQuery(''); }, [onChange]);
+
+    useEffect(() => {
+        if (!open) return;
+        const h = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
+        document.addEventListener('mousedown', h);
+        return () => document.removeEventListener('mousedown', h);
+    }, [open]);
+
+    useEffect(() => { if (open && inputRef.current) inputRef.current.focus(); }, [open]);
+
+    return (
+        <div ref={ref} className="relative">
+            <button
+                type="button"
+                onClick={() => setOpen((o) => !o)}
+                className="flex w-full items-center justify-between rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm shadow-sm hover:border-sky-400 dark:hover:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-500 transition-colors"
+            >
+                <span className={`truncate ${value ? 'text-gray-900 dark:text-gray-100' : 'text-gray-400'}`}>{label}</span>
+                <ChevronDown className={`h-4 w-4 shrink-0 text-gray-400 transition-transform ${open ? 'rotate-180' : ''}`} />
+            </button>
+            {open && (
+                <div className="absolute z-50 mt-1 w-full rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-lg overflow-hidden">
+                    <div className="flex items-center gap-2 p-2 border-b border-gray-100 dark:border-gray-700">
+                        <Search className="h-4 w-4 shrink-0 text-gray-400" />
+                        <input
+                            ref={inputRef}
+                            type="text"
+                            value={query}
+                            onChange={(e) => setQuery(e.target.value)}
+                            placeholder={placeholder}
+                            className="flex-1 bg-transparent text-sm text-gray-700 dark:text-gray-200 placeholder-gray-400 focus:outline-none"
+                        />
+                        {query && (
+                            <button type="button" onClick={() => setQuery('')} className="shrink-0 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200">
+                                <X className="h-3.5 w-3.5" />
+                            </button>
+                        )}
+                    </div>
+                    <ul className="max-h-56 overflow-y-auto py-1">
+                        <li>
+                            <button type="button" onClick={() => pick('')}
+                                className={`w-full px-3 py-2 text-left text-sm transition-colors ${!value ? 'bg-sky-50 dark:bg-sky-900/30 text-sky-700 dark:text-sky-300 font-medium' : 'text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-700/50'}`}>
+                                {emptyLabel}
+                            </button>
+                        </li>
+                        {filtered.length === 0 ? (
+                            <li className="px-3 py-4 text-center text-sm text-gray-400">Tidak ditemukan</li>
+                        ) : filtered.map((p) => (
+                            <li key={p.id}>
+                                <button type="button" onClick={() => pick(String(p.id))}
+                                    className={`w-full px-3 py-2 text-left text-sm transition-colors ${String(value) === String(p.id) ? 'bg-sky-50 dark:bg-sky-900/30 text-sky-700 dark:text-sky-300 font-medium' : 'text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700/50'}`}>
+                                    {p.user?.name ?? '-'}
+                                </button>
+                            </li>
+                        ))}
+                    </ul>
+                </div>
+            )}
+        </div>
+    );
 }
 
 function NilaiBar({ persen, color = 'indigo' }) {
@@ -225,16 +300,16 @@ export default function KPIIndex({ indikator = [], guruList = [], tahunAjaran = 
                         </CardHeader>
                         <CardBody className="space-y-4">
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                <Select
-                                    label="Pilih Guru"
-                                    value={guruId}
-                                    onChange={(e) => { setGuruId(e.target.value); setHasil(null); }}
-                                >
-                                    <option value="">— Pilih Guru —</option>
-                                    {guruList.map((g) => (
-                                        <option key={g.id} value={g.id}>{g.user?.name}</option>
-                                    ))}
-                                </Select>
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Pilih Guru</label>
+                                    <PersonSearchSelect
+                                        list={guruList}
+                                        value={guruId}
+                                        onChange={(id) => { setGuruId(id); setHasil(null); }}
+                                        placeholder="Cari nama guru..."
+                                        emptyLabel="— Pilih Guru —"
+                                    />
+                                </div>
                                 <Select
                                     label="Bulan"
                                     value={bulan}

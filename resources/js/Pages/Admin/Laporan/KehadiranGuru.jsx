@@ -1,9 +1,10 @@
 import AppLayout from '@/Layouts/AppLayout';
 import { router } from '@inertiajs/react';
 import { Card, CardHeader, CardBody, CardTitle } from '@/Components/ui/Card';
+import Modal from '@/Components/ui/Modal';
 import { Select } from '@/Components/ui/Input';
 import Badge from '@/Components/ui/Badge';
-import { GraduationCap, TrendingUp, ClipboardList, FileSpreadsheet, Printer, X, CalendarRange, Search, ChevronDown } from 'lucide-react';
+import { GraduationCap, TrendingUp, ClipboardList, FileSpreadsheet, Printer, X, CalendarRange, Search, ChevronDown, Eye } from 'lucide-react';
 import { useState, useEffect, useRef, useCallback } from 'react';
 
 const BULAN = [
@@ -204,7 +205,7 @@ function PrintOverlay({ target, period, rekap, kop, sekolah, onClose }) {
 }
 
 /* ── Tabel rekap (dipakai di halaman ini) ─────────────── */
-function RekapTable({ rekap, onPrint }) {
+function RekapTable({ rekap, onPrint, onDetail }) {
     return (
         <div className="overflow-x-auto hidden sm:block">
             <table className="w-full text-sm">
@@ -220,7 +221,7 @@ function RekapTable({ rekap, onPrint }) {
                         <th className="px-4 py-3 text-left font-medium whitespace-nowrap bg-sky-50/60 dark:bg-sky-950/20">% Hadir</th>
                         <th className="px-4 py-3 text-center font-medium whitespace-nowrap bg-red-50/60 dark:bg-red-950/10">JP Tdk Hadir</th>
                         <th className="px-4 py-3 text-left font-medium whitespace-nowrap bg-red-50/60 dark:bg-red-950/10">% Tdk Hadir</th>
-                        <th className="px-4 py-3 text-center font-medium whitespace-nowrap">Print</th>
+                        <th className="px-4 py-3 text-center font-medium whitespace-nowrap">Aksi</th>
                     </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
@@ -256,13 +257,22 @@ function RekapTable({ rekap, onPrint }) {
                                     </div>
                                 </td>
                                 <td className="px-4 py-3 text-center">
-                                    <button
-                                        onClick={() => onPrint(r)}
-                                        title="Print rekap guru ini"
-                                        className="rounded-lg p-1.5 bg-sky-50 text-sky-600 dark:bg-sky-900/30 dark:text-sky-400 hover:bg-sky-100 dark:hover:bg-sky-900/50 transition-colors"
-                                    >
-                                        <Printer className="h-3.5 w-3.5" />
-                                    </button>
+                                    <div className="flex items-center justify-center gap-1.5">
+                                        <button
+                                            onClick={() => onDetail(r)}
+                                            title="Lihat detail kehadiran per hari"
+                                            className="rounded-lg p-1.5 bg-emerald-50 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400 hover:bg-emerald-100 dark:hover:bg-emerald-900/50 transition-colors"
+                                        >
+                                            <Eye className="h-3.5 w-3.5" />
+                                        </button>
+                                        <button
+                                            onClick={() => onPrint(r)}
+                                            title="Print rekap guru ini"
+                                            className="rounded-lg p-1.5 bg-sky-50 text-sky-600 dark:bg-sky-900/30 dark:text-sky-400 hover:bg-sky-100 dark:hover:bg-sky-900/50 transition-colors"
+                                        >
+                                            <Printer className="h-3.5 w-3.5" />
+                                        </button>
+                                    </div>
                                 </td>
                             </tr>
                         ))
@@ -364,6 +374,22 @@ function GuruSearchSelect({ guru, value, onChange }) {
     );
 }
 
+const STATUS_PIKET_COLOR = {
+    Hadir:         'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400',
+    Sakit:         'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400',
+    Izin:          'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400',
+    Alpha:         'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400',
+    Tugas_Sekolah: 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400',
+};
+
+const HARI = ['Ahad', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
+
+function formatTanggal(str) {
+    if (!str) return '-';
+    const d = new Date(str);
+    return `${HARI[d.getDay()]}, ${d.getDate()} ${BULAN[d.getMonth()]} ${d.getFullYear()}`;
+}
+
 export default function KehadiranGuru({ rekap, detailHarian, guru, filters, bulan, kop, sekolah }) {
     const [bulanTahun, setBulanTahun] = useState(() => {
         const [y, m] = bulan.split('-');
@@ -372,6 +398,23 @@ export default function KehadiranGuru({ rekap, detailHarian, guru, filters, bula
     const [localFilters, setLocalFilters] = useState({ bulan, guru_id: filters.guru_id ?? '' });
     const [activeTab, setActiveTab]       = useState('rekap');
     const [printTarget, setPrintTarget]   = useState(null);
+
+    // Detail harian piket per guru
+    const [detailGuru, setDetailGuru]     = useState(null);
+    const [detailData, setDetailData]     = useState(null);
+    const [detailLoading, setDetailLoading] = useState(false);
+
+    const openDetail = (r) => {
+        setDetailGuru(r);
+        setDetailData(null);
+        setDetailLoading(true);
+        fetch(`/admin/laporan/kehadiran-guru/detail?guru_id=${r.id}&bulan=${localFilters.bulan}`)
+            .then((res) => res.json())
+            .then((data) => { setDetailData(data); setDetailLoading(false); })
+            .catch(() => setDetailLoading(false));
+    };
+
+    const closeDetail = () => { setDetailGuru(null); setDetailData(null); };
 
     const periodLabel = `${BULAN[parseInt(bulanTahun.bulan) - 1]} ${bulanTahun.tahun}`;
 
@@ -500,9 +543,14 @@ export default function KehadiranGuru({ rekap, detailHarian, guru, filters, bula
                                 <div key={r.id} className="px-4 py-3">
                                     <div className="flex items-center justify-between mb-1">
                                         <p className="font-medium text-sm text-gray-900 dark:text-gray-100">{r.nama}</p>
-                                        <button onClick={() => setPrintTarget(r)} className="text-gray-400 hover:text-sky-600 p-1">
-                                            <Printer className="h-3.5 w-3.5" />
-                                        </button>
+                                        <div className="flex items-center gap-1">
+                                            <button onClick={() => openDetail(r)} className="text-emerald-500 hover:text-emerald-700 p-1" title="Detail">
+                                                <Eye className="h-3.5 w-3.5" />
+                                            </button>
+                                            <button onClick={() => setPrintTarget(r)} className="text-gray-400 hover:text-sky-600 p-1">
+                                                <Printer className="h-3.5 w-3.5" />
+                                            </button>
+                                        </div>
                                     </div>
                                     <div className="grid grid-cols-4 gap-x-2 gap-y-1 text-xs text-gray-500 mb-1">
                                         <span>Terjadwal: <span className="font-semibold text-gray-700 dark:text-gray-300">{r.jam_terjadwal} JP</span></span>
@@ -527,7 +575,7 @@ export default function KehadiranGuru({ rekap, detailHarian, guru, filters, bula
                             ))}
                         </div>
                         {/* Desktop */}
-                        <RekapTable rekap={rekap} onPrint={setPrintTarget} />
+                        <RekapTable rekap={rekap} onPrint={setPrintTarget} onDetail={openDetail} />
                     </CardBody>
                 </Card>
             )}
@@ -572,6 +620,87 @@ export default function KehadiranGuru({ rekap, detailHarian, guru, filters, bula
                     </CardBody>
                 </Card>
             )}
+            {/* Modal Detail Kehadiran Per Hari (Piket) */}
+            <Modal
+                show={!!detailGuru}
+                onClose={closeDetail}
+                title={`Detail Kehadiran — ${detailGuru?.nama ?? ''}`}
+                size="lg"
+            >
+                {detailLoading ? (
+                    <div className="py-12 text-center text-sm text-gray-400">Memuat data…</div>
+                ) : !detailData || Object.keys(detailData).length === 0 ? (
+                    <div className="py-12 text-center text-sm text-gray-400">
+                        Tidak ada data presensi piket untuk periode ini.
+                    </div>
+                ) : (
+                    <div className="space-y-4 max-h-[70vh] overflow-y-auto pr-1">
+                        {/* Ringkasan */}
+                        <div className="flex flex-wrap gap-2 pb-3 border-b border-gray-100 dark:border-gray-800">
+                            {Object.entries(
+                                Object.values(detailData).flat().reduce((acc, s) => {
+                                    acc[s.status_guru] = (acc[s.status_guru] ?? 0) + 1;
+                                    return acc;
+                                }, {})
+                            ).map(([status, count]) => (
+                                <span key={status} className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold ${STATUS_PIKET_COLOR[status] ?? 'bg-gray-100 text-gray-600'}`}>
+                                    {status.replace('_', ' ')}: {count} JP
+                                </span>
+                            ))}
+                        </div>
+
+                        {/* Per hari */}
+                        {Object.entries(detailData).map(([tanggal, slots]) => {
+                            const allHadir = slots.every((s) => s.status_guru === 'Hadir');
+                            const hasAlpha = slots.some((s) => s.status_guru === 'Alpha');
+                            return (
+                                <div key={tanggal}>
+                                    <div className={`flex items-center justify-between px-3 py-1.5 rounded-lg text-xs font-semibold mb-1.5 ${
+                                        hasAlpha
+                                            ? 'bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400'
+                                            : allHadir
+                                            ? 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400'
+                                            : 'bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-400'
+                                    }`}>
+                                        <span>{formatTanggal(tanggal)}</span>
+                                        <span>{slots.length} JP</span>
+                                    </div>
+                                    <div className="overflow-x-auto">
+                                        <table className="w-full text-xs">
+                                            <thead className="text-gray-400 dark:text-gray-500">
+                                                <tr>
+                                                    <th className="text-left px-2 pb-1 font-medium">Jam ke</th>
+                                                    <th className="text-left px-2 pb-1 font-medium">Waktu</th>
+                                                    <th className="text-left px-2 pb-1 font-medium">Status</th>
+                                                    <th className="text-left px-2 pb-1 font-medium">Keterangan</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody className="divide-y divide-gray-50 dark:divide-gray-800/50">
+                                                {slots.map((s, i) => (
+                                                    <tr key={i} className="hover:bg-gray-50 dark:hover:bg-gray-800/30">
+                                                        <td className="px-2 py-1.5 font-mono text-gray-500">{s.jam_ke ?? '-'}</td>
+                                                        <td className="px-2 py-1.5 text-gray-500 whitespace-nowrap">
+                                                            {s.jam_mulai && s.jam_selesai
+                                                                ? `${s.jam_mulai} – ${s.jam_selesai}`
+                                                                : '-'}
+                                                        </td>
+                                                        <td className="px-2 py-1.5">
+                                                            <span className={`inline-block px-2 py-0.5 rounded-full font-semibold ${STATUS_PIKET_COLOR[s.status_guru] ?? 'bg-gray-100 text-gray-600'}`}>
+                                                                {s.status_guru?.replace('_', ' ')}
+                                                            </span>
+                                                        </td>
+                                                        <td className="px-2 py-1.5 text-gray-400 max-w-40 truncate">{s.keterangan ?? '-'}</td>
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+                )}
+            </Modal>
         </AppLayout>
     );
 }

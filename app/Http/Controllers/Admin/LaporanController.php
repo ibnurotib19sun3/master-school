@@ -101,7 +101,8 @@ class LaporanController extends Controller
         $guruList = Guru::with([
             'user',
             'pembelajaran' => fn ($q) => $q->where('is_aktif', true)->select('id', 'guru_id'),
-            'pembelajaran.jadwal' => fn ($q) => $q->where('is_aktif', true)->select('id', 'pembelajaran_id', 'hari'),
+            // Tanpa filter is_aktif agar konsisten dengan absensi_piket yang tidak memfilter jadwal.is_aktif
+            'pembelajaran.jadwal' => fn ($q) => $q->select('id', 'pembelajaran_id', 'hari'),
         ])
         ->where('is_aktif', true)
         ->when($guruId, fn ($q) => $q->where('id', $guruId))
@@ -182,6 +183,45 @@ class LaporanController extends Controller
             'filters'      => $request->only('bulan', 'guru_id'),
             'bulan'        => $bulan,
         ], $this->kopData()));
+    }
+
+    /**
+     * Detail presensi piket harian per guru (JSON, untuk modal).
+     */
+    public function kehadiranGuruDetail(Request $request)
+    {
+        $guruId = $request->input('guru_id');
+        $bulan  = $request->input('bulan', now()->format('Y-m'));
+
+        if (!$guruId) {
+            return response()->json([]);
+        }
+
+        [$tahun, $bln]  = explode('-', $bulan);
+        $tanggalMulai   = "{$tahun}-{$bln}-01";
+        $tanggalSelesai = date('Y-m-t', strtotime($tanggalMulai));
+
+        $rows = AbsensiPiket::whereBetween('absensi_piket.tanggal', [$tanggalMulai, $tanggalSelesai])
+            ->join('jadwal', 'absensi_piket.jadwal_id', '=', 'jadwal.id')
+            ->join('pembelajaran', 'jadwal.pembelajaran_id', '=', 'pembelajaran.id')
+            ->where('pembelajaran.guru_id', $guruId)
+            ->where('pembelajaran.is_aktif', true)
+            ->selectRaw(
+                'absensi_piket.tanggal,
+                 absensi_piket.status_guru,
+                 absensi_piket.keterangan,
+                 jadwal.jam_ke,
+                 jadwal.jam_mulai,
+                 jadwal.jam_selesai'
+            )
+            ->orderBy('absensi_piket.tanggal')
+            ->orderBy('jadwal.jam_ke')
+            ->get()
+            ->groupBy('tanggal')
+            ->map(fn ($slots) => $slots->values())
+            ->sortKeys();
+
+        return response()->json($rows);
     }
 
     private function kopData(): array

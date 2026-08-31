@@ -70,7 +70,7 @@ const menuGroups = [
             { label: 'Guru',               href: '/admin/guru',               icon: GraduationCap, roles: ['super_admin', 'wakasek_kurikulum', 'kepala_tatausaha', 'tatausaha'] },
             { label: 'Tata Usaha',         href: '/admin/tatausaha',          icon: UserCog,       roles: ['super_admin', 'kepala_tatausaha', 'tatausaha'] },
             { label: 'Siswa',              href: '/admin/siswa',              icon: Users,         roles: ['super_admin', 'wakasek_kesiswaan', 'kepala_tatausaha', 'tatausaha'] },
-            { label: 'Pembelajaran',       href: '/admin/pembelajaran',       icon: BookOpen,      roles: ['super_admin', 'wakasek_kurikulum'] },
+{ label: 'Pembelajaran',       href: '/admin/pembelajaran',       icon: BookOpen,      roles: ['super_admin', 'wakasek_kurikulum'] },
             { label: 'Jadwal Pelajaran',   href: '/admin/jadwal',             icon: Clock,         roles: ['super_admin', 'wakasek_kurikulum', 'kepala_sekolah'] },
             { label: 'Hari Libur',         href: '/admin/hari-libur',         icon: CalendarX,     roles: ['super_admin', 'wakasek_kurikulum'] },
             { label: 'Pengumpulan',        href: '/admin/pengumpulan',        icon: FolderUp,      roles: ['super_admin', 'wakasek_kurikulum'] },

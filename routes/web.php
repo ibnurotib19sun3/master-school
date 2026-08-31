@@ -16,6 +16,7 @@ use App\Http\Controllers\Guru\PengumpulanController as GuruPengumpulanController
 use App\Http\Controllers\Admin\LaporanController;
 use App\Http\Controllers\Admin\RiwayatJurnalController;
 use App\Http\Controllers\Admin\HariLiburController;
+use App\Http\Controllers\Admin\KenaikanKelasController;
 use App\Http\Controllers\PublicJadwalController;
 use App\Http\Controllers\BukuTamuController;
 use App\Http\Controllers\Admin\BukuTamuAdminController;
@@ -206,6 +207,10 @@ Route::middleware('auth')->group(function () {
         Route::post('guru/import', [GuruController::class, 'import'])->name('guru.import')->middleware('role:super_admin|wakasek_kurikulum|kepala_tatausaha|tatausaha');
         Route::get('guru/{guru}/jadwal', [GuruController::class, 'jadwalDetail'])->name('guru.jadwal-detail');
 
+        // Kenaikan Kelas (modal di halaman Rombel)
+        Route::get('kenaikan-kelas/data', [KenaikanKelasController::class, 'data'])->name('kenaikan-kelas.data')->middleware('role:super_admin|wakasek_kesiswaan');
+        Route::post('kenaikan-kelas/proses', [KenaikanKelasController::class, 'proses'])->name('kenaikan-kelas.proses')->middleware('role:super_admin|wakasek_kesiswaan');
+
         // Siswa — read semua admin, write super_admin|wakasek_kesiswaan|kepala_tatausaha|tatausaha
         Route::get('siswa', [SiswaController::class, 'index'])->name('siswa.index');
         Route::get('siswa/export', [SiswaController::class, 'export'])->name('siswa.export');
@@ -391,6 +396,7 @@ Route::middleware('auth')->group(function () {
         Route::get('laporan/kehadiran-siswa', [LaporanController::class, 'kehadiranSiswa'])->name('laporan.kehadiran-siswa');
         Route::get('laporan/kehadiran-siswa/export', [LaporanController::class, 'exportKehadiranSiswa'])->name('laporan.kehadiran-siswa.export');
         Route::get('laporan/kehadiran-guru', [LaporanController::class, 'kehadiranGuru'])->name('laporan.kehadiran-guru');
+        Route::get('laporan/kehadiran-guru/detail', [LaporanController::class, 'kehadiranGuruDetail'])->name('laporan.kehadiran-guru.detail');
         Route::get('laporan/kehadiran-guru/export', [LaporanController::class, 'exportKehadiranGuru'])->name('laporan.kehadiran-guru.export');
         Route::get('laporan/kehadiran-guru/semester', [LaporanController::class, 'kehadiranGuruSemester'])->name('laporan.kehadiran-guru.semester');
         Route::get('laporan/kehadiran-guru/semester/export', [LaporanController::class, 'exportKehadiranGuruSemester'])->name('laporan.kehadiran-guru.semester.export');
