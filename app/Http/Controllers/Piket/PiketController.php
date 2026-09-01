@@ -68,7 +68,8 @@ class PiketController extends Controller
         $jadwalIds       = collect($jadwal)->pluck('id');
         $pembelajaranIds = collect($jadwal)->pluck('pembelajaran_id');
 
-        $piketRecords = AbsensiPiket::where('tanggal', $tanggal)
+        $piketRecords = AbsensiPiket::with('guruPengganti.user')
+            ->where('tanggal', $tanggal)
             ->whereIn('jadwal_id', $jadwalIds)
             ->get()
             ->keyBy('jadwal_id');
@@ -89,6 +90,10 @@ class PiketController extends Controller
             ->whereDoesntHave('jadwal')
             ->count();
 
+        $guruList = Guru::with('user')->where('is_aktif', true)->get()
+            ->map(fn ($g) => ['id' => $g->id, 'nama' => $g->user?->name ?? '-'])
+            ->sortBy('nama')->values();
+
         return Inertia::render('Piket/Dashboard', [
             'jadwal'                  => $jadwal,
             'piketRecords'            => $piketRecords,
@@ -97,6 +102,7 @@ class PiketController extends Controller
             'tanggal'                 => $tanggal,
             'pembelajaranTanpaJadwal' => $pembelajaranTanpaJadwal,
             'hariLibur'               => $hariLibur,
+            'guruList'                => $guruList,
         ]);
     }
 
@@ -191,27 +197,47 @@ class PiketController extends Controller
     public function store(Request $request)
     {
         $data = $request->validate([
-            'jadwal_id'      => 'required|exists:jadwal,id',
-            'tanggal'        => 'required|date',
-            'status_guru'    => 'required|in:Hadir,Sakit,Izin,Alpha,Tugas_Sekolah',
-            'keterangan'     => 'nullable|string|max:500',
-            'tugas'          => 'nullable|string',
-            'deadline_tugas' => 'nullable|date',
+            'jadwal_id'         => 'required|exists:jadwal,id',
+            'tanggal'           => 'required|date',
+            'status_guru'       => 'required|in:Hadir,Sakit,Izin,Alpha,Tugas_Sekolah',
+            'keterangan'        => 'nullable|string|max:500',
+            'tugas'             => 'nullable|string',
+            'deadline_tugas'    => 'nullable|date',
+            'guru_pengganti_id' => 'nullable|exists:guru,id',
         ]);
+
+        // Pastikan hari pada tanggal sesuai dengan jadwal yang dipilih
+        $hariMap    = [0=>'Ahad',1=>'Senin',2=>'Selasa',3=>'Rabu',4=>'Kamis',5=>'Jumat',6=>'Sabtu'];
+        $jadwal     = Jadwal::with('pembelajaran')->findOrFail($data['jadwal_id']);
+        $dowTanggal = (int) \Carbon\Carbon::parse($data['tanggal'])->dayOfWeek;
+        if (($hariMap[$dowTanggal] ?? '') !== $jadwal->hari) {
+            return back()->withErrors(['tanggal' => "Tanggal yang dipilih ({$hariMap[$dowTanggal]}) tidak sesuai dengan hari jadwal ({$jadwal->hari})."]);
+        }
+
+        // Guru pengganti hanya berlaku saat guru asli tidak hadir
+        $pengganti = ($data['status_guru'] !== 'Hadir' && !empty($data['guru_pengganti_id']))
+            ? (int) $data['guru_pengganti_id']
+            : null;
+
+        // Pengganti tidak boleh sama dengan guru asli
+        if ($pengganti && $pengganti === $jadwal->pembelajaran?->guru_id) {
+            $pengganti = null;
+        }
 
         AbsensiPiket::updateOrCreate(
             ['jadwal_id' => $data['jadwal_id'], 'tanggal' => $data['tanggal']],
             [
-                'status_guru'    => $data['status_guru'],
-                'keterangan'     => $data['keterangan'] ?? null,
-                'tugas'          => $data['tugas'] ?? null,
-                'deadline_tugas' => $data['deadline_tugas'] ?? null,
-                'dicatat_oleh'   => auth()->id(),
+                'status_guru'       => $data['status_guru'],
+                'keterangan'        => $data['keterangan'] ?? null,
+                'tugas'             => $data['tugas'] ?? null,
+                'deadline_tugas'    => $data['deadline_tugas'] ?? null,
+                'dicatat_oleh'      => auth()->id(),
+                'guru_pengganti_id' => $pengganti,
             ]
         );
 
         // Sync ke AbsensiGuru harian agar masuk laporan kehadiran
-        $this->syncAbsensiGuruFromPiket($data['jadwal_id'], $data['tanggal'], $data['status_guru']);
+        $this->syncAbsensiGuruFromPiket($data['jadwal_id'], $data['tanggal'], $data['status_guru'], $pengganti);
 
         // Jika status berubah ke non-Hadir, hapus jurnal mengajar yang sudah diisi
         if ($data['status_guru'] !== 'Hadir') {
@@ -221,29 +247,43 @@ class PiketController extends Controller
         return back()->with('success', 'Presensi guru berhasil disimpan.');
     }
 
-    private function syncAbsensiGuruFromPiket(int $jadwalId, string $tanggal, string $statusPiket): void
+    private function syncAbsensiGuruFromPiket(int $jadwalId, string $tanggal, string $statusPiket, ?int $guruPenggantiId = null): void
     {
         $jadwal = Jadwal::with('pembelajaran')->find($jadwalId);
         $guruId = $jadwal?->pembelajaran?->guru_id;
-        if (!$guruId) return;
 
-        // Tugas_Sekolah = guru hadir (hanya tidak di kelas)
-        $statusHarian = $statusPiket === 'Tugas_Sekolah' ? 'Hadir' : $statusPiket;
-
-        $existing = AbsensiGuru::where('guru_id', $guruId)->where('tanggal', $tanggal)->first();
-
-        if (!$existing) {
-            AbsensiGuru::create([
-                'guru_id'      => $guruId,
-                'tanggal'      => $tanggal,
-                'status'       => $statusHarian,
-                'dicatat_oleh' => auth()->id(),
-            ]);
-        } elseif ($existing->status !== 'Hadir' && $statusHarian === 'Hadir') {
-            // Upgrade: jika ada jadwal lain yang hadir, angkat status ke Hadir
-            $existing->update(['status' => 'Hadir', 'dicatat_oleh' => auth()->id()]);
+        // Sync AbsensiGuru untuk guru asli
+        if ($guruId) {
+            // Tugas_Sekolah = guru hadir (hanya tidak di kelas)
+            $statusHarian = $statusPiket === 'Tugas_Sekolah' ? 'Hadir' : $statusPiket;
+            $existing = AbsensiGuru::where('guru_id', $guruId)->where('tanggal', $tanggal)->first();
+            if (!$existing) {
+                AbsensiGuru::create([
+                    'guru_id'      => $guruId,
+                    'tanggal'      => $tanggal,
+                    'status'       => $statusHarian,
+                    'dicatat_oleh' => auth()->id(),
+                ]);
+            } elseif ($existing->status !== 'Hadir' && $statusHarian === 'Hadir') {
+                $existing->update(['status' => 'Hadir', 'dicatat_oleh' => auth()->id()]);
+            }
+            // Jika existing sudah Hadir, jangan downgrade meskipun JP ini Alpha/Sakit
         }
-        // Jika existing sudah Hadir, jangan downgrade meskipun JP ini Alpha/Sakit
+
+        // Sync AbsensiGuru untuk guru pengganti — selalu Hadir
+        if ($guruPenggantiId) {
+            $existingPengganti = AbsensiGuru::where('guru_id', $guruPenggantiId)->where('tanggal', $tanggal)->first();
+            if (!$existingPengganti) {
+                AbsensiGuru::create([
+                    'guru_id'      => $guruPenggantiId,
+                    'tanggal'      => $tanggal,
+                    'status'       => 'Hadir',
+                    'dicatat_oleh' => auth()->id(),
+                ]);
+            } elseif ($existingPengganti->status !== 'Hadir') {
+                $existingPengganti->update(['status' => 'Hadir', 'dicatat_oleh' => auth()->id()]);
+            }
+        }
     }
 
     private function hapusJurnalJikaTidakHadir(int $jadwalId, string $tanggal): void

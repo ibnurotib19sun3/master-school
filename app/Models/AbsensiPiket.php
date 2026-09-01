@@ -11,7 +11,7 @@ class AbsensiPiket extends Model
 
     protected $fillable = [
         'jadwal_id', 'tanggal', 'status_guru', 'keterangan',
-        'tugas', 'deadline_tugas', 'dicatat_oleh',
+        'tugas', 'deadline_tugas', 'dicatat_oleh', 'guru_pengganti_id',
     ];
 
     protected $casts = [
@@ -27,5 +27,10 @@ class AbsensiPiket extends Model
     public function pencatat(): BelongsTo
     {
         return $this->belongsTo(User::class, 'dicatat_oleh');
+    }
+
+    public function guruPengganti(): BelongsTo
+    {
+        return $this->belongsTo(\App\Models\Guru::class, 'guru_pengganti_id');
     }
 }

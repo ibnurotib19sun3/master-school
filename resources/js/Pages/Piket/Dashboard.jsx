@@ -22,7 +22,7 @@ const STATUS_GURU_COLOR = {
     Alpha:        'bg-red-100 text-red-700 border-red-300 dark:bg-red-900/40 dark:text-red-300 dark:border-red-700',
     Tugas_Sekolah:'bg-purple-100 text-purple-700 border-purple-300 dark:bg-purple-900/40 dark:text-purple-300 dark:border-purple-700',
 };
-const PERLU_TUGAS = ['Sakit', 'Izin', 'Tugas_Sekolah'];
+const PERLU_TUGAS = ['Sakit', 'Izin', 'Alpha', 'Tugas_Sekolah'];
 const STATUS_SHORT = { Hadir: 'H', Sakit: 'S', Izin: 'I', Alpha: 'A', Tugas_Sekolah: 'TS' };
 const STATUS_GURU_IDLE = {
     Hadir:        'bg-emerald-500 text-white border-emerald-600 hover:bg-emerald-600 active:scale-95 dark:bg-emerald-600 dark:border-emerald-500 dark:hover:bg-emerald-500',
@@ -133,7 +133,7 @@ const STATUS_GURU_BTN_ACTIVE = {
     Tugas_Sekolah:'bg-purple-700 text-white border-purple-800 ring-2 ring-purple-400 dark:ring-purple-500',
 };
 
-export default function PiketDashboard({ jadwal, piketRecords, jurnalStatus, hari, tanggal, pembelajaranTanpaJadwal, hariLibur = null }) {
+export default function PiketDashboard({ jadwal, piketRecords, jurnalStatus, hari, tanggal, pembelajaranTanpaJadwal, hariLibur = null, guruList = [] }) {
     const [nowMin, setNowMin] = useState(() => {
         const n = new Date(); return n.getHours() * 60 + n.getMinutes();
     });
@@ -148,7 +148,7 @@ export default function PiketDashboard({ jadwal, piketRecords, jurnalStatus, har
     const [rombelFilter, setRombelFilter] = useState('');
     const [inlineItem,   setInlineItem]   = useState(null);
     const [inlineStatus, setInlineStatus] = useState('');
-    const [inlineFields, setInlineFields] = useState({ keterangan: '', tugas: '', deadline_tugas: '' });
+    const [inlineFields, setInlineFields] = useState({ keterangan: '', tugas: '', deadline_tugas: '', guru_pengganti_id: '' });
     const [inlineSubmitting, setInlineSubmitting] = useState(false);
     const [confirmJurnal,    setConfirmJurnal]    = useState(null);
 
@@ -226,23 +226,25 @@ export default function PiketDashboard({ jadwal, piketRecords, jurnalStatus, har
         setInlineItem(item);
         setInlineStatus(status);
         setInlineFields({
-            keterangan:     piket?.keterangan    ?? '',
-            tugas:          piket?.tugas         ?? '',
-            deadline_tugas: piket?.deadline_tugas
+            keterangan:         piket?.keterangan    ?? '',
+            tugas:              piket?.tugas         ?? '',
+            deadline_tugas:     piket?.deadline_tugas
                 ? String(piket.deadline_tugas).substring(0, 10)
                 : '',
+            guru_pengganti_id:  piket?.guru_pengganti_id ? String(piket.guru_pengganti_id) : '',
         });
     }, [piketRecords]);
 
     const doSubmitInline = useCallback((item, status, fields) => {
         setInlineSubmitting(true);
         const payload = {
-            jadwal_id:      item.id,
-            tanggal:        new Date().toISOString().split('T')[0],
-            status_guru:    status,
-            keterangan:     fields.keterangan     ?? '',
-            tugas:          fields.tugas          ?? '',
-            deadline_tugas: fields.deadline_tugas ?? '',
+            jadwal_id:          item.id,
+            tanggal:            new Date().toISOString().split('T')[0],
+            status_guru:        status,
+            keterangan:         fields.keterangan        ?? '',
+            tugas:              fields.tugas             ?? '',
+            deadline_tugas:     fields.deadline_tugas    ?? '',
+            guru_pengganti_id:  fields.guru_pengganti_id ?? '',
         };
         setLocalPiket(p => ({ ...p, [item.id]: { status_guru: status, ...fields } }));
         setExpandedPiket(p => { const n = { ...p }; delete n[item.id]; return n; });
@@ -454,6 +456,12 @@ export default function PiketDashboard({ jadwal, piketRecords, jurnalStatus, har
                                                         <span className={`text-xs font-bold px-2.5 py-1 rounded-lg border ${STATUS_GURU_COLOR[piket.status_guru]}`}>
                                                             {STATUS_GURU_LABEL[piket.status_guru]}
                                                         </span>
+                                                        {piket.guru_pengganti_id && (
+                                                            <span className="text-xs font-medium px-2.5 py-1 rounded-lg border border-orange-300 bg-orange-50 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300 dark:border-orange-700 flex items-center gap-1">
+                                                                <User className="h-3 w-3 shrink-0" />
+                                                                {piket.guru_pengganti?.user?.name ?? 'Pengganti'}
+                                                            </span>
+                                                        )}
                                                         <button
                                                             onClick={() => setExpandedPiket((p) => ({ ...p, [item.id]: true }))}
                                                             className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold border border-gray-300 bg-white text-gray-600 hover:bg-gray-100 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600 transition-all"
@@ -529,14 +537,14 @@ export default function PiketDashboard({ jadwal, piketRecords, jurnalStatus, har
                                     </div>
                                 </div>
 
-                                {/* Inline form untuk S / I / TS */}
+                                {/* Inline form untuk S / I / A / TS */}
                                 {inlineItem?.id === item.id && (
                                     <div className="mt-3 pt-3 border-t border-gray-100 dark:border-gray-700 space-y-3">
                                         <div className="flex items-center gap-2">
                                             <span className={`text-xs font-bold px-2.5 py-0.5 rounded-full border ${STATUS_GURU_COLOR[inlineStatus]}`}>
                                                 {STATUS_GURU_LABEL[inlineStatus]}
                                             </span>
-                                            <p className="text-xs text-gray-500 dark:text-gray-400">Keterangan &amp; Tugas Siswa</p>
+                                            <p className="text-xs text-gray-500 dark:text-gray-400">Keterangan &amp; Guru Pengganti</p>
                                         </div>
 
                                         {/* Keterangan */}
@@ -547,6 +555,26 @@ export default function PiketDashboard({ jadwal, piketRecords, jurnalStatus, har
                                             placeholder="Alasan / keterangan (opsional)..."
                                             className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-sky-500"
                                         />
+
+                                        {/* Guru Pengganti */}
+                                        <div className="rounded-xl bg-orange-50 dark:bg-orange-950/30 border border-orange-100 dark:border-orange-800 p-3 space-y-2">
+                                            <p className="text-xs font-semibold text-orange-700 dark:text-orange-300 flex items-center gap-1.5">
+                                                <User className="h-3.5 w-3.5" /> Guru Pengganti (opsional)
+                                            </p>
+                                            <select
+                                                value={inlineFields.guru_pengganti_id}
+                                                onChange={(e) => setInlineFields((p) => ({ ...p, guru_pengganti_id: e.target.value }))}
+                                                className="w-full rounded-lg border border-orange-200 dark:border-orange-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400"
+                                            >
+                                                <option value="">— Tidak ada pengganti —</option>
+                                                {guruList
+                                                    .filter((g) => String(g.id) !== String(inlineItem?.pembelajaran?.guru_id))
+                                                    .map((g) => (
+                                                        <option key={g.id} value={g.id}>{g.nama}</option>
+                                                    ))
+                                                }
+                                            </select>
+                                        </div>
 
                                         {/* Tugas siswa */}
                                         <div className="rounded-xl bg-sky-50 dark:bg-sky-950/30 border border-sky-100 dark:border-sky-800 p-3 space-y-2">

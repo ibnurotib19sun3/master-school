@@ -215,6 +215,7 @@ function RekapTable({ rekap, onPrint, onDetail }) {
                         <th className="px-4 py-3 text-left font-medium whitespace-nowrap">NIP/NIPY</th>
                         <th className="px-4 py-3 text-center font-medium whitespace-nowrap">JP Terjadwal</th>
                         <th className="px-4 py-3 text-center font-medium whitespace-nowrap bg-sky-50/60 dark:bg-sky-950/20">JP Hadir</th>
+                        <th className="px-4 py-3 text-center font-medium whitespace-nowrap bg-orange-50/60 dark:bg-orange-950/20">JP Pengganti</th>
                         <th className="px-4 py-3 text-center font-medium whitespace-nowrap">S</th>
                         <th className="px-4 py-3 text-center font-medium whitespace-nowrap">I</th>
                         <th className="px-4 py-3 text-center font-medium whitespace-nowrap">A</th>
@@ -226,7 +227,7 @@ function RekapTable({ rekap, onPrint, onDetail }) {
                 </thead>
                 <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
                     {rekap.length === 0 ? (
-                        <tr><td colSpan={11} className="px-4 py-10 text-center text-gray-400 text-xs">Belum ada data absensi untuk periode ini.</td></tr>
+                        <tr><td colSpan={12} className="px-4 py-10 text-center text-gray-400 text-xs">Belum ada data absensi untuk periode ini.</td></tr>
                     ) : (
                         rekap.map((r) => (
                             <tr key={r.id} className="hover:bg-gray-50 dark:hover:bg-gray-800/50">
@@ -237,6 +238,12 @@ function RekapTable({ rekap, onPrint, onDetail }) {
                                 </td>
                                 <td className="px-4 py-3 text-center bg-sky-50/40 dark:bg-sky-950/10">
                                     <Badge color="sky">{r.jp_hadir}</Badge>
+                                </td>
+                                <td className="px-4 py-3 text-center bg-orange-50/40 dark:bg-orange-950/10">
+                                    {r.jp_pengganti > 0
+                                        ? <Badge color="orange">{r.jp_pengganti}</Badge>
+                                        : <span className="text-xs text-gray-300 dark:text-gray-600">–</span>
+                                    }
                                 </td>
                                 <td className="px-4 py-3 text-center"><Badge color="blue">{r.jp_sakit}</Badge></td>
                                 <td className="px-4 py-3 text-center"><Badge color="yellow">{r.jp_izin}</Badge></td>
@@ -398,6 +405,7 @@ export default function KehadiranGuru({ rekap, detailHarian, guru, filters, bula
     const [localFilters, setLocalFilters] = useState({ bulan, guru_id: filters.guru_id ?? '' });
     const [activeTab, setActiveTab]       = useState('rekap');
     const [printTarget, setPrintTarget]   = useState(null);
+    const [onlyBerjadwal, setOnlyBerjadwal] = useState(true);
 
     // Detail harian piket per guru
     const [detailGuru, setDetailGuru]     = useState(null);
@@ -429,9 +437,15 @@ export default function KehadiranGuru({ rekap, detailHarian, guru, filters, bula
         applyFilter({ ...localFilters, bulan: `${next.tahun}-${next.bulan}` });
     };
 
-    const totalGuru = rekap.length;
-    const rataHadir     = totalGuru > 0 ? Math.round(rekap.reduce((s, r) => s + r.persen_mengajar, 0) / totalGuru) : 0;
-    const rataTdkHadir  = totalGuru > 0 ? Math.round(rekap.reduce((s, r) => s + r.persen_tidak_hadir, 0) / totalGuru) : 0;
+    // Ketika semua guru ditampilkan (tidak ada filter guru spesifik),
+    // toggle onlyBerjadwal menyembunyikan guru dengan jam_terjadwal = 0
+    const displayedRekap = !localFilters.guru_id && onlyBerjadwal
+        ? rekap.filter((r) => r.jam_terjadwal > 0)
+        : rekap;
+
+    const totalGuru = displayedRekap.length;
+    const rataHadir     = totalGuru > 0 ? Math.round(displayedRekap.reduce((s, r) => s + r.persen_mengajar, 0) / totalGuru) : 0;
+    const rataTdkHadir  = totalGuru > 0 ? Math.round(displayedRekap.reduce((s, r) => s + r.persen_tidak_hadir, 0) / totalGuru) : 0;
 
     const tahunList = [];
     for (let y = 2023; y <= new Date().getFullYear() + 1; y++) tahunList.push(y);
@@ -444,7 +458,7 @@ export default function KehadiranGuru({ rekap, detailHarian, guru, filters, bula
                 <PrintOverlay
                     target={printTarget}
                     period={periodLabel}
-                    rekap={rekap}
+                    rekap={displayedRekap}
                     kop={kop}
                     sekolah={sekolah}
                     onClose={() => setPrintTarget(null)}
@@ -469,6 +483,18 @@ export default function KehadiranGuru({ rekap, detailHarian, guru, filters, bula
                         value={localFilters.guru_id}
                         onChange={(id) => applyFilter({ ...localFilters, guru_id: id })}
                     />
+                    {/* Toggle: sembunyikan guru tanpa jam terjadwal bulan ini */}
+                    {!localFilters.guru_id && (
+                        <label className="flex items-center gap-2 cursor-pointer select-none self-end pb-2">
+                            <div
+                                onClick={() => setOnlyBerjadwal((v) => !v)}
+                                className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors ${onlyBerjadwal ? 'bg-sky-500' : 'bg-gray-300 dark:bg-gray-600'}`}
+                            >
+                                <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow transition-transform ${onlyBerjadwal ? 'translate-x-4' : 'translate-x-1'}`} />
+                            </div>
+                            <span className="text-xs text-gray-600 dark:text-gray-400 whitespace-nowrap">Hanya guru berjadwal</span>
+                        </label>
+                    )}
                 </div>
                 <div className="flex flex-wrap items-center gap-2 self-start sm:self-auto">
                     <a
@@ -536,10 +562,10 @@ export default function KehadiranGuru({ rekap, detailHarian, guru, filters, bula
                     <CardBody className="p-0">
                         {/* Mobile */}
                         <div className="sm:hidden divide-y divide-gray-100 dark:divide-gray-800">
-                            {rekap.length === 0 && (
+                            {displayedRekap.length === 0 && (
                                 <p className="px-4 py-10 text-center text-gray-400 text-xs">Belum ada data absensi untuk periode ini.</p>
                             )}
-                            {rekap.map((r) => (
+                            {displayedRekap.map((r) => (
                                 <div key={r.id} className="px-4 py-3">
                                     <div className="flex items-center justify-between mb-1">
                                         <p className="font-medium text-sm text-gray-900 dark:text-gray-100">{r.nama}</p>
@@ -560,6 +586,11 @@ export default function KehadiranGuru({ rekap, detailHarian, guru, filters, bula
                                         <span>S: <span className="font-semibold text-blue-600 dark:text-blue-400">{r.jp_sakit}</span></span>
                                         <span>I: <span className="font-semibold text-amber-600 dark:text-amber-400">{r.jp_izin}</span></span>
                                         <span>A: <span className="font-semibold text-red-600 dark:text-red-400">{r.jp_alpha}</span></span>
+                                        {r.jp_pengganti > 0 && (
+                                            <span className="col-span-4 mt-0.5">
+                                                Pengganti: <span className="font-semibold text-orange-600 dark:text-orange-400">{r.jp_pengganti} JP</span>
+                                            </span>
+                                        )}
                                     </div>
                                     <div className="space-y-1.5">
                                         <div className="flex items-center gap-2 text-xs">
@@ -575,7 +606,7 @@ export default function KehadiranGuru({ rekap, detailHarian, guru, filters, bula
                             ))}
                         </div>
                         {/* Desktop */}
-                        <RekapTable rekap={rekap} onPrint={setPrintTarget} onDetail={openDetail} />
+                        <RekapTable rekap={displayedRekap} onPrint={setPrintTarget} onDetail={openDetail} />
                     </CardBody>
                 </Card>
             )}

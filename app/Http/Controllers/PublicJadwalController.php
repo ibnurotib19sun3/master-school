@@ -10,7 +10,7 @@ use Inertia\Inertia;
 class PublicJadwalController extends Controller
 {
     private const HARI_MAP = [
-        0 => 'Senin',
+        0 => 'Ahad',
         1 => 'Senin',
         2 => 'Selasa',
         3 => 'Rabu',
@@ -19,7 +19,7 @@ class PublicJadwalController extends Controller
         6 => 'Sabtu',
     ];
 
-    private const HARI_URUT = ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
+    private const HARI_URUT = ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu', 'Ahad'];
 
     public function index()
     {
