@@ -5,7 +5,7 @@ import {
     BookMarked, Upload, Star, MessageSquare, X,
     Clock, PieChart, ShieldCheck, Settings, BookCheck, BookText,
     UserCog, Megaphone, MailOpen, Send, FolderUp, Layers, History, CalendarX, Tag,
-    ChevronDown, Lock, NotebookPen, Database, MoreHorizontal, Inbox, Crown,
+    ChevronDown, Lock, NotebookPen, Database, MoreHorizontal, Inbox, Crown, Trophy,
 } from 'lucide-react';
 import { useState } from 'react';
 import { clsx } from 'clsx';
@@ -173,6 +173,7 @@ const menuGroups = [
         items: [
             { label: 'KPI Guru',       href: '/admin/kpi',            icon: Star,          roles: ['kepala_sekolah', 'super_admin'] },
             { label: 'KPI Tata Usaha', href: '/admin/kpi-tatausaha',  icon: Star,          roles: ['kepala_sekolah', 'super_admin', 'kepala_tatausaha'] },
+            { label: 'Ranking KPI',    href: '/admin/kpi/ranking',    icon: Trophy,        roles: ['kepala_sekolah', 'super_admin'] },
             { label: 'Catatan Kepsek', href: '/admin/catatan-kepsek', icon: MessageSquare, roles: ['kepala_sekolah', 'super_admin'] },
         ],
     },

@@ -158,7 +158,7 @@ function ConfirmBatchModal({ open, onClose, onConfirm, tipe, bulan, loading }) {
 
 // ── Bobot Panel ───────────────────────────────────────────────────────────────
 
-function BobotPanel({ tipe, pengaturan, tahunAjaran, bulan, onBatchHitung }) {
+function BobotPanel({ tipe, pengaturan, tahunAjaran }) {
     const isMgmt = tipe === 'manajemen';
 
     const [bGuru,      setBGuru]      = useState(Number(isMgmt ? (pengaturan.MGT_GURU ?? 40)      : (pengaturan.BIASA_GURU ?? 50)));
@@ -179,12 +179,13 @@ function BobotPanel({ tipe, pengaturan, tahunAjaran, bulan, onBatchHitung }) {
         router.post('/admin/kpi/bobot', payload, { onFinish: () => setSaving(false) });
     };
 
-    const [tahunId, setTahunId] = useState(tahunAjaran.find((t) => t.is_aktif)?.id ?? tahunAjaran[0]?.id ?? '');
+    const [tahunId,    setTahunId]    = useState(tahunAjaran.find((t) => t.is_aktif)?.id ?? tahunAjaran[0]?.id ?? '');
+    const [batchBulan, setBatchBulan] = useState(bulanOptions()[0]?.value ?? '');
 
     const doBatch = (force) => {
         setBatchLoad(true);
         router.post('/admin/kpi/hitung-batch', {
-            tipe, bulan, tahun_ajaran_id: tahunId, force_update: force,
+            tipe, bulan: batchBulan, tahun_ajaran_id: tahunId, force_update: force,
         }, {
             onFinish: () => { setBatchLoad(false); setShowBatch(false); },
         });
@@ -279,9 +280,14 @@ function BobotPanel({ tipe, pengaturan, tahunAjaran, bulan, onBatchHitung }) {
                             Hitung Semua {isMgmt ? 'Guru Manajemen' : 'Guru Biasa'}
                         </div>
                         <p className="text-xs text-gray-500 dark:text-gray-400">
-                            Hitung KPI sekaligus untuk semua guru aktif bulan ini
+                            Hitung KPI sekaligus untuk semua guru aktif di bulan yang dipilih
                         </p>
                     </div>
+                    <Select label="Bulan" value={batchBulan} onChange={(e) => setBatchBulan(e.target.value)}>
+                        {bulanOptions().map((o) => (
+                            <option key={o.value} value={o.value}>{o.label}</option>
+                        ))}
+                    </Select>
                     <Select label="Tahun Ajaran" value={tahunId} onChange={(e) => setTahunId(e.target.value)}>
                         {tahunAjaran.map((t) => (
                             <option key={t.id} value={t.id}>{t.nama} – {t.semester}</option>
@@ -300,7 +306,7 @@ function BobotPanel({ tipe, pengaturan, tahunAjaran, bulan, onBatchHitung }) {
                 onClose={() => setShowBatch(false)}
                 onConfirm={doBatch}
                 tipe={tipe}
-                bulan={bulan}
+                bulan={batchBulan}
                 loading={batchLoad}
             />
         </>
@@ -655,7 +661,6 @@ function RekapTable({ rekap, tipe, guruList, filters }) {
 export default function KPIIndex({ guruBiasa = [], guruMgmt = [], tahunAjaran = [], pengaturan = {}, rekap, filters = {} }) {
     const initTab   = filters.tipe ?? 'biasa';
     const [tab, setTab] = useState(initTab);
-    const bulanNow  = bulanOptions()[0]?.value ?? '';
 
     const switchTab = (t) => {
         setTab(t);
@@ -698,7 +703,7 @@ export default function KPIIndex({ guruBiasa = [], guruMgmt = [], tahunAjaran = 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 {/* Left: Bobot + Batch */}
                 <div className="lg:col-span-1 space-y-4">
-                    <BobotPanel tipe={tab} pengaturan={pengaturan} tahunAjaran={tahunAjaran} bulan={bulanNow} />
+                    <BobotPanel tipe={tab} pengaturan={pengaturan} tahunAjaran={tahunAjaran} />
                 </div>
 
                 {/* Right: Hitung + Rekap */}
