@@ -8,7 +8,7 @@ class KpiGuru extends Model
 {
     protected $table = 'kpi_guru';
     protected $fillable = [
-        'guru_id', 'tahun_ajaran_id', 'kpi_indikator_id',
+        'guru_id', 'tipe_guru', 'tahun_ajaran_id', 'kpi_indikator_id',
         'bulan', 'persen', 'bobot_snapshot', 'nilai', 'catatan', 'dinilai_oleh',
     ];
     protected function casts(): array {

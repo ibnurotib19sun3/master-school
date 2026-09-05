@@ -27,6 +27,13 @@ return Application::configure(basePath: dirname(__DIR__))
             'role_or_permission' => \Spatie\Permission\Middleware\RoleOrPermissionMiddleware::class,
         ]);
     })
+    ->withSchedule(function (Schedule $schedule): void {
+        // Hitung KPI otomatis di hari terakhir setiap bulan jam 23:00
+        $schedule->command('kpi:hitung-bulanan')
+            ->lastDayOfMonth('23:00')
+            ->withoutOverlapping()
+            ->runInBackground();
+    })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->shouldRenderJsonWhen(
             fn (Request $request) => $request->is('api/*'),

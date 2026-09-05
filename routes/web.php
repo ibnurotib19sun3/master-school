@@ -527,16 +527,19 @@ Route::middleware('auth')->group(function () {
         });
 
         // KPI Guru
-        Route::get('kpi',                [KpiController::class, 'index'])->name('kpi.index');
-        Route::get('kpi/hitung',         [KpiController::class, 'hitung'])->name('kpi.hitung');
-        Route::post('kpi',               [KpiController::class, 'store'])->name('kpi.store');
-        Route::post('kpi/bobot',         [KpiController::class, 'updateBobot'])->name('kpi.bobot');
+        Route::get('kpi',                    [KpiController::class, 'index'])->name('kpi.index');
+        Route::get('kpi/hitung',             [KpiController::class, 'hitung'])->name('kpi.hitung');
+        Route::get('kpi/ranking',            [KpiController::class, 'ranking'])->name('kpi.ranking');
+        Route::post('kpi',                   [KpiController::class, 'store'])->name('kpi.store');
+        Route::post('kpi/bobot',             [KpiController::class, 'updateBobot'])->name('kpi.bobot');
+        Route::post('kpi/hitung-batch',      [KpiController::class, 'hitungBatch'])->name('kpi.hitung-batch');
 
         // KPI Tata Usaha
         Route::get('kpi-tatausaha',               [KpiTatausahaController::class, 'index'])->name('kpi-tatausaha.index');
         Route::get('kpi-tatausaha/hitung',        [KpiTatausahaController::class, 'hitung'])->name('kpi-tatausaha.hitung');
         Route::post('kpi-tatausaha',              [KpiTatausahaController::class, 'store'])->name('kpi-tatausaha.store');
         Route::post('kpi-tatausaha/bobot',        [KpiTatausahaController::class, 'updateBobot'])->name('kpi-tatausaha.bobot');
+        Route::post('kpi-tatausaha/hitung-batch', [KpiTatausahaController::class, 'hitungBatch'])->name('kpi-tatausaha.hitung-batch');
 
         // KPI Manajemen
         Route::get('kpi-manajemen',               [KpiManajemenController::class, 'index'])->name('kpi-manajemen.index');
