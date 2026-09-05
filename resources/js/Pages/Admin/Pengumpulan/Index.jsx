@@ -2,6 +2,7 @@ import AppLayout from '@/Layouts/AppLayout';
 import { router, usePage } from '@inertiajs/react';
 import { Card, CardBody } from '@/Components/ui/Card';
 import Button from '@/Components/ui/Button';
+import ConfirmDialog from '@/Components/ui/ConfirmDialog';
 import {
     FolderUp, Plus, Trash2, Eye, ChevronLeft, ChevronRight,
     Calendar, Users, CheckCircle, Clock, AlertCircle, Search, X,
@@ -315,11 +316,18 @@ export default function PengumpulanIndex({ pengumpulan, tahunAjaran, mataPelajar
     const flash = props.flash ?? {};
 
     const [showCreate, setShowCreate] = useState(false);
+    const [deleteTarget, setDeleteTarget] = useState(null); // { id, judul }
 
-    const handleDelete = useCallback((id) => {
-        if (!confirm('Hapus pengumpulan ini? Semua file yang sudah diunggah juga akan dihapus.')) return;
-        router.delete(`/admin/pengumpulan/${id}`);
+    const handleDelete = useCallback((id, judul) => {
+        setDeleteTarget({ id, judul });
     }, []);
+
+    const confirmDelete = useCallback(() => {
+        if (!deleteTarget) return;
+        router.delete(`/admin/pengumpulan/${deleteTarget.id}`, {
+            onFinish: () => setDeleteTarget(null),
+        });
+    }, [deleteTarget]);
 
     const { data, current_page, last_page, prev_page_url, next_page_url } = pengumpulan;
 
@@ -414,7 +422,7 @@ export default function PengumpulanIndex({ pengumpulan, tahunAjaran, mataPelajar
                                                                 <Eye className="h-3.5 w-3.5" /> Detail
                                                             </Link>
                                                             <button
-                                                                onClick={() => handleDelete(p.id)}
+                                                                onClick={() => handleDelete(p.id, p.judul)}
                                                                 className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-900/30 hover:bg-rose-100 dark:hover:bg-rose-900/50 transition-colors"
                                                             >
                                                                 <Trash2 className="h-3.5 w-3.5" />
@@ -457,6 +465,18 @@ export default function PengumpulanIndex({ pengumpulan, tahunAjaran, mataPelajar
                 onClose={() => setShowCreate(false)}
                 tahunAjaran={tahunAjaran}
                 mataPelajaran={mataPelajaran}
+            />
+
+            <ConfirmDialog
+                show={!!deleteTarget}
+                title="Hapus Pengumpulan"
+                message={deleteTarget
+                    ? `"${deleteTarget.judul}" akan dihapus beserta semua file yang sudah diunggah. Tindakan ini tidak dapat dibatalkan.`
+                    : ''}
+                confirmLabel="Ya, Hapus"
+                confirmVariant="danger"
+                onConfirm={confirmDelete}
+                onCancel={() => setDeleteTarget(null)}
             />
         </AppLayout>
     );

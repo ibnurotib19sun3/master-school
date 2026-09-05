@@ -1,6 +1,6 @@
-import { useForm, Head, Link } from '@inertiajs/react';
+import { useForm, Head, Link, usePage } from '@inertiajs/react';
 import GuestLayout from '@/Layouts/GuestLayout';
-import { Lock, Mail, Eye, EyeOff, ArrowRight, ArrowLeft } from 'lucide-react';
+import { Lock, Mail, Eye, EyeOff, ArrowRight, ArrowLeft, Info } from 'lucide-react';
 import { useState } from 'react';
 
 export default function Login() {
@@ -10,6 +10,7 @@ export default function Login() {
         password: '',
         remember: false,
     });
+    const flash = usePage().props.flash ?? {};
 
     const submit = (e) => {
         e.preventDefault();
@@ -31,7 +32,15 @@ export default function Login() {
             <Head title="Masuk" />
             <div>
                 <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-1">Selamat Datang</h2>
-                <p className="text-sm text-gray-500 dark:text-white/40 mb-8">Masuk ke akun APIKMAS DJurnal Anda</p>
+                <p className="text-sm text-gray-500 dark:text-white/40 mb-6">Masuk ke akun APIKMAS DJurnal Anda</p>
+
+                {/* Pesan redirect dari halaman yang dilindungi */}
+                {flash.redirect_message && (
+                    <div className="mb-6 flex items-start gap-3 rounded-xl border border-sky-200 bg-sky-50 px-4 py-3 dark:border-sky-500/30 dark:bg-sky-500/10">
+                        <Info className="mt-0.5 h-4 w-4 shrink-0 text-sky-500" />
+                        <p className="text-sm text-sky-700 dark:text-sky-300">{flash.redirect_message}</p>
+                    </div>
+                )}
 
                 <form onSubmit={submit} className="space-y-5">
 

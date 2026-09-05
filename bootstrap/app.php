@@ -31,4 +31,12 @@ return Application::configure(basePath: dirname(__DIR__))
         $exceptions->shouldRenderJsonWhen(
             fn (Request $request) => $request->is('api/*'),
         );
+
+        // Flash pesan saat unauthenticated redirect ke login
+        $exceptions->render(function (\Illuminate\Auth\AuthenticationException $e, Request $request) {
+            if (!$request->expectsJson()) {
+                session()->flash('redirect_message', 'Silakan login terlebih dahulu untuk mengakses halaman tersebut.');
+                return redirect()->guest(route('login'));
+            }
+        });
     })->create();
