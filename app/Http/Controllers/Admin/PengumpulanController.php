@@ -145,6 +145,8 @@ class PengumpulanController extends Controller
             'batas_waktu'       => 'required|date',
             'is_aktif'          => 'boolean',
             'allow_late_upload' => 'boolean',
+            'format_file'       => 'nullable|array',
+            'format_file.*'     => 'string|in:pdf,word,excel,ppt,image,zip',
         ]);
         $pengumpulan->update($data);
         return back()->with('success', 'Pengumpulan berhasil diperbarui.');

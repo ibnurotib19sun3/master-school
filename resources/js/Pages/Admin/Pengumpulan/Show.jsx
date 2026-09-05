@@ -186,6 +186,47 @@ function PortalToggle({ item, pengumpulan, expired }) {
     );
 }
 
+/* ── Format labels (edit modal) ── */
+const FORMAT_OPTIONS = [
+    { key: 'pdf',   label: 'PDF',        color: 'rose' },
+    { key: 'word',  label: 'Word',       color: 'sky' },
+    { key: 'excel', label: 'Excel',      color: 'emerald' },
+    { key: 'ppt',   label: 'PowerPoint', color: 'orange' },
+    { key: 'image', label: 'Gambar',     color: 'violet' },
+    { key: 'zip',   label: 'ZIP',        color: 'amber' },
+];
+const FORMAT_COLOR_MAP = {
+    rose:    'border-rose-300 bg-rose-50 text-rose-700 dark:border-rose-500/40 dark:bg-rose-900/20 dark:text-rose-300',
+    sky:     'border-sky-300 bg-sky-50 text-sky-700 dark:border-sky-500/40 dark:bg-sky-900/20 dark:text-sky-300',
+    emerald: 'border-emerald-300 bg-emerald-50 text-emerald-700 dark:border-emerald-500/40 dark:bg-emerald-900/20 dark:text-emerald-300',
+    orange:  'border-orange-300 bg-orange-50 text-orange-700 dark:border-orange-500/40 dark:bg-orange-900/20 dark:text-orange-300',
+    violet:  'border-violet-300 bg-violet-50 text-violet-700 dark:border-violet-500/40 dark:bg-violet-900/20 dark:text-violet-300',
+    amber:   'border-amber-300 bg-amber-50 text-amber-700 dark:border-amber-500/40 dark:bg-amber-900/20 dark:text-amber-300',
+};
+const FORMAT_ACTIVE_MAP = {
+    rose:    'border-rose-500 bg-rose-500 text-white dark:border-rose-400 dark:bg-rose-500',
+    sky:     'border-sky-500 bg-sky-500 text-white dark:border-sky-400 dark:bg-sky-500',
+    emerald: 'border-emerald-500 bg-emerald-500 text-white dark:border-emerald-400 dark:bg-emerald-500',
+    orange:  'border-orange-500 bg-orange-500 text-white dark:border-orange-400 dark:bg-orange-500',
+    violet:  'border-violet-500 bg-violet-500 text-white dark:border-violet-400 dark:bg-violet-500',
+    amber:   'border-amber-500 bg-amber-500 text-white dark:border-amber-400 dark:bg-amber-500',
+};
+
+function Toggle({ checked, onChange, id }) {
+    return (
+        <button type="button" role="switch" aria-checked={checked} id={id}
+            onClick={() => onChange(!checked)}
+            className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 ${
+                checked ? 'bg-sky-500' : 'bg-gray-200 dark:bg-gray-700'
+            }`}
+        >
+            <span className={`pointer-events-none inline-block h-4.5 w-4.5 rounded-full bg-white shadow-md ring-0 transition-transform duration-200 ${
+                checked ? 'translate-x-5' : 'translate-x-0.5'
+            }`} style={{ height: '18px', width: '18px' }} />
+        </button>
+    );
+}
+
 /* ── Edit modal ── */
 function ModalEdit({ open, onClose, pengumpulan }) {
     const [form, setForm] = useState({
@@ -194,9 +235,17 @@ function ModalEdit({ open, onClose, pengumpulan }) {
         batas_waktu: pengumpulan.batas_waktu?.slice(0, 16) ?? '',
         is_aktif: pengumpulan.is_aktif,
         allow_late_upload: pengumpulan.allow_late_upload ?? true,
+        format_file: pengumpulan.format_file ?? [],
     });
     const [busy, setBusy] = useState(false);
     const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
+
+    const toggleFormat = (key) => {
+        set('format_file', form.format_file.includes(key)
+            ? form.format_file.filter(k => k !== key)
+            : [...form.format_file, key]
+        );
+    };
 
     const handleSubmit = (e) => {
         e.preventDefault(); setBusy(true);
@@ -205,51 +254,218 @@ function ModalEdit({ open, onClose, pengumpulan }) {
         });
     };
 
+    const isExpired = pengumpulan.batas_waktu && new Date(pengumpulan.batas_waktu) < new Date();
+
     if (!open) return null;
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-            <div className="w-full max-w-md bg-white dark:bg-gray-900 rounded-2xl shadow-xl overflow-hidden">
-                <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
-                    <h2 className="text-base font-semibold text-gray-900 dark:text-white">Edit Pengumpulan</h2>
-                    <button onClick={onClose} className="text-gray-400 hover:text-gray-600">✕</button>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+            <div className="w-full max-w-2xl bg-white dark:bg-gray-900 rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+
+                {/* Header */}
+                <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between shrink-0 bg-linear-to-r from-sky-50 to-indigo-50 dark:from-sky-900/20 dark:to-indigo-900/20">
+                    <div className="flex items-center gap-3">
+                        <div className="p-2 rounded-xl bg-sky-100 dark:bg-sky-800/50">
+                            <FolderUp className="h-4 w-4 text-sky-600 dark:text-sky-400" />
+                        </div>
+                        <div>
+                            <h2 className="text-sm font-semibold text-gray-900 dark:text-white">Edit Pengumpulan</h2>
+                            <p className="text-xs text-gray-500 dark:text-gray-400 truncate max-w-64">{pengumpulan.judul}</p>
+                        </div>
+                    </div>
+                    <button onClick={onClose}
+                        className="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
+                        <X className="h-4 w-4" />
+                    </button>
                 </div>
-                <form onSubmit={handleSubmit} className="px-6 py-5 space-y-4">
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Judul</label>
-                        <input type="text" value={form.judul} onChange={e => set('judul', e.target.value)} required
-                            className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-sky-500" />
+
+                <form onSubmit={handleSubmit} className="flex flex-col flex-1 overflow-hidden">
+                    <div className="flex-1 overflow-y-auto">
+                        <div className="grid grid-cols-1 md:grid-cols-2 divide-y md:divide-y-0 md:divide-x divide-gray-100 dark:divide-gray-800">
+
+                            {/* Kolom kiri — info dasar */}
+                            <div className="px-6 py-5 space-y-4">
+                                <p className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider">Informasi Dasar</p>
+
+                                <div>
+                                    <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1.5">Judul Pengumpulan</label>
+                                    <input type="text" value={form.judul} onChange={e => set('judul', e.target.value)} required
+                                        placeholder="Misal: Perangkat Pembelajaran Semester 1"
+                                        className="w-full rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 px-3 py-2.5 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-sky-500 focus:border-transparent transition-colors placeholder-gray-400" />
+                                </div>
+
+                                <div>
+                                    <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1.5">Deskripsi <span className="text-gray-400 font-normal">(opsional)</span></label>
+                                    <textarea value={form.deskripsi} onChange={e => set('deskripsi', e.target.value)} rows={3}
+                                        placeholder="Keterangan tambahan untuk guru…"
+                                        className="w-full rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 px-3 py-2.5 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-sky-500 focus:border-transparent transition-colors resize-none placeholder-gray-400" />
+                                </div>
+
+                                <div>
+                                    <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1.5">
+                                        <span className="flex items-center gap-1.5">
+                                            <Calendar className="h-3.5 w-3.5" /> Batas Waktu Upload
+                                        </span>
+                                    </label>
+                                    <input type="datetime-local" value={form.batas_waktu} onChange={e => set('batas_waktu', e.target.value)} required
+                                        className="w-full rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 px-3 py-2.5 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-sky-500 focus:border-transparent transition-colors" />
+                                    {isExpired && (
+                                        <p className="mt-1 text-xs text-rose-500 flex items-center gap-1">
+                                            <AlertCircle className="h-3 w-3" /> Batas waktu sudah terlewati
+                                        </p>
+                                    )}
+                                </div>
+                            </div>
+
+                            {/* Kolom kanan — pengaturan */}
+                            <div className="px-6 py-5 space-y-5">
+                                <p className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider">Pengaturan</p>
+
+                                {/* Status aktif */}
+                                <div className="flex items-start justify-between gap-4">
+                                    <div>
+                                        <label htmlFor="toggle-aktif" className="text-sm font-medium text-gray-800 dark:text-gray-200 cursor-pointer">Status Aktif</label>
+                                        <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">Guru dapat melihat dan mengupload file</p>
+                                    </div>
+                                    <div className="flex items-center gap-2 shrink-0">
+                                        <span className={`text-xs font-medium ${form.is_aktif ? 'text-emerald-600 dark:text-emerald-400' : 'text-gray-400'}`}>
+                                            {form.is_aktif ? 'Aktif' : 'Nonaktif'}
+                                        </span>
+                                        <Toggle id="toggle-aktif" checked={form.is_aktif} onChange={v => set('is_aktif', v)} />
+                                    </div>
+                                </div>
+
+                                <div className="border-t border-gray-100 dark:border-gray-800" />
+
+                                {/* Allow late upload */}
+                                <div className="flex items-start justify-between gap-4">
+                                    <div>
+                                        <label htmlFor="toggle-late" className="text-sm font-medium text-gray-800 dark:text-gray-200 cursor-pointer">Upload Terlambat</label>
+                                        <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">Izinkan upload setelah batas waktu</p>
+                                    </div>
+                                    <div className="flex items-center gap-2 shrink-0">
+                                        <span className={`text-xs font-medium ${form.allow_late_upload ? 'text-sky-600 dark:text-sky-400' : 'text-gray-400'}`}>
+                                            {form.allow_late_upload ? 'Diizinkan' : 'Ditutup'}
+                                        </span>
+                                        <Toggle id="toggle-late" checked={form.allow_late_upload} onChange={v => set('allow_late_upload', v)} />
+                                    </div>
+                                </div>
+
+                                <div className="border-t border-gray-100 dark:border-gray-800" />
+
+                                {/* Format file */}
+                                <div>
+                                    <p className="text-sm font-medium text-gray-800 dark:text-gray-200 mb-1">Format File Diizinkan</p>
+                                    <p className="text-xs text-gray-400 dark:text-gray-500 mb-3">
+                                        {form.format_file.length === 0 ? 'Semua format diterima' : `${form.format_file.length} format dipilih`}
+                                    </p>
+                                    <div className="flex flex-wrap gap-2">
+                                        {FORMAT_OPTIONS.map(opt => {
+                                            const active = form.format_file.includes(opt.key);
+                                            return (
+                                                <button key={opt.key} type="button"
+                                                    onClick={() => toggleFormat(opt.key)}
+                                                    className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all ${
+                                                        active ? FORMAT_ACTIVE_MAP[opt.color] : FORMAT_COLOR_MAP[opt.color]
+                                                    }`}
+                                                >
+                                                    {opt.label}
+                                                </button>
+                                            );
+                                        })}
+                                    </div>
+                                    {form.format_file.length === 0 && (
+                                        <p className="text-xs text-gray-400 mt-2 italic">Kosongkan untuk menerima semua format</p>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
                     </div>
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Deskripsi</label>
-                        <textarea value={form.deskripsi} onChange={e => set('deskripsi', e.target.value)} rows={2}
-                            className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-sky-500 resize-none" />
-                    </div>
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Batas Waktu</label>
-                        <input type="datetime-local" value={form.batas_waktu} onChange={e => set('batas_waktu', e.target.value)} required
-                            className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-sky-500" />
-                    </div>
-                    <div className="flex flex-col gap-3 pt-1">
-                        <label className="flex items-center gap-2 cursor-pointer">
-                            <input type="checkbox" checked={form.is_aktif} onChange={e => set('is_aktif', e.target.checked)}
-                                className="h-4 w-4 rounded border-gray-300 text-sky-600 focus:ring-sky-500" />
-                            <span className="text-sm text-gray-700 dark:text-gray-300">Aktif (guru bisa melihat & upload)</span>
-                        </label>
-                        <label className="flex items-center gap-2 cursor-pointer">
-                            <input type="checkbox" checked={form.allow_late_upload} onChange={e => set('allow_late_upload', e.target.checked)}
-                                className="h-4 w-4 rounded border-gray-300 text-sky-600 focus:ring-sky-500" />
-                            <span className="text-sm text-gray-700 dark:text-gray-300">Izinkan upload setelah batas waktu</span>
-                        </label>
-                    </div>
-                    <div className="pt-2 flex justify-end gap-3">
-                        <button type="button" onClick={onClose} className="px-4 py-2 rounded-lg text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800">Batal</button>
-                        <button type="submit" disabled={busy}
-                            className="px-4 py-2 rounded-lg text-sm font-medium bg-sky-600 text-white hover:bg-sky-700 disabled:opacity-60 transition-colors">
-                            {busy ? 'Menyimpan…' : 'Simpan'}
-                        </button>
+
+                    {/* Footer */}
+                    <div className="px-6 py-4 border-t border-gray-200 dark:border-gray-700 flex items-center justify-between gap-3 shrink-0 bg-gray-50/80 dark:bg-gray-800/40">
+                        <div className="text-xs text-gray-400 dark:text-gray-500">
+                            {form.is_aktif ? (
+                                <span className="flex items-center gap-1 text-emerald-500"><CheckCircle className="h-3.5 w-3.5" /> Pengumpulan aktif</span>
+                            ) : (
+                                <span className="flex items-center gap-1"><Clock className="h-3.5 w-3.5" /> Nonaktif — tidak tampil untuk guru</span>
+                            )}
+                        </div>
+                        <div className="flex gap-2">
+                            <button type="button" onClick={onClose}
+                                className="px-4 py-2 rounded-xl text-sm font-medium text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
+                                Batal
+                            </button>
+                            <button type="submit" disabled={busy}
+                                className="px-5 py-2 rounded-xl text-sm font-semibold bg-sky-600 text-white hover:bg-sky-700 disabled:opacity-60 transition-colors flex items-center gap-2">
+                                {busy ? <><RefreshCw className="h-3.5 w-3.5 animate-spin" /> Menyimpan…</> : 'Simpan Perubahan'}
+                            </button>
+                        </div>
                     </div>
                 </form>
             </div>
+        </div>
+    );
+}
+
+/* ── Download progress overlay ── */
+function DownloadProgressOverlay({ pct, total }) {
+    const done = pct >= 100;
+    return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+            <div className="bg-white dark:bg-gray-900 rounded-2xl p-8 shadow-2xl w-80 flex flex-col gap-5">
+                {/* Icon + title */}
+                <div className="flex items-center gap-3">
+                    <div className={`p-2.5 rounded-xl transition-colors ${done ? 'bg-emerald-100 dark:bg-emerald-900/40' : 'bg-sky-100 dark:bg-sky-900/40'}`}>
+                        <ArchiveIcon className={`h-5 w-5 ${done ? 'text-emerald-600 dark:text-emerald-400' : 'text-sky-600 dark:text-sky-400'}`} />
+                    </div>
+                    <div>
+                        <p className="font-semibold text-gray-900 dark:text-white text-sm">
+                            {done ? 'Selesai!' : 'Menyiapkan ZIP…'}
+                        </p>
+                        <p className="text-xs text-gray-400 dark:text-gray-500">
+                            {done ? 'File sedang diunduh' : `${total} file sedang dikompres`}
+                        </p>
+                    </div>
+                </div>
+
+                {/* Progress bar */}
+                <div className="space-y-2">
+                    <div className="h-3 w-full rounded-full bg-gray-100 dark:bg-gray-800 overflow-hidden">
+                        <div
+                            className={`h-full rounded-full transition-all duration-300 ease-out relative overflow-hidden ${
+                                done ? 'bg-emerald-500' : 'bg-sky-500'
+                            }`}
+                            style={{ width: `${pct}%` }}
+                        >
+                            {/* Shimmer bergerak */}
+                            {!done && (
+                                <div className="absolute inset-0"
+                                    style={{
+                                        background: 'linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.4) 50%, transparent 100%)',
+                                        backgroundSize: '200% 100%',
+                                        animation: 'shimmer 1.4s linear infinite',
+                                    }}
+                                />
+                            )}
+                        </div>
+                    </div>
+                    <div className="flex justify-between items-center">
+                        <span className="text-xs text-gray-400 dark:text-gray-500">
+                            {done ? 'Download dimulai…' : 'Harap tunggu…'}
+                        </span>
+                        <span className={`text-sm font-bold tabular-nums ${done ? 'text-emerald-600 dark:text-emerald-400' : 'text-sky-600 dark:text-sky-400'}`}>
+                            {pct}%
+                        </span>
+                    </div>
+                </div>
+            </div>
+
+            <style>{`
+                @keyframes shimmer {
+                    0%   { background-position: 200% 0; }
+                    100% { background-position: -200% 0; }
+                }
+            `}</style>
         </div>
     );
 }
@@ -267,6 +483,46 @@ export default function PengumpulanShow({ pengumpulan, items, stats, filters, re
     const [showEdit, setShowEdit] = useState(false);
     const [search, setSearch] = useState(filters.search ?? '');
     const [statusFilter, setStatusFilter] = useState(filters.status ?? '');
+    const [downloadPct, setDownloadPct] = useState(0);
+    const [showDownload, setShowDownload] = useState(false);
+
+    const handleDownloadAll = async () => {
+        setDownloadPct(0);
+        setShowDownload(true);
+
+        // Animasi fake progress 0 → 88% selama server memproses
+        let cur = 0;
+        const timer = setInterval(() => {
+            cur += (Math.random() * 4 + 1) * (1 - cur / 100);
+            if (cur >= 88) { cur = 88; clearInterval(timer); }
+            setDownloadPct(Math.round(cur));
+        }, 180);
+
+        try {
+            const resp = await fetch(`/admin/pengumpulan/${pengumpulan.id}/download-all`, {
+                headers: { 'X-Requested-With': 'XMLHttpRequest' },
+            });
+            clearInterval(timer);
+            setDownloadPct(100);
+
+            const blob      = await resp.blob();
+            const url       = URL.createObjectURL(blob);
+            const safeJudul = pengumpulan.judul.replace(/[^a-z0-9]+/gi, '_').toLowerCase();
+            const a         = document.createElement('a');
+            a.href          = url;
+            a.download      = `${safeJudul}.zip`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+
+            setTimeout(() => { setShowDownload(false); setDownloadPct(0); }, 900);
+        } catch {
+            clearInterval(timer);
+            setShowDownload(false);
+            setDownloadPct(0);
+        }
+    };
 
     const applyFilter = useCallback((newSearch, newStatus) => {
         router.get(`/admin/pengumpulan/${pengumpulan.id}`, {
@@ -312,13 +568,14 @@ export default function PengumpulanShow({ pengumpulan, items, stats, filters, re
                             <div className="flex items-center gap-2 shrink-0">
                                 {/* Download semua */}
                                 {stats.uploaded > 0 && (
-                                    <a
-                                        href={`/admin/pengumpulan/${pengumpulan.id}/download-all`}
-                                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-sky-600 text-white hover:bg-sky-700 transition-colors"
+                                    <button
+                                        onClick={handleDownloadAll}
+                                        disabled={showDownload}
+                                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-sky-600 text-white hover:bg-sky-700 disabled:opacity-60 transition-colors"
                                     >
                                         <ArchiveIcon className="h-3.5 w-3.5" />
                                         Unduh Semua ({stats.uploaded})
-                                    </a>
+                                    </button>
                                 )}
                                 <button onClick={() => setShowEdit(true)}
                                     className="px-3 py-1.5 rounded-lg text-xs font-medium text-gray-600 dark:text-gray-400 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors">
@@ -466,6 +723,7 @@ export default function PengumpulanShow({ pengumpulan, items, stats, filters, re
 
             <ModalEdit open={showEdit} onClose={() => setShowEdit(false)} pengumpulan={pengumpulan} />
             <Toast toasts={toasts} />
+            {showDownload && <DownloadProgressOverlay pct={downloadPct} total={stats.uploaded} />}
         </AppLayout>
     );
 }

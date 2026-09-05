@@ -103,7 +103,7 @@ class PengumpulanController extends Controller
                     $copyName   = $slug($guruNama) . '_' . $slug($mapelNama) . '_' . $slug($rombelNama) . '_' . $timestamp . '.' . $ext;
                     $copyPath   = 'pengumpulan/' . $copyName;
 
-                    if (Storage::disk('public')->exists($s->file_path ?? '')) {
+                    if ($s->file_path && Storage::disk('public')->exists($s->file_path)) {
                         Storage::disk('public')->delete($s->file_path);
                     }
 

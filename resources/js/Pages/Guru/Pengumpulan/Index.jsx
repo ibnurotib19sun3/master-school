@@ -125,12 +125,14 @@ function UploadButton({ item, siblings, onUploading }) {
                             </div>
                             <div>
                                 <h3 className="text-sm font-semibold text-gray-900 dark:text-white">Upload Sejenjang</h3>
-                                <p className="text-xs text-gray-500 dark:text-gray-400">Ditemukan {siblings.length + 1} rombel sejenjang</p>
+                                <p className="text-xs text-gray-500 dark:text-gray-400">
+                                    Jenjang Kelas {item.pembelajaran?.rombel?.kelas?.nama ?? '—'} · {siblings.length + 1} Rombel
+                                </p>
                             </div>
                         </div>
 
                         <p className="text-sm text-gray-700 dark:text-gray-300">
-                            Mapel ini diajarkan di <strong>{siblings.length + 1} rombel</strong> pada jenjang yang sama:
+                            Mapel ini diajarkan di <strong>{siblings.length + 1} rombel</strong> pada jenjang kelas <strong>{item.pembelajaran?.rombel?.kelas?.nama ?? '—'}</strong>:
                         </p>
                         <ul className="text-xs text-gray-500 dark:text-gray-400 space-y-1 pl-3">
                             <li>• {item.pembelajaran?.rombel?.nama ?? '—'} <span className="text-sky-500">(ini)</span></li>
@@ -138,7 +140,7 @@ function UploadButton({ item, siblings, onUploading }) {
                         </ul>
 
                         <p className="text-sm text-gray-700 dark:text-gray-300">
-                            Upload ke semua rombel sekaligus, atau hanya rombel ini saja?
+                            Upload ke seluruh jenjang kelas {item.pembelajaran?.rombel?.kelas?.nama ?? '—'}, atau hanya rombel ini saja?
                         </p>
 
                         <div className="flex gap-2 pt-1">
@@ -146,7 +148,7 @@ function UploadButton({ item, siblings, onUploading }) {
                                 onClick={() => doUpload(pendingFile, true)}
                                 className="flex-1 px-3 py-2 rounded-xl text-sm font-medium bg-sky-600 text-white hover:bg-sky-700 transition-colors"
                             >
-                                Semua Rombel Sejenjang
+                                Jenjang {item.pembelajaran?.rombel?.kelas?.nama ?? ''} ({siblings.length + 1} Rombel)
                             </button>
                             <button
                                 onClick={() => doUpload(pendingFile, false)}
