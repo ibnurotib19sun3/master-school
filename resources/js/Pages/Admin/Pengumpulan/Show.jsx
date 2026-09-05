@@ -5,10 +5,10 @@ import {
     ArrowLeft, Users, CheckCircle, Clock, AlertCircle,
     Download, Search, RefreshCw, Calendar,
     FolderUp, Copy, MessageCircle, Bell, X,
+    ArchiveIcon, LockOpen, Lock,
 } from 'lucide-react';
 import { useState, useCallback } from 'react';
 
-/* ── helpers ── */
 function fmtDatetime(str) {
     if (!str) return '—';
     const d = new Date(str);
@@ -27,7 +27,6 @@ const STATUS_ICON = {
     'Belum':       Clock,
 };
 
-/* ── copy helpers ── */
 function fmtBatas(str) {
     if (!str) return '—';
     return new Date(str).toLocaleDateString('id-ID', {
@@ -36,7 +35,6 @@ function fmtBatas(str) {
     });
 }
 
-/* group items by nama guru, sorted A–Z */
 function groupByGuru(items) {
     const map = {};
     items.forEach(item => {
@@ -50,91 +48,53 @@ function buildLaporan(pengumpulan, reportItems) {
     const sudah = reportItems.filter(i => i.status !== 'Belum');
     const belum = reportItems.filter(i => i.status === 'Belum');
     const batas = fmtBatas(pengumpulan.batas_waktu);
-
-    const guruSudah  = groupByGuru(sudah);
-    const guruBelum  = groupByGuru(belum);
-    const totalGuru  = groupByGuru(reportItems).length;
+    const guruSudah = groupByGuru(sudah);
+    const guruBelum = groupByGuru(belum);
+    const totalGuru = groupByGuru(reportItems).length;
 
     const lines = [
-        `📋 *LAPORAN PENGUMPULAN*`,
-        `📝 *${pengumpulan.judul}*`,
-        `⏰ Batas: ${batas}`,
-        '',
+        `📋 *LAPORAN PENGUMPULAN*`, `📝 *${pengumpulan.judul}*`, `⏰ Batas: ${batas}`, '',
         `✅ *Sudah Mengumpulkan (${sudah.length} slot — ${guruSudah.length} guru):*`,
     ];
-
-    if (guruSudah.length === 0) {
-        lines.push('   —');
-    } else {
-        guruSudah.forEach(([nama, slots], i) => {
-            lines.push(`${i + 1}. ${nama}`);
-            slots.forEach(slot => {
-                const tanda = slot.status === 'Terlambat' ? ' ⚠️ terlambat' : '';
-                lines.push(`   • ${slot.mapel} (${slot.rombel})${tanda}`);
-            });
-        });
-    }
-
-    lines.push('');
-    lines.push(`❌ *Belum Mengumpulkan (${belum.length} slot — ${guruBelum.length} guru):*`);
-
-    if (guruBelum.length === 0) {
-        lines.push('   Semua sudah mengumpulkan 🎉');
-    } else {
-        guruBelum.forEach(([nama, slots], i) => {
-            lines.push(`${i + 1}. ${nama}`);
-            slots.forEach(slot => {
-                lines.push(`   • ${slot.mapel} (${slot.rombel})`);
-            });
-        });
-    }
-
-    lines.push('');
-    lines.push(`📊 *Rekap Guru:* ${guruBelum.length} dari ${totalGuru} guru belum mengumpulkan`);
-
+    if (guruSudah.length === 0) { lines.push('   —'); }
+    else guruSudah.forEach(([nama, slots], i) => {
+        lines.push(`${i + 1}. ${nama}`);
+        slots.forEach(s => lines.push(`   • ${s.mapel} (${s.rombel})${s.status === 'Terlambat' ? ' ⚠️ terlambat' : ''}`));
+    });
+    lines.push('', `❌ *Belum Mengumpulkan (${belum.length} slot — ${guruBelum.length} guru):*`);
+    if (guruBelum.length === 0) lines.push('   Semua sudah mengumpulkan 🎉');
+    else guruBelum.forEach(([nama, slots], i) => {
+        lines.push(`${i + 1}. ${nama}`);
+        slots.forEach(s => lines.push(`   • ${s.mapel} (${s.rombel})`));
+    });
+    lines.push('', `📊 *Rekap Guru:* ${guruBelum.length} dari ${totalGuru} guru belum mengumpulkan`);
     return lines.join('\n');
 }
 
 function buildPengingat(pengumpulan, reportItems) {
-    const belum     = reportItems.filter(i => i.status === 'Belum');
-    const batas     = fmtBatas(pengumpulan.batas_waktu);
+    const belum = reportItems.filter(i => i.status === 'Belum');
+    const batas = fmtBatas(pengumpulan.batas_waktu);
     const guruBelum = groupByGuru(belum);
-
     const lines = [
-        `⚠️ *PENGINGAT PENGUMPULAN*`,
-        `📝 *${pengumpulan.judul}*`,
-        `⏰ Batas: ${batas}`,
-        '',
+        `⚠️ *PENGINGAT PENGUMPULAN*`, `📝 *${pengumpulan.judul}*`, `⏰ Batas: ${batas}`, '',
         `Guru berikut belum mengumpulkan (${guruBelum.length} guru, ${belum.length} slot):`,
     ];
-
     guruBelum.forEach(([nama, slots], i) => {
         lines.push(`${i + 1}. ${nama}`);
-        slots.forEach(slot => {
-            lines.push(`   • ${slot.mapel} (${slot.rombel})`);
-        });
+        slots.forEach(s => lines.push(`   • ${s.mapel} (${s.rombel})`));
     });
-
-    lines.push('');
-    lines.push('Mohon segera dikumpulkan sebelum batas waktu. Terima kasih 🙏');
-
+    lines.push('', 'Mohon segera dikumpulkan sebelum batas waktu. Terima kasih 🙏');
     return lines.join('\n');
 }
 
-/* ── Toast ── */
 function Toast({ toasts }) {
     return (
-        <div className="fixed bottom-5 right-5 z-200 flex flex-col gap-2 pointer-events-none">
+        <div className="fixed bottom-5 right-5 z-50 flex flex-col gap-2 pointer-events-none">
             {toasts.map((t) => (
-                <div key={t.id}
-                    className={`flex items-center gap-2.5 px-4 py-3 rounded-xl shadow-lg text-sm font-medium pointer-events-auto transition-all duration-300 ${
-                        t.type === 'success'
-                            ? 'bg-emerald-600 text-white'
-                            : 'bg-red-600 text-white'
-                    }`}>
-                    {t.type === 'success'
-                        ? <CheckCircle className="h-4 w-4 shrink-0" />
-                        : <X className="h-4 w-4 shrink-0" />}
+                <div key={t.id} className={`flex items-center gap-2.5 px-4 py-3 rounded-xl shadow-lg text-sm font-medium pointer-events-auto ${
+                    t.type === 'success' ? 'bg-emerald-600 text-white' : 'bg-red-600 text-white'
+                }`}>
+                    {t.type === 'success' ? <CheckCircle className="h-4 w-4 shrink-0" /> : <X className="h-4 w-4 shrink-0" />}
                     {t.message}
                 </div>
             ))}
@@ -152,17 +112,12 @@ function useToast() {
     return { toasts, show };
 }
 
-/* ── clipboard helper: works on HTTP (Laragon) and HTTPS ── */
 function copyText(text) {
-    if (navigator.clipboard && window.isSecureContext) {
-        return navigator.clipboard.writeText(text);
-    }
+    if (navigator.clipboard && window.isSecureContext) return navigator.clipboard.writeText(text);
     const el = document.createElement('textarea');
     el.value = text;
     el.style.cssText = 'position:fixed;opacity:0;top:0;left:0';
-    document.body.appendChild(el);
-    el.focus();
-    el.select();
+    document.body.appendChild(el); el.focus(); el.select();
     const ok = document.execCommand('copy');
     document.body.removeChild(el);
     return ok ? Promise.resolve() : Promise.reject(new Error('Copy gagal'));
@@ -171,23 +126,17 @@ function copyText(text) {
 function CopyBtn({ text, icon: Icon, label, color, onCopied }) {
     const [busy, setBusy] = useState(false);
     const handle = () => {
-        if (busy) return;
-        setBusy(true);
-        copyText(text)
-            .then(() => onCopied(true))
-            .catch(() => onCopied(false))
-            .finally(() => setBusy(false));
+        if (busy) return; setBusy(true);
+        copyText(text).then(() => onCopied(true)).catch(() => onCopied(false)).finally(() => setBusy(false));
     };
     return (
         <button onClick={handle} disabled={busy}
             className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors disabled:opacity-60 ${color}`}>
-            <Icon className="h-3.5 w-3.5" />
-            {label}
+            <Icon className="h-3.5 w-3.5" />{label}
         </button>
     );
 }
 
-/* ── Stat Card ── */
 function StatCard({ label, value, icon: Icon, color }) {
     return (
         <div className={`rounded-xl p-4 flex items-center gap-4 ${color}`}>
@@ -202,6 +151,41 @@ function StatCard({ label, value, icon: Icon, color }) {
     );
 }
 
+/* ── Portal toggle per item ── */
+function PortalToggle({ item, pengumpulan, expired }) {
+    const [busy, setBusy] = useState(false);
+
+    if (!expired || item.file_path) return null;
+
+    // portal_buka sudah dihitung dari server
+    const isOpen = item.portal_buka;
+
+    const toggle = () => {
+        if (busy) return;
+        setBusy(true);
+        router.post(`/admin/pengumpulan/item/${item.id}/toggle-portal`, { open: !isOpen }, {
+            onFinish: () => setBusy(false),
+            preserveScroll: true,
+        });
+    };
+
+    return (
+        <button
+            onClick={toggle}
+            disabled={busy}
+            title={isOpen ? 'Tutup portal upload' : 'Buka portal upload'}
+            className={`inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-medium transition-colors disabled:opacity-60 ${
+                isOpen
+                    ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400 hover:bg-emerald-100'
+                    : 'bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400 hover:bg-gray-200'
+            }`}
+        >
+            {isOpen ? <LockOpen className="h-3 w-3" /> : <Lock className="h-3 w-3" />}
+            {isOpen ? 'Terbuka' : 'Tertutup'}
+        </button>
+    );
+}
+
 /* ── Edit modal ── */
 function ModalEdit({ open, onClose, pengumpulan }) {
     const [form, setForm] = useState({
@@ -209,13 +193,13 @@ function ModalEdit({ open, onClose, pengumpulan }) {
         deskripsi: pengumpulan.deskripsi ?? '',
         batas_waktu: pengumpulan.batas_waktu?.slice(0, 16) ?? '',
         is_aktif: pengumpulan.is_aktif,
+        allow_late_upload: pengumpulan.allow_late_upload ?? true,
     });
     const [busy, setBusy] = useState(false);
     const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
 
     const handleSubmit = (e) => {
-        e.preventDefault();
-        setBusy(true);
+        e.preventDefault(); setBusy(true);
         router.put(`/admin/pengumpulan/${pengumpulan.id}`, form, {
             onFinish: () => { setBusy(false); onClose(); },
         });
@@ -237,17 +221,26 @@ function ModalEdit({ open, onClose, pengumpulan }) {
                     </div>
                     <div>
                         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Deskripsi</label>
-                        <textarea value={form.deskripsi} onChange={e => set('deskripsi', e.target.value)} rows={3} className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-sky-500 resize-none" />
+                        <textarea value={form.deskripsi} onChange={e => set('deskripsi', e.target.value)} rows={2}
+                            className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-sky-500 resize-none" />
                     </div>
                     <div>
                         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Batas Waktu</label>
                         <input type="datetime-local" value={form.batas_waktu} onChange={e => set('batas_waktu', e.target.value)} required
                             className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-sky-500" />
                     </div>
-                    <label className="flex items-center gap-2 cursor-pointer">
-                        <input type="checkbox" checked={form.is_aktif} onChange={e => set('is_aktif', e.target.checked)} className="h-4 w-4 rounded border-gray-300 text-sky-600 focus:ring-sky-500" />
-                        <span className="text-sm text-gray-700 dark:text-gray-300">Aktif (guru bisa melihat & mengupload)</span>
-                    </label>
+                    <div className="flex flex-col gap-3 pt-1">
+                        <label className="flex items-center gap-2 cursor-pointer">
+                            <input type="checkbox" checked={form.is_aktif} onChange={e => set('is_aktif', e.target.checked)}
+                                className="h-4 w-4 rounded border-gray-300 text-sky-600 focus:ring-sky-500" />
+                            <span className="text-sm text-gray-700 dark:text-gray-300">Aktif (guru bisa melihat & upload)</span>
+                        </label>
+                        <label className="flex items-center gap-2 cursor-pointer">
+                            <input type="checkbox" checked={form.allow_late_upload} onChange={e => set('allow_late_upload', e.target.checked)}
+                                className="h-4 w-4 rounded border-gray-300 text-sky-600 focus:ring-sky-500" />
+                            <span className="text-sm text-gray-700 dark:text-gray-300">Izinkan upload setelah batas waktu</span>
+                        </label>
+                    </div>
                     <div className="pt-2 flex justify-end gap-3">
                         <button type="button" onClick={onClose} className="px-4 py-2 rounded-lg text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800">Batal</button>
                         <button type="submit" disabled={busy}
@@ -268,8 +261,7 @@ export default function PengumpulanShow({ pengumpulan, items, stats, filters, re
     const { toasts, show: showToast } = useToast();
 
     const handleCopied = (ok) => showToast(
-        ok ? 'Teks berhasil disalin ke clipboard!' : 'Gagal menyalin — coba salin manual.',
-        ok ? 'success' : 'error'
+        ok ? 'Teks berhasil disalin!' : 'Gagal menyalin — coba salin manual.', ok ? 'success' : 'error'
     );
 
     const [showEdit, setShowEdit] = useState(false);
@@ -278,21 +270,12 @@ export default function PengumpulanShow({ pengumpulan, items, stats, filters, re
 
     const applyFilter = useCallback((newSearch, newStatus) => {
         router.get(`/admin/pengumpulan/${pengumpulan.id}`, {
-            search: newSearch || undefined,
-            status: newStatus || undefined,
+            search: newSearch || undefined, status: newStatus || undefined,
         }, { preserveState: true, replace: true });
     }, [pengumpulan.id]);
 
-    const handleSearch = (e) => {
-        setSearch(e.target.value);
-        applyFilter(e.target.value, statusFilter);
-    };
-
-    const handleStatus = (s) => {
-        const next = statusFilter === s ? '' : s;
-        setStatusFilter(next);
-        applyFilter(search, next);
-    };
+    const handleSearch = (e) => { setSearch(e.target.value); applyFilter(e.target.value, statusFilter); };
+    const handleStatus = (s) => { const next = statusFilter === s ? '' : s; setStatusFilter(next); applyFilter(search, next); };
 
     const batasExpired = new Date(pengumpulan.batas_waktu) < new Date();
 
@@ -319,17 +302,33 @@ export default function PengumpulanShow({ pengumpulan, items, stats, filters, re
                                         {batasExpired && <span className="ml-1 text-rose-500">(kedaluwarsa)</span>}
                                     </span>
                                     <span>{pengumpulan.tahun_ajaran?.nama}</span>
+                                    {!pengumpulan.allow_late_upload && batasExpired && (
+                                        <span className="inline-flex items-center gap-1 text-rose-500">
+                                            <Lock className="h-3 w-3" /> Portal upload ditutup
+                                        </span>
+                                    )}
                                 </div>
                             </div>
-                            <button onClick={() => setShowEdit(true)}
-                                className="shrink-0 px-3 py-1.5 rounded-lg text-xs font-medium text-sky-600 dark:text-sky-400 bg-sky-50 dark:bg-sky-900/30 hover:bg-sky-100 dark:hover:bg-sky-900/50 transition-colors">
-                                Edit
-                            </button>
+                            <div className="flex items-center gap-2 shrink-0">
+                                {/* Download semua */}
+                                {stats.uploaded > 0 && (
+                                    <a
+                                        href={`/admin/pengumpulan/${pengumpulan.id}/download-all`}
+                                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-sky-600 text-white hover:bg-sky-700 transition-colors"
+                                    >
+                                        <ArchiveIcon className="h-3.5 w-3.5" />
+                                        Unduh Semua ({stats.uploaded})
+                                    </a>
+                                )}
+                                <button onClick={() => setShowEdit(true)}
+                                    className="px-3 py-1.5 rounded-lg text-xs font-medium text-gray-600 dark:text-gray-400 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors">
+                                    Edit
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>
 
-                {/* Flash */}
                 {flash.success && (
                     <div className="rounded-lg bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 px-4 py-3 text-sm text-emerald-700 dark:text-emerald-300 flex items-center gap-2">
                         <CheckCircle className="h-4 w-4 shrink-0" /> {flash.success}
@@ -348,23 +347,21 @@ export default function PengumpulanShow({ pengumpulan, items, stats, filters, re
                         color="bg-rose-50 text-rose-700 dark:bg-rose-900/20 dark:text-rose-300" />
                 </div>
 
-                {/* WA Report buttons */}
+                {/* WA Report */}
                 <div className="flex flex-wrap items-center gap-2 p-3 rounded-xl bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700">
                     <MessageCircle className="h-4 w-4 text-gray-400 shrink-0" />
                     <span className="text-xs text-gray-500 dark:text-gray-400 mr-1">Salin untuk WhatsApp:</span>
                     <CopyBtn
                         text={buildLaporan(pengumpulan, reportItems)}
-                        icon={Copy}
-                        label="Laporan Lengkap"
-                        color="bg-sky-50 text-sky-700 dark:bg-sky-900/30 dark:text-sky-400 hover:bg-sky-100 dark:hover:bg-sky-900/50"
+                        icon={Copy} label="Laporan Lengkap"
+                        color="bg-sky-50 text-sky-700 dark:bg-sky-900/30 dark:text-sky-400 hover:bg-sky-100"
                         onCopied={handleCopied}
                     />
                     {stats.belum > 0 && (
                         <CopyBtn
                             text={buildPengingat(pengumpulan, reportItems)}
-                            icon={Bell}
-                            label={`Pengingat Belum (${stats.belum})`}
-                            color="bg-amber-50 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 hover:bg-amber-100 dark:hover:bg-amber-900/50"
+                            icon={Bell} label={`Pengingat Belum (${stats.belum})`}
+                            color="bg-amber-50 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 hover:bg-amber-100"
                             onCopied={handleCopied}
                         />
                     )}
@@ -374,20 +371,14 @@ export default function PengumpulanShow({ pengumpulan, items, stats, filters, re
                 <div className="flex flex-wrap items-center gap-3">
                     <div className="relative flex-1 min-w-48">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-                        <input
-                            type="text"
-                            value={search}
-                            onChange={handleSearch}
+                        <input type="text" value={search} onChange={handleSearch}
                             placeholder="Cari nama guru atau mata pelajaran…"
-                            className="w-full pl-9 pr-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-sky-500"
-                        />
+                            className="w-full pl-9 pr-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-sky-500" />
                     </div>
                     {['Tepat Waktu', 'Terlambat', 'Belum'].map(s => (
                         <button key={s} onClick={() => handleStatus(s)}
                             className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
-                                statusFilter === s
-                                    ? STATUS_STYLES[s]
-                                    : 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700'
+                                statusFilter === s ? STATUS_STYLES[s] : 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700'
                             }`}>
                             {s}
                         </button>
@@ -418,6 +409,9 @@ export default function PengumpulanShow({ pengumpulan, items, stats, filters, re
                                             <th className="text-left px-4 py-3 font-semibold text-gray-600 dark:text-gray-400">Rombel</th>
                                             <th className="text-left px-4 py-3 font-semibold text-gray-600 dark:text-gray-400">Status</th>
                                             <th className="text-left px-4 py-3 font-semibold text-gray-600 dark:text-gray-400">Tgl Upload</th>
+                                            {batasExpired && !pengumpulan.allow_late_upload && (
+                                                <th className="text-left px-4 py-3 font-semibold text-gray-600 dark:text-gray-400">Portal</th>
+                                            )}
                                             <th className="text-right px-4 py-3 font-semibold text-gray-600 dark:text-gray-400">File</th>
                                         </tr>
                                     </thead>
@@ -444,14 +438,15 @@ export default function PengumpulanShow({ pengumpulan, items, stats, filters, re
                                                     <td className="px-4 py-3 text-gray-500 dark:text-gray-400 text-xs whitespace-nowrap">
                                                         {fmtDatetime(item.tgl_upload)}
                                                     </td>
+                                                    {batasExpired && !pengumpulan.allow_late_upload && (
+                                                        <td className="px-4 py-3">
+                                                            <PortalToggle item={item} pengumpulan={pengumpulan} expired={batasExpired} />
+                                                        </td>
+                                                    )}
                                                     <td className="px-4 py-3 text-right">
                                                         {item.file_url ? (
-                                                            <a
-                                                                href={item.file_url}
-                                                                target="_blank"
-                                                                rel="noopener noreferrer"
-                                                                className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium text-sky-600 dark:text-sky-400 bg-sky-50 dark:bg-sky-900/30 hover:bg-sky-100 dark:hover:bg-sky-900/50 transition-colors"
-                                                            >
+                                                            <a href={item.file_url} target="_blank" rel="noopener noreferrer"
+                                                                className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium text-sky-600 dark:text-sky-400 bg-sky-50 dark:bg-sky-900/30 hover:bg-sky-100 dark:hover:bg-sky-900/50 transition-colors">
                                                                 <Download className="h-3.5 w-3.5" /> Unduh
                                                             </a>
                                                         ) : (
@@ -469,12 +464,7 @@ export default function PengumpulanShow({ pengumpulan, items, stats, filters, re
                 </Card>
             </div>
 
-            <ModalEdit
-                open={showEdit}
-                onClose={() => setShowEdit(false)}
-                pengumpulan={pengumpulan}
-            />
-
+            <ModalEdit open={showEdit} onClose={() => setShowEdit(false)} pengumpulan={pengumpulan} />
             <Toast toasts={toasts} />
         </AppLayout>
     );

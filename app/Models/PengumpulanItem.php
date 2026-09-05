@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 class PengumpulanItem extends Model
 {
     protected $table    = 'pengumpulan_item';
-    protected $fillable = ['pengumpulan_id', 'pembelajaran_id', 'file_path', 'tgl_upload', 'keterangan'];
+    protected $fillable = ['pengumpulan_id', 'pembelajaran_id', 'file_path', 'tgl_upload', 'keterangan', 'portal_override'];
     protected $casts    = ['tgl_upload' => 'datetime'];
     protected $appends  = ['file_url'];
 

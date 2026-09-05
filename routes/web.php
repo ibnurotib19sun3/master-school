@@ -429,6 +429,8 @@ Route::middleware('auth')->group(function () {
         Route::get('pengumpulan/{pengumpulan}',              [PengumpulanController::class, 'show'])->name('pengumpulan.show')->middleware('role:super_admin|wakasek_kurikulum');
         Route::put('pengumpulan/{pengumpulan}',              [PengumpulanController::class, 'update'])->name('pengumpulan.update')->middleware('role:super_admin|wakasek_kurikulum');
         Route::delete('pengumpulan/{pengumpulan}',           [PengumpulanController::class, 'destroy'])->name('pengumpulan.destroy')->middleware('role:super_admin|wakasek_kurikulum');
+        Route::get('pengumpulan/{pengumpulan}/download-all', [PengumpulanController::class, 'downloadAll'])->name('pengumpulan.download-all')->middleware('role:super_admin|wakasek_kurikulum');
+        Route::post('pengumpulan/item/{item}/toggle-portal', [PengumpulanController::class, 'togglePortal'])->name('pengumpulan.toggle-portal')->middleware('role:super_admin|wakasek_kurikulum');
 
         // Hari Libur
         Route::get('hari-libur',                  [HariLiburController::class, 'index'])->name('hari-libur.index')->middleware('role:super_admin|wakasek_kurikulum');
