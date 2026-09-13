@@ -168,13 +168,24 @@ class PengumpulanController extends Controller
                                                . ' · ' . ($p->guru?->user?->name ?? '—'),
                         ]);
 
+        // Hitung pembelajaran yang sudah punya slot
+        $allSlotIds = PengumpulanItem::where('pengumpulan_id', $pengumpulan->id)
+            ->pluck('pembelajaran_id')
+            ->toArray();
+
+        // Pembelajaran yang tidak punya slot = dikecualikan
+        $excludedPembelajaranIds = $pembelajaran->pluck('id')
+            ->diff($allSlotIds)
+            ->values();
+
         return Inertia::render('Admin/Pengumpulan/Show', [
-            'pengumpulan' => $pengumpulan->load('tahunAjaran:id,nama'),
-            'items'       => $items,
-            'stats'       => $stats,
-            'filters'     => $request->only('status', 'search'),
-            'reportItems' => $reportItems,
-            'pembelajaran' => $pembelajaran,
+            'pengumpulan'              => $pengumpulan->load('tahunAjaran:id,nama'),
+            'items'                    => $items,
+            'stats'                    => $stats,
+            'filters'                  => $request->only('status', 'search'),
+            'reportItems'              => $reportItems,
+            'pembelajaran'             => $pembelajaran,
+            'excluded_pembelajaran_ids' => $excludedPembelajaranIds,
         ]);
     }
 
@@ -242,9 +253,13 @@ class PengumpulanController extends Controller
 
     public function destroy(Pengumpulan $pengumpulan)
     {
-        $pengumpulan->items()->whereNotNull('file_path')->each(function ($item) {
-            Storage::disk('public')->delete($item->file_path);
-        });
+        // Deduplikasi path sebelum hapus (file shared "semua rombel" cukup dihapus sekali)
+        $pengumpulan->items()
+            ->whereNotNull('file_path')
+            ->pluck('file_path')
+            ->unique()
+            ->each(fn ($path) => Storage::disk('public')->delete($path));
+
         $pengumpulan->delete();
         return back()->with('success', 'Pengumpulan berhasil dihapus.');
     }
@@ -256,7 +271,8 @@ class PengumpulanController extends Controller
             ->with([
                 'pembelajaran.guru.user:id,name',
                 'pembelajaran.mataPelajaran:id,nama',
-                'pembelajaran.rombel:id,nama',
+                'pembelajaran.rombel:id,nama,kelas_id',
+                'pembelajaran.rombel.kelas:id,nama',
             ])
             ->get();
 
@@ -270,15 +286,26 @@ class PengumpulanController extends Controller
         $zip = new ZipArchive();
         $zip->open($zipPath, ZipArchive::CREATE | ZipArchive::OVERWRITE);
 
-        foreach ($items as $item) {
-            $storagePath = Storage::disk('public')->path($item->file_path);
+        // Deduplikasi: group by file_path agar file shared (semua rombel) hanya masuk ZIP sekali
+        $grouped = $items->groupBy('file_path');
+
+        foreach ($grouped as $filePath => $group) {
+            $storagePath = Storage::disk('public')->path($filePath);
             if (!file_exists($storagePath)) continue;
 
-            $ext       = pathinfo($item->file_path, PATHINFO_EXTENSION);
-            $guru      = $item->pembelajaran?->guru?->user?->name ?? 'guru';
-            $mapel     = $item->pembelajaran?->mataPelajaran?->nama ?? 'mapel';
-            $rombel    = $item->pembelajaran?->rombel?->nama ?? 'kelas';
-            $zipName   = $slug($guru) . '_' . $slug($mapel) . '_' . $slug($rombel) . '.' . $ext;
+            $ext   = pathinfo($filePath, PATHINFO_EXTENSION);
+            $first = $group->first();
+            $guru  = $first->pembelajaran?->guru?->user?->name ?? 'guru';
+            $mapel = $first->pembelajaran?->mataPelajaran?->nama ?? 'mapel';
+
+            if ($group->count() > 1) {
+                // File dipakai bersama beberapa rombel → satu entry dengan nama "semua_rombel"
+                $kelas   = $first->pembelajaran?->rombel?->kelas?->nama ?? 'kelas';
+                $zipName = $slug($guru) . '_' . $slug($mapel) . '_' . $slug($kelas) . '_semua_rombel.' . $ext;
+            } else {
+                $rombel  = $first->pembelajaran?->rombel?->nama ?? 'kelas';
+                $zipName = $slug($guru) . '_' . $slug($mapel) . '_' . $slug($rombel) . '.' . $ext;
+            }
 
             $zip->addFile($storagePath, $zipName);
         }

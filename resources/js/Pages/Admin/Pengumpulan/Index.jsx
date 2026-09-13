@@ -2,11 +2,10 @@ import AppLayout from '@/Layouts/AppLayout';
 import { router, usePage } from '@inertiajs/react';
 import { Card, CardBody } from '@/Components/ui/Card';
 import Button from '@/Components/ui/Button';
-import ConfirmDialog from '@/Components/ui/ConfirmDialog';
 import {
     FolderUp, Plus, Trash2, Eye, ChevronLeft, ChevronRight,
     Calendar, Users, CheckCircle, Clock, AlertCircle, Search, X,
-    AlarmClock, Timer,
+    AlarmClock, Timer, RefreshCw, ShieldAlert,
 } from 'lucide-react';
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { Link } from '@inertiajs/react';
@@ -328,6 +327,86 @@ function MultiSelectPembelajaran({ options, selected, onChange }) {
     );
 }
 
+/* ── Modal konfirmasi hapus ── */
+function DeleteConfirmModal({ target, onConfirm, onCancel }) {
+    const [busy, setBusy] = useState(false);
+    if (!target) return null;
+
+    const handle = () => { setBusy(true); onConfirm(); };
+
+    return (
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+            <div className="w-full max-w-md bg-white dark:bg-gray-900 rounded-2xl shadow-2xl overflow-hidden">
+
+                {/* Danger bar */}
+                <div className="h-1.5 bg-linear-to-r from-rose-500 via-rose-500 to-rose-600" />
+
+                <div className="p-6 space-y-5">
+                    {/* Icon */}
+                    <div className="flex justify-center">
+                        <div className="relative">
+                            <div className="h-16 w-16 rounded-2xl bg-rose-50 dark:bg-rose-900/20 flex items-center justify-center">
+                                <ShieldAlert className="h-8 w-8 text-rose-500 dark:text-rose-400" />
+                            </div>
+                            <div className="absolute -inset-1.5 rounded-[20px] border-2 border-rose-300/40 dark:border-rose-500/20 animate-pulse pointer-events-none" />
+                        </div>
+                    </div>
+
+                    {/* Text */}
+                    <div className="text-center">
+                        <h3 className="text-lg font-bold text-gray-900 dark:text-white">Hapus Pengumpulan?</h3>
+                        <p className="text-sm text-gray-500 dark:text-gray-400 mt-1.5 leading-relaxed">
+                            Tindakan ini{' '}
+                            <span className="font-semibold text-rose-600 dark:text-rose-400">tidak dapat dibatalkan</span>.
+                            Semua file yang sudah diunggah guru akan ikut terhapus permanen.
+                        </p>
+                    </div>
+
+                    {/* Item info card */}
+                    <div className="rounded-xl bg-rose-50/60 dark:bg-rose-900/10 border border-rose-200/60 dark:border-rose-800/40 p-4">
+                        <div className="flex items-start gap-3">
+                            <div className="p-2 rounded-lg bg-rose-100 dark:bg-rose-900/30 shrink-0">
+                                <FolderUp className="h-4 w-4 text-rose-600 dark:text-rose-400" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                                <p className="font-semibold text-sm text-gray-900 dark:text-white leading-snug">{target.judul}</p>
+                                <div className="flex flex-wrap items-center gap-3 mt-2">
+                                    <span className="flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400">
+                                        <Users className="h-3 w-3 shrink-0" /> {target.totalSlot} slot guru
+                                    </span>
+                                    {target.uploadedCount > 0 ? (
+                                        <span className="flex items-center gap-1 text-xs font-semibold text-rose-600 dark:text-rose-400">
+                                            <AlertCircle className="h-3 w-3 shrink-0" /> {target.uploadedCount} file akan terhapus
+                                        </span>
+                                    ) : (
+                                        <span className="flex items-center gap-1 text-xs text-emerald-600 dark:text-emerald-400">
+                                            <CheckCircle className="h-3 w-3 shrink-0" /> Belum ada file terupload
+                                        </span>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Actions */}
+                    <div className="flex gap-3 pt-1">
+                        <button type="button" onClick={onCancel} disabled={busy}
+                            className="flex-1 py-2.5 rounded-xl text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 disabled:opacity-50 transition-colors">
+                            Batal
+                        </button>
+                        <button type="button" onClick={handle} disabled={busy}
+                            className="flex-1 py-2.5 rounded-xl text-sm font-semibold text-white bg-rose-600 hover:bg-rose-700 disabled:opacity-60 transition-colors flex items-center justify-center gap-2 shadow-sm shadow-rose-600/30">
+                            {busy
+                                ? <><RefreshCw className="h-3.5 w-3.5 animate-spin" /> Menghapus…</>
+                                : <><Trash2 className="h-3.5 w-3.5" /> Hapus Permanen</>}
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+}
+
 /* ── Modal buat pengumpulan ── */
 function ModalCreate({ open, onClose, tahunAjaran, mataPelajaran, pembelajaran }) {
     const [form, setForm] = useState({
@@ -563,14 +642,20 @@ export default function PengumpulanIndex({ pengumpulan, tahunAjaran, mataPelajar
     const [showCreate, setShowCreate] = useState(false);
     const [deleteTarget, setDeleteTarget] = useState(null); // { id, judul }
 
-    const handleDelete = useCallback((id, judul) => {
-        setDeleteTarget({ id, judul });
+    const handleDelete = useCallback((p) => {
+        setDeleteTarget({
+            id: p.id,
+            judul: p.judul,
+            uploadedCount: p.uploaded_count,
+            totalSlot: p.items_count,
+        });
     }, []);
 
     const confirmDelete = useCallback(() => {
         if (!deleteTarget) return;
         router.delete(`/admin/pengumpulan/${deleteTarget.id}`, {
-            onFinish: () => setDeleteTarget(null),
+            onSuccess: () => setDeleteTarget(null),
+            onFinish:  () => setDeleteTarget(null),
         });
     }, [deleteTarget]);
 
@@ -670,7 +755,7 @@ export default function PengumpulanIndex({ pengumpulan, tahunAjaran, mataPelajar
                                                                 <Eye className="h-3.5 w-3.5" /> Detail
                                                             </Link>
                                                             <button
-                                                                onClick={() => handleDelete(p.id, p.judul)}
+                                                                onClick={() => handleDelete(p)}
                                                                 className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-900/30 hover:bg-rose-100 dark:hover:bg-rose-900/50 transition-colors"
                                                             >
                                                                 <Trash2 className="h-3.5 w-3.5" />
@@ -716,14 +801,8 @@ export default function PengumpulanIndex({ pengumpulan, tahunAjaran, mataPelajar
                 pembelajaran={pembelajaran ?? []}
             />
 
-            <ConfirmDialog
-                show={!!deleteTarget}
-                title="Hapus Pengumpulan"
-                message={deleteTarget
-                    ? `"${deleteTarget.judul}" akan dihapus beserta semua file yang sudah diunggah. Tindakan ini tidak dapat dibatalkan.`
-                    : ''}
-                confirmLabel="Ya, Hapus"
-                confirmVariant="danger"
+            <DeleteConfirmModal
+                target={deleteTarget}
                 onConfirm={confirmDelete}
                 onCancel={() => setDeleteTarget(null)}
             />

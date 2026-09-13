@@ -122,18 +122,44 @@ class PengumpulanController extends Controller
         return back()->with('success', 'File berhasil diunggah.');
     }
 
-    public function deleteFile(PengumpulanItem $item)
+    public function deleteFile(Request $request, PengumpulanItem $item)
     {
         $guruId = auth()->user()->guru?->id;
         abort_if($item->pembelajaran?->guru_id !== $guruId, 403);
 
-        if ($item->file_path) {
-            // Jika file dipakai item lain (semua_rombel), jangan hapus fisik
-            $sharedCount = PengumpulanItem::where('file_path', $item->file_path)
+        if (!$item->file_path) {
+            return back()->with('success', 'File berhasil dihapus.');
+        }
+
+        $filePath = $item->file_path;
+
+        if ($request->boolean('all_jenjang')) {
+            // Hapus semua item sejenjang (sama guru, mapel, kelas)
+            $kelasId = $item->pembelajaran?->rombel?->kelas_id;
+            $mapelId = $item->pembelajaran?->mata_pelajaran_id;
+
+            $siblings = PengumpulanItem::where('pengumpulan_id', $item->pengumpulan_id)
+                ->whereHas('pembelajaran', fn ($q) => $q
+                    ->where('guru_id', $guruId)
+                    ->where('mata_pelajaran_id', $mapelId)
+                    ->whereHas('rombel', fn ($rq) => $rq->where('kelas_id', $kelasId))
+                )
+                ->get();
+
+            $usedElsewhere = PengumpulanItem::where('file_path', $filePath)
+                ->whereNotIn('id', $siblings->pluck('id'))
+                ->exists();
+            if (!$usedElsewhere) {
+                Storage::disk('public')->delete($filePath);
+            }
+
+            $siblings->each(fn ($s) => $s->update(['file_path' => null, 'tgl_upload' => null]));
+        } else {
+            $sharedCount = PengumpulanItem::where('file_path', $filePath)
                 ->where('id', '!=', $item->id)
                 ->count();
             if ($sharedCount === 0) {
-                Storage::disk('public')->delete($item->file_path);
+                Storage::disk('public')->delete($filePath);
             }
             $item->update(['file_path' => null, 'tgl_upload' => null]);
         }

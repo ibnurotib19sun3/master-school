@@ -370,7 +370,7 @@ function MultiSelectPembelajaran({ options, selected, onChange }) {
 }
 
 /* ── Edit modal ── */
-function ModalEdit({ open, onClose, pengumpulan, pembelajaran }) {
+function ModalEdit({ open, onClose, pengumpulan, pembelajaran, excludedIds = [] }) {
     const toLocalDatetimeInput = (str) => {
         if (!str) return '';
         const d = new Date(str);
@@ -384,7 +384,7 @@ function ModalEdit({ open, onClose, pengumpulan, pembelajaran }) {
         is_aktif: pengumpulan.is_aktif,
         allow_late_upload: pengumpulan.allow_late_upload ?? true,
         format_file: pengumpulan.format_file ?? [],
-        exclude_pembelajaran_ids: [],
+        exclude_pembelajaran_ids: excludedIds,
     });
     const [busy, setBusy] = useState(false);
     const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
@@ -653,7 +653,7 @@ function DownloadProgressOverlay({ pct, total }) {
 }
 
 /* ── Main ── */
-export default function PengumpulanShow({ pengumpulan, items, stats, filters, reportItems = [], pembelajaran = [] }) {
+export default function PengumpulanShow({ pengumpulan, items, stats, filters, reportItems = [], pembelajaran = [], excluded_pembelajaran_ids = [] }) {
     const { props } = usePage();
     const flash = props.flash ?? {};
     const { toasts, show: showToast } = useToast();
@@ -757,44 +757,20 @@ export default function PengumpulanShow({ pengumpulan, items, stats, filters, re
         <AppLayout title={pengumpulan.judul}>
             <div className="space-y-6">
                 {/* Back + Header */}
-                <div className="flex items-start gap-4">
+                <div className="flex items-start gap-3">
                     <Link href="/admin/pengumpulan"
-                        className="mt-0.5 p-2 rounded-lg text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
+                        className="mt-0.5 shrink-0 p-2 rounded-lg text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
                         <ArrowLeft className="h-4 w-4" />
                     </Link>
-                    <div className="flex-1 min-w-0">
-                        <div className="flex items-start justify-between gap-4">
-                            <div>
-                                <h1 className="text-xl font-bold text-gray-900 dark:text-white">{pengumpulan.judul}</h1>
-                                {pengumpulan.deskripsi && (
-                                    <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">{pengumpulan.deskripsi}</p>
-                                )}
-                                <div className="flex flex-wrap items-center gap-2 mt-1.5">
-                                    <span className="flex items-center gap-1.5 text-xs text-gray-500 dark:text-gray-400">
-                                        <Calendar className="h-3.5 w-3.5 shrink-0" />
-                                        {fmtDatetime(pengumpulan.batas_waktu)}
-                                    </span>
-                                    <DeadlineBadge batas_waktu={pengumpulan.batas_waktu} />
-                                    {pengumpulan.tahun_ajaran?.nama && (
-                                        <span className="text-xs text-gray-400 dark:text-gray-500 border-l border-gray-200 dark:border-gray-700 pl-2">
-                                            {pengumpulan.tahun_ajaran.nama}
-                                        </span>
-                                    )}
-                                    {!pengumpulan.allow_late_upload && batasExpired && (
-                                        <span className="inline-flex items-center gap-1 text-xs text-rose-500 dark:text-rose-400">
-                                            <Lock className="h-3 w-3" /> Portal ditutup
-                                        </span>
-                                    )}
-                                </div>
-                            </div>
-                            <div className="flex items-center gap-2 shrink-0">
-                                {/* Download semua */}
+                    <div className="flex-1 min-w-0 space-y-2">
+                        {/* Title + action buttons */}
+                        <div className="flex items-start justify-between gap-3">
+                            <h1 className="text-lg sm:text-xl font-bold text-gray-900 dark:text-white leading-snug">{pengumpulan.judul}</h1>
+                            {/* Buttons — desktop only, will appear below on mobile */}
+                            <div className="hidden sm:flex items-center gap-2 shrink-0">
                                 {stats.uploaded > 0 && (
-                                    <button
-                                        onClick={handleDownloadAll}
-                                        disabled={showDownload}
-                                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-sky-600 text-white hover:bg-sky-700 disabled:opacity-60 transition-colors"
-                                    >
+                                    <button onClick={handleDownloadAll} disabled={showDownload}
+                                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-sky-600 text-white hover:bg-sky-700 disabled:opacity-60 transition-colors">
                                         <ArchiveIcon className="h-3.5 w-3.5" />
                                         Unduh Semua ({stats.uploaded})
                                     </button>
@@ -804,6 +780,45 @@ export default function PengumpulanShow({ pengumpulan, items, stats, filters, re
                                     <Pencil className="h-3.5 w-3.5" /> Edit
                                 </button>
                             </div>
+                        </div>
+
+                        {/* Description */}
+                        {pengumpulan.deskripsi && (
+                            <p className="text-sm text-gray-500 dark:text-gray-400">{pengumpulan.deskripsi}</p>
+                        )}
+
+                        {/* Meta row */}
+                        <div className="flex flex-wrap items-center gap-2">
+                            <span className="flex items-center gap-1.5 text-xs text-gray-500 dark:text-gray-400">
+                                <Calendar className="h-3.5 w-3.5 shrink-0" />
+                                {fmtDatetime(pengumpulan.batas_waktu)}
+                            </span>
+                            <DeadlineBadge batas_waktu={pengumpulan.batas_waktu} />
+                            {pengumpulan.tahun_ajaran?.nama && (
+                                <span className="text-xs text-gray-400 dark:text-gray-500 border-l border-gray-200 dark:border-gray-700 pl-2">
+                                    {pengumpulan.tahun_ajaran.nama}
+                                </span>
+                            )}
+                            {!pengumpulan.allow_late_upload && batasExpired && (
+                                <span className="inline-flex items-center gap-1 text-xs text-rose-500 dark:text-rose-400">
+                                    <Lock className="h-3 w-3" /> Portal ditutup
+                                </span>
+                            )}
+                        </div>
+
+                        {/* Buttons — mobile only, shown below meta */}
+                        <div className="flex sm:hidden items-center gap-2 flex-wrap pt-1">
+                            {stats.uploaded > 0 && (
+                                <button onClick={handleDownloadAll} disabled={showDownload}
+                                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-sky-600 text-white hover:bg-sky-700 disabled:opacity-60 transition-colors">
+                                    <ArchiveIcon className="h-3.5 w-3.5" />
+                                    Unduh ({stats.uploaded})
+                                </button>
+                            )}
+                            <button onClick={() => setShowEdit(true)}
+                                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-sky-600 text-white hover:bg-sky-700 transition-colors shadow-sm shadow-sky-600/20">
+                                <Pencil className="h-3.5 w-3.5" /> Edit
+                            </button>
                         </div>
                     </div>
                 </div>
@@ -943,7 +958,7 @@ export default function PengumpulanShow({ pengumpulan, items, stats, filters, re
                 </Card>
             </div>
 
-            <ModalEdit open={showEdit} onClose={() => setShowEdit(false)} pengumpulan={pengumpulan} pembelajaran={pembelajaran} />
+            <ModalEdit open={showEdit} onClose={() => setShowEdit(false)} pengumpulan={pengumpulan} pembelajaran={pembelajaran} excludedIds={excluded_pembelajaran_ids} />
             <Toast toasts={toasts} />
             {showDownload && <DownloadProgressOverlay pct={downloadPct} total={stats.uploaded} />}
         </AppLayout>
