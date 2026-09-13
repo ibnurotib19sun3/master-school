@@ -494,12 +494,12 @@ export default function AppLayout({ children, title }) {
 
                 <main className="flex-1 px-4 sm:px-6 lg:px-8 py-6">
                     {title && (
-                        <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-6">{title}</h1>
+                        <h1 className="text-lg font-bold text-gray-900 dark:text-gray-100 mb-5">{title}</h1>
                     )}
                     {children}
                 </main>
 
-                <footer className="border-t border-gray-200 dark:border-gray-800 px-6 py-3">
+                <footer className="border-t border-gray-200/80 dark:border-gray-800/80 bg-white dark:bg-gray-900 px-6 py-3">
                     <p className="text-xs text-center text-gray-400 dark:text-gray-600">
                         &copy; {new Date().getFullYear()} APIKMAS DJurnal — Aplikasi Mengajar di Kelas Digital Jurnal
                     </p>

@@ -79,9 +79,9 @@ class PengumpulanController extends Controller
         $kelasId      = $item->pembelajaran?->rombel?->kelas_id;
 
         if ($applyJenjang && $kelasId) {
-            // Upload untuk satu slot dengan nama generik (tanpa rombel)
-            $kelasNama = $item->pembelajaran?->rombel?->kelas?->nama ?? 'kelas';
-            $filename  = $slug($guruNama) . '_' . $slug($mapelNama) . '_' . $slug($kelasNama) . '_' . $timestamp . '.' . $ext;
+            // Satu file untuk semua rombel sejenjang — nama file pakai "semua_rombel"
+            $kelasNama  = $item->pembelajaran?->rombel?->kelas?->nama ?? 'kelas';
+            $filename   = $slug($guruNama) . '_' . $slug($mapelNama) . '_semua_rombel_' . $timestamp . '.' . $ext;
             $masterPath = $request->file('file')->storeAs('pengumpulan', $filename, 'public');
 
             // Temukan semua item sejenjang (guru sama, mapel sama, kelas sama)
@@ -94,25 +94,20 @@ class PengumpulanController extends Controller
                 ->get();
 
             foreach ($sibling as $s) {
-                if ($s->id === $item->id) {
-                    $s->update(['file_path' => $masterPath, 'tgl_upload' => now()]);
-                } else {
-                    // Buat salinan file dengan nama masing-masing rombel
-                    $s->load('pembelajaran.rombel');
-                    $rombelNama = $s->pembelajaran?->rombel?->nama ?? 'kelas';
-                    $copyName   = $slug($guruNama) . '_' . $slug($mapelNama) . '_' . $slug($rombelNama) . '_' . $timestamp . '.' . $ext;
-                    $copyPath   = 'pengumpulan/' . $copyName;
-
-                    if ($s->file_path && Storage::disk('public')->exists($s->file_path)) {
+                // Hapus file lama jika ada dan tidak dibagi dengan item lain
+                if ($s->file_path && $s->file_path !== $masterPath) {
+                    $usedElsewhere = PengumpulanItem::where('file_path', $s->file_path)
+                        ->whereNotIn('id', $sibling->pluck('id'))
+                        ->exists();
+                    if (!$usedElsewhere) {
                         Storage::disk('public')->delete($s->file_path);
                     }
-
-                    Storage::disk('public')->copy($masterPath, $copyPath);
-                    $s->update(['file_path' => $copyPath, 'tgl_upload' => now()]);
                 }
+                // Semua sibling pakai path yang sama (1 file)
+                $s->update(['file_path' => $masterPath, 'tgl_upload' => now()]);
             }
 
-            return back()->with('success', "File berhasil diunggah ke {$sibling->count()} rombel sejenjang.");
+            return back()->with('success', "File berhasil diunggah untuk {$sibling->count()} rombel sejenjang (1 file bersama).");
         }
 
         // Upload normal (satu slot)
@@ -133,7 +128,13 @@ class PengumpulanController extends Controller
         abort_if($item->pembelajaran?->guru_id !== $guruId, 403);
 
         if ($item->file_path) {
-            Storage::disk('public')->delete($item->file_path);
+            // Jika file dipakai item lain (semua_rombel), jangan hapus fisik
+            $sharedCount = PengumpulanItem::where('file_path', $item->file_path)
+                ->where('id', '!=', $item->id)
+                ->count();
+            if ($sharedCount === 0) {
+                Storage::disk('public')->delete($item->file_path);
+            }
             $item->update(['file_path' => null, 'tgl_upload' => null]);
         }
 

@@ -5,15 +5,55 @@ import {
     ArrowLeft, Users, CheckCircle, Clock, AlertCircle,
     Download, Search, RefreshCw, Calendar,
     FolderUp, Copy, MessageCircle, Bell, X,
-    ArchiveIcon, LockOpen, Lock,
+    ArchiveIcon, LockOpen, Lock, Pencil, AlarmClock, Timer,
+    ChevronUp, ChevronDown, ChevronsUpDown,
 } from 'lucide-react';
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 
 function fmtDatetime(str) {
     if (!str) return '—';
     const d = new Date(str);
     return d.toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' })
         + ' ' + d.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
+}
+function fmtDateLong(str) {
+    if (!str) return '';
+    const d = new Date(str);
+    return d.toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
+        + ', ' + d.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
+}
+function deadlineInfo(str) {
+    if (!str) return null;
+    const now  = new Date();
+    const d    = new Date(str);
+    const ms   = d - now;
+    const days = Math.floor(ms / 86400000);
+    const hrs  = Math.floor(ms / 3600000);
+    const mins = Math.floor(ms / 60000);
+    if (ms < 0) {
+        const ago = Math.abs(days);
+        return { label: ago === 0 ? 'Hari ini berakhir' : `${ago} hari lalu`, state: 'expired' };
+    }
+    if (hrs < 1)  return { label: `${mins} menit lagi`, state: 'urgent' };
+    if (hrs < 24) return { label: `${hrs} jam lagi`,    state: 'urgent' };
+    if (days < 4) return { label: `${days} hari lagi`,  state: 'soon'   };
+    return           { label: `${days} hari lagi`,      state: 'ok'     };
+}
+function DeadlineBadge({ batas_waktu }) {
+    const info = deadlineInfo(batas_waktu);
+    if (!info) return null;
+    const cls = {
+        expired: 'bg-rose-100   text-rose-700   dark:bg-rose-900/30   dark:text-rose-400   border border-rose-200   dark:border-rose-800',
+        urgent:  'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400 border border-orange-200 dark:border-orange-800',
+        soon:    'bg-amber-100  text-amber-700  dark:bg-amber-900/30  dark:text-amber-400  border border-amber-200  dark:border-amber-800',
+        ok:      'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800',
+    }[info.state];
+    const Icon = info.state === 'expired' ? AlertCircle : Timer;
+    return (
+        <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] font-semibold leading-tight ${cls}`}>
+            <Icon className="h-2.5 w-2.5 shrink-0" />{info.label}
+        </span>
+    );
 }
 
 const STATUS_STYLES = {
@@ -26,6 +66,32 @@ const STATUS_ICON = {
     'Terlambat':   AlertCircle,
     'Belum':       Clock,
 };
+
+const STATUS_ORDER = { 'Belum': 0, 'Tepat Waktu': 1, 'Terlambat': 2 };
+
+function SortTh({ label, col, sortCol, sortDir, onSort, className = '' }) {
+    const active = sortCol === col;
+    return (
+        <th className={`px-4 py-3 text-left ${className}`}>
+            <button
+                type="button"
+                onClick={() => onSort(col)}
+                className="inline-flex items-center gap-1 font-semibold text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 transition-colors group"
+            >
+                {label}
+                <span className="flex flex-col shrink-0">
+                    {active ? (
+                        sortDir === 'asc'
+                            ? <ChevronUp className="h-3 w-3 text-sky-500" />
+                            : <ChevronDown className="h-3 w-3 text-sky-500" />
+                    ) : (
+                        <ChevronsUpDown className="h-3 w-3 text-gray-300 dark:text-gray-600 group-hover:text-gray-400 dark:group-hover:text-gray-500" />
+                    )}
+                </span>
+            </button>
+        </th>
+    );
+}
 
 function fmtBatas(str) {
     if (!str) return '—';
@@ -227,8 +293,84 @@ function Toggle({ checked, onChange, id }) {
     );
 }
 
+/* ── Multi-select pembelajaran untuk pengecualian (sama seperti Create) ── */
+function MultiSelectPembelajaran({ options, selected, onChange }) {
+    const [open, setOpen] = useState(false);
+    const [q, setQ]       = useState('');
+    const ref             = useRef();
+
+    useEffect(() => {
+        const handler = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
+        document.addEventListener('mousedown', handler);
+        return () => document.removeEventListener('mousedown', handler);
+    }, []);
+
+    const filtered = options.filter(o => o.label.toLowerCase().includes(q.toLowerCase()));
+    const toggle   = (id) => onChange(selected.includes(id) ? selected.filter(x => x !== id) : [...selected, id]);
+
+    return (
+        <div className="relative" ref={ref}>
+            <button type="button" onClick={() => setOpen(v => !v)}
+                className="w-full min-h-9 flex items-center justify-between gap-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-left focus:outline-none focus:ring-2 focus:ring-amber-500">
+                <span className="flex-1 min-w-0 text-sm">
+                    {selected.length === 0
+                        ? <span className="text-gray-400 dark:text-gray-500">— Tidak ada pengecualian —</span>
+                        : <span className="text-amber-700 dark:text-amber-400">{selected.length} dikecualikan</span>}
+                </span>
+                <span className="text-gray-400 text-xs shrink-0">▼</span>
+            </button>
+
+            {selected.length > 0 && (
+                <div className="flex flex-wrap gap-1 mt-1.5">
+                    {options.filter(o => selected.includes(o.id)).map(o => (
+                        <span key={o.id} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 border border-amber-200/70 dark:border-amber-800/50">
+                            <span className="truncate max-w-40">{o.label}</span>
+                            <button type="button" onClick={() => toggle(o.id)} className="shrink-0 hover:text-amber-900 dark:hover:text-amber-100">
+                                <X className="h-3 w-3" />
+                            </button>
+                        </span>
+                    ))}
+                    <button type="button" onClick={() => onChange([])} className="text-xs text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 px-1">Reset</button>
+                </div>
+            )}
+
+            {open && (
+                <div className="absolute z-50 mt-1 w-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-lg overflow-hidden">
+                    <div className="p-2 border-b border-gray-100 dark:border-gray-700">
+                        <div className="relative">
+                            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400" />
+                            <input autoFocus type="text" value={q} onChange={e => setQ(e.target.value)}
+                                placeholder="Cari pembelajaran…"
+                                className="w-full pl-8 pr-3 py-1.5 rounded-lg text-xs bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 text-gray-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-amber-500" />
+                        </div>
+                    </div>
+                    <div className="max-h-48 overflow-y-auto">
+                        {filtered.length === 0
+                            ? <p className="px-3 py-4 text-center text-xs text-gray-400">Tidak ditemukan</p>
+                            : filtered.map(o => (
+                                <button key={o.id} type="button" onClick={() => toggle(o.id)}
+                                    className={`w-full flex items-center gap-2 px-3 py-2 text-xs text-left transition-colors ${
+                                        selected.includes(o.id)
+                                            ? 'bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-300'
+                                            : 'hover:bg-gray-50 dark:hover:bg-gray-700/50 text-gray-700 dark:text-gray-300'
+                                    }`}>
+                                    <span className={`h-4 w-4 rounded border flex items-center justify-center shrink-0 ${
+                                        selected.includes(o.id) ? 'bg-amber-500 border-amber-500' : 'border-gray-300 dark:border-gray-600'
+                                    }`}>
+                                        {selected.includes(o.id) && <X className="h-2.5 w-2.5 text-white" />}
+                                    </span>
+                                    <span className="truncate">{o.label}</span>
+                                </button>
+                            ))}
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+}
+
 /* ── Edit modal ── */
-function ModalEdit({ open, onClose, pengumpulan }) {
+function ModalEdit({ open, onClose, pengumpulan, pembelajaran }) {
     const [form, setForm] = useState({
         judul: pengumpulan.judul,
         deskripsi: pengumpulan.deskripsi ?? '',
@@ -236,6 +378,7 @@ function ModalEdit({ open, onClose, pengumpulan }) {
         is_aktif: pengumpulan.is_aktif,
         allow_late_upload: pengumpulan.allow_late_upload ?? true,
         format_file: pengumpulan.format_file ?? [],
+        exclude_pembelajaran_ids: [],
     });
     const [busy, setBusy] = useState(false);
     const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
@@ -254,18 +397,16 @@ function ModalEdit({ open, onClose, pengumpulan }) {
         });
     };
 
-    const isExpired = pengumpulan.batas_waktu && new Date(pengumpulan.batas_waktu) < new Date();
-
     if (!open) return null;
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-            <div className="w-full max-w-2xl bg-white dark:bg-gray-900 rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+            <div className="w-full max-w-3xl bg-white dark:bg-gray-900 rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
 
                 {/* Header */}
-                <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between shrink-0 bg-linear-to-r from-sky-50 to-indigo-50 dark:from-sky-900/20 dark:to-indigo-900/20">
+                <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between shrink-0">
                     <div className="flex items-center gap-3">
                         <div className="p-2 rounded-xl bg-sky-100 dark:bg-sky-800/50">
-                            <FolderUp className="h-4 w-4 text-sky-600 dark:text-sky-400" />
+                            <Pencil className="h-4 w-4 text-sky-600 dark:text-sky-400" />
                         </div>
                         <div>
                             <h2 className="text-sm font-semibold text-gray-900 dark:text-white">Edit Pengumpulan</h2>
@@ -300,17 +441,25 @@ function ModalEdit({ open, onClose, pengumpulan }) {
                                         className="w-full rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 px-3 py-2.5 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-sky-500 focus:border-transparent transition-colors resize-none placeholder-gray-400" />
                                 </div>
 
+                                {/* Batas waktu — prominent */}
                                 <div>
-                                    <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1.5">
-                                        <span className="flex items-center gap-1.5">
-                                            <Calendar className="h-3.5 w-3.5" /> Batas Waktu Upload
-                                        </span>
+                                    <label className="flex items-center gap-1.5 text-xs font-semibold text-rose-600 dark:text-rose-400 mb-1.5">
+                                        <AlarmClock className="h-3.5 w-3.5" />
+                                        Batas Waktu <span className="text-rose-500">*</span>
                                     </label>
-                                    <input type="datetime-local" value={form.batas_waktu} onChange={e => set('batas_waktu', e.target.value)} required
-                                        className="w-full rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 px-3 py-2.5 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-sky-500 focus:border-transparent transition-colors" />
-                                    {isExpired && (
-                                        <p className="mt-1 text-xs text-rose-500 flex items-center gap-1">
-                                            <AlertCircle className="h-3 w-3" /> Batas waktu sudah terlewati
+                                    <div className="rounded-xl border-2 border-rose-300 dark:border-rose-700/70 focus-within:border-rose-500 dark:focus-within:border-rose-500 overflow-hidden transition-colors bg-rose-50/40 dark:bg-rose-900/10">
+                                        <div className="flex items-center gap-2 px-3 pt-2 pb-1 border-b border-rose-200/60 dark:border-rose-800/40">
+                                            <div className="h-2 w-2 rounded-full bg-rose-400 dark:bg-rose-500 animate-pulse" />
+                                            <span className="text-[10px] font-bold text-rose-500 dark:text-rose-400 uppercase tracking-wider">Deadline</span>
+                                            <DeadlineBadge batas_waktu={pengumpulan.batas_waktu} />
+                                        </div>
+                                        <input type="datetime-local" value={form.batas_waktu} onChange={e => set('batas_waktu', e.target.value)} required
+                                            className="w-full px-3 py-2.5 text-sm text-gray-900 dark:text-white bg-transparent focus:outline-none" />
+                                    </div>
+                                    {form.batas_waktu && (
+                                        <p className="mt-1.5 text-[11px] text-rose-500 dark:text-rose-400 flex items-center gap-1.5 font-medium">
+                                            <Clock className="h-3 w-3 shrink-0" />
+                                            {fmtDateLong(form.batas_waktu)}
                                         </p>
                                     )}
                                 </div>
@@ -377,6 +526,27 @@ function ModalEdit({ open, onClose, pengumpulan }) {
                                         <p className="text-xs text-gray-400 mt-2 italic">Kosongkan untuk menerima semua format</p>
                                     )}
                                 </div>
+
+                                <div className="border-t border-gray-100 dark:border-gray-800" />
+
+                                {/* Pengecualian pembelajaran */}
+                                <div>
+                                    <div className="rounded-xl bg-amber-50/60 dark:bg-amber-900/10 border border-amber-200/60 dark:border-amber-800/40 p-3 space-y-2">
+                                        <div>
+                                            <p className="text-xs font-medium text-amber-700 dark:text-amber-400">
+                                                Pengecualian Pembelajaran
+                                            </p>
+                                            <p className="text-[11px] text-amber-600/70 dark:text-amber-500/70 mt-0.5">
+                                                Pembelajaran yang dikecualikan <strong>tidak</strong> akan ditambahkan sebagai slot baru
+                                            </p>
+                                        </div>
+                                        <MultiSelectPembelajaran
+                                            options={pembelajaran}
+                                            selected={form.exclude_pembelajaran_ids}
+                                            onChange={v => set('exclude_pembelajaran_ids', v)}
+                                        />
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -384,7 +554,11 @@ function ModalEdit({ open, onClose, pengumpulan }) {
                     {/* Footer */}
                     <div className="px-6 py-4 border-t border-gray-200 dark:border-gray-700 flex items-center justify-between gap-3 shrink-0 bg-gray-50/80 dark:bg-gray-800/40">
                         <div className="text-xs text-gray-400 dark:text-gray-500">
-                            {form.is_aktif ? (
+                            {form.exclude_pembelajaran_ids.length > 0 ? (
+                                <span className="flex items-center gap-1 text-amber-500">
+                                    <AlertCircle className="h-3.5 w-3.5" /> {form.exclude_pembelajaran_ids.length} pembelajaran dikecualikan
+                                </span>
+                            ) : form.is_aktif ? (
                                 <span className="flex items-center gap-1 text-emerald-500"><CheckCircle className="h-3.5 w-3.5" /> Pengumpulan aktif</span>
                             ) : (
                                 <span className="flex items-center gap-1"><Clock className="h-3.5 w-3.5" /> Nonaktif — tidak tampil untuk guru</span>
@@ -397,7 +571,7 @@ function ModalEdit({ open, onClose, pengumpulan }) {
                             </button>
                             <button type="submit" disabled={busy}
                                 className="px-5 py-2 rounded-xl text-sm font-semibold bg-sky-600 text-white hover:bg-sky-700 disabled:opacity-60 transition-colors flex items-center gap-2">
-                                {busy ? <><RefreshCw className="h-3.5 w-3.5 animate-spin" /> Menyimpan…</> : 'Simpan Perubahan'}
+                                {busy ? <><RefreshCw className="h-3.5 w-3.5 animate-spin" /> Menyimpan…</> : <><Pencil className="h-3.5 w-3.5" /> Simpan Perubahan</>}
                             </button>
                         </div>
                     </div>
@@ -471,7 +645,7 @@ function DownloadProgressOverlay({ pct, total }) {
 }
 
 /* ── Main ── */
-export default function PengumpulanShow({ pengumpulan, items, stats, filters, reportItems = [] }) {
+export default function PengumpulanShow({ pengumpulan, items, stats, filters, reportItems = [], pembelajaran = [] }) {
     const { props } = usePage();
     const flash = props.flash ?? {};
     const { toasts, show: showToast } = useToast();
@@ -535,6 +709,42 @@ export default function PengumpulanShow({ pengumpulan, items, stats, filters, re
 
     const batasExpired = new Date(pengumpulan.batas_waktu) < new Date();
 
+    const [sortCol, setSortCol] = useState(null);
+    const [sortDir, setSortDir] = useState('asc');
+
+    const toggleSort = (col) => {
+        if (sortCol === col) {
+            setSortDir(d => d === 'asc' ? 'desc' : 'asc');
+        } else {
+            setSortCol(col);
+            setSortDir('asc');
+        }
+    };
+
+    const sortedItems = useMemo(() => {
+        if (!sortCol) return items;
+        return [...items].sort((a, b) => {
+            if (sortCol === 'nama') {
+                const va = a.pembelajaran?.guru?.user?.name ?? '';
+                const vb = b.pembelajaran?.guru?.user?.name ?? '';
+                const cmp = va.localeCompare(vb, 'id');
+                return sortDir === 'asc' ? cmp : -cmp;
+            }
+            if (sortCol === 'tgl_upload') {
+                const nullVal = sortDir === 'asc' ? Infinity : -Infinity;
+                const va = a.tgl_upload ? new Date(a.tgl_upload).getTime() : nullVal;
+                const vb = b.tgl_upload ? new Date(b.tgl_upload).getTime() : nullVal;
+                return sortDir === 'asc' ? va - vb : vb - va;
+            }
+            if (sortCol === 'status') {
+                const va = STATUS_ORDER[a.status] ?? 99;
+                const vb = STATUS_ORDER[b.status] ?? 99;
+                return sortDir === 'asc' ? va - vb : vb - va;
+            }
+            return 0;
+        });
+    }, [items, sortCol, sortDir]);
+
     return (
         <AppLayout title={pengumpulan.judul}>
             <div className="space-y-6">
@@ -551,16 +761,20 @@ export default function PengumpulanShow({ pengumpulan, items, stats, filters, re
                                 {pengumpulan.deskripsi && (
                                     <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">{pengumpulan.deskripsi}</p>
                                 )}
-                                <div className="flex items-center gap-3 mt-1.5 text-xs text-gray-400 dark:text-gray-500">
-                                    <span className="flex items-center gap-1">
-                                        <Calendar className="h-3.5 w-3.5" />
-                                        Batas: {fmtDatetime(pengumpulan.batas_waktu)}
-                                        {batasExpired && <span className="ml-1 text-rose-500">(kedaluwarsa)</span>}
+                                <div className="flex flex-wrap items-center gap-2 mt-1.5">
+                                    <span className="flex items-center gap-1.5 text-xs text-gray-500 dark:text-gray-400">
+                                        <Calendar className="h-3.5 w-3.5 shrink-0" />
+                                        {fmtDatetime(pengumpulan.batas_waktu)}
                                     </span>
-                                    <span>{pengumpulan.tahun_ajaran?.nama}</span>
+                                    <DeadlineBadge batas_waktu={pengumpulan.batas_waktu} />
+                                    {pengumpulan.tahun_ajaran?.nama && (
+                                        <span className="text-xs text-gray-400 dark:text-gray-500 border-l border-gray-200 dark:border-gray-700 pl-2">
+                                            {pengumpulan.tahun_ajaran.nama}
+                                        </span>
+                                    )}
                                     {!pengumpulan.allow_late_upload && batasExpired && (
-                                        <span className="inline-flex items-center gap-1 text-rose-500">
-                                            <Lock className="h-3 w-3" /> Portal upload ditutup
+                                        <span className="inline-flex items-center gap-1 text-xs text-rose-500 dark:text-rose-400">
+                                            <Lock className="h-3 w-3" /> Portal ditutup
                                         </span>
                                     )}
                                 </div>
@@ -578,8 +792,8 @@ export default function PengumpulanShow({ pengumpulan, items, stats, filters, re
                                     </button>
                                 )}
                                 <button onClick={() => setShowEdit(true)}
-                                    className="px-3 py-1.5 rounded-lg text-xs font-medium text-gray-600 dark:text-gray-400 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors">
-                                    Edit
+                                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-sky-600 text-white hover:bg-sky-700 transition-colors shadow-sm shadow-sky-600/20">
+                                    <Pencil className="h-3.5 w-3.5" /> Edit
                                 </button>
                             </div>
                         </div>
@@ -661,11 +875,11 @@ export default function PengumpulanShow({ pengumpulan, items, stats, filters, re
                                 <table className="w-full text-sm">
                                     <thead>
                                         <tr className="border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
-                                            <th className="text-left px-4 py-3 font-semibold text-gray-600 dark:text-gray-400">Guru</th>
+                                            <SortTh label="Guru" col="nama" sortCol={sortCol} sortDir={sortDir} onSort={toggleSort} />
                                             <th className="text-left px-4 py-3 font-semibold text-gray-600 dark:text-gray-400">Mata Pelajaran</th>
                                             <th className="text-left px-4 py-3 font-semibold text-gray-600 dark:text-gray-400">Rombel</th>
-                                            <th className="text-left px-4 py-3 font-semibold text-gray-600 dark:text-gray-400">Status</th>
-                                            <th className="text-left px-4 py-3 font-semibold text-gray-600 dark:text-gray-400">Tgl Upload</th>
+                                            <SortTh label="Status" col="status" sortCol={sortCol} sortDir={sortDir} onSort={toggleSort} />
+                                            <SortTh label="Tgl Upload" col="tgl_upload" sortCol={sortCol} sortDir={sortDir} onSort={toggleSort} />
                                             {batasExpired && !pengumpulan.allow_late_upload && (
                                                 <th className="text-left px-4 py-3 font-semibold text-gray-600 dark:text-gray-400">Portal</th>
                                             )}
@@ -673,7 +887,7 @@ export default function PengumpulanShow({ pengumpulan, items, stats, filters, re
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
-                                        {items.map(item => {
+                                        {sortedItems.map(item => {
                                             const StatusIcon = STATUS_ICON[item.status] ?? Clock;
                                             return (
                                                 <tr key={item.id} className="hover:bg-gray-50/50 dark:hover:bg-gray-800/30 transition-colors">
@@ -721,7 +935,7 @@ export default function PengumpulanShow({ pengumpulan, items, stats, filters, re
                 </Card>
             </div>
 
-            <ModalEdit open={showEdit} onClose={() => setShowEdit(false)} pengumpulan={pengumpulan} />
+            <ModalEdit open={showEdit} onClose={() => setShowEdit(false)} pengumpulan={pengumpulan} pembelajaran={pembelajaran} />
             <Toast toasts={toasts} />
             {showDownload && <DownloadProgressOverlay pct={downloadPct} total={stats.uploaded} />}
         </AppLayout>

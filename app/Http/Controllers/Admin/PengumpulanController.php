@@ -38,21 +38,39 @@ class PengumpulanController extends Controller
             'tahunAjaran'   => TahunAjaran::orderByDesc('tanggal_mulai')->get(['id', 'nama']),
             'mataPelajaran' => MataPelajaran::where('is_aktif', true)->orderBy('nama')->get(['id', 'nama']),
             'formatOptions' => self::FORMAT_MAP,
+            'pembelajaran'  => Pembelajaran::with([
+                                    'mataPelajaran:id,nama',
+                                    'rombel:id,nama,kelas_id',
+                                    'rombel.kelas:id,nama',
+                                    'guru.user:id,name',
+                                ])
+                                ->where('is_aktif', true)
+                                ->get(['id', 'tahun_ajaran_id', 'mata_pelajaran_id', 'rombel_id', 'guru_id'])
+                                ->map(fn ($p) => [
+                                    'id'              => $p->id,
+                                    'tahun_ajaran_id' => $p->tahun_ajaran_id,
+                                    'label'           => ($p->mataPelajaran?->nama ?? '—')
+                                                       . ' — ' . ($p->rombel?->nama ?? '—')
+                                                       . ' (' . ($p->rombel?->kelas?->nama ?? '—') . ')'
+                                                       . ' · ' . ($p->guru?->user?->name ?? '—'),
+                                ]),
         ]);
     }
 
     public function store(Request $request)
     {
         $data = $request->validate([
-            'judul'              => 'required|string|max:255',
-            'deskripsi'          => 'nullable|string',
-            'batas_waktu'        => 'required|date',
-            'tahun_ajaran_id'    => 'required|exists:tahun_ajaran,id',
-            'mata_pelajaran_ids' => 'nullable|array',
-            'mata_pelajaran_ids.*' => 'exists:mata_pelajaran,id',
-            'format_file'        => 'nullable|array',
-            'format_file.*'      => 'string|in:pdf,word,excel,ppt,image,zip',
-            'allow_late_upload'  => 'boolean',
+            'judul'                      => 'required|string|max:255',
+            'deskripsi'                  => 'nullable|string',
+            'batas_waktu'                => 'required|date',
+            'tahun_ajaran_id'            => 'required|exists:tahun_ajaran,id',
+            'mata_pelajaran_ids'         => 'nullable|array',
+            'mata_pelajaran_ids.*'       => 'exists:mata_pelajaran,id',
+            'exclude_pembelajaran_ids'   => 'nullable|array',
+            'exclude_pembelajaran_ids.*' => 'exists:pembelajaran,id',
+            'format_file'                => 'nullable|array',
+            'format_file.*'              => 'string|in:pdf,word,excel,ppt,image,zip',
+            'allow_late_upload'          => 'boolean',
         ]);
 
         $pengumpulan = Pengumpulan::create([
@@ -70,6 +88,10 @@ class PengumpulanController extends Controller
 
         if (!empty($data['mata_pelajaran_ids'])) {
             $query->whereIn('mata_pelajaran_id', $data['mata_pelajaran_ids']);
+        }
+
+        if (!empty($data['exclude_pembelajaran_ids'])) {
+            $query->whereNotIn('id', $data['exclude_pembelajaran_ids']);
         }
 
         $items = $query->get()->map(fn ($p) => [
@@ -128,28 +150,84 @@ class PengumpulanController extends Controller
                             ->where('tgl_upload', '>', $pengumpulan->batas_waktu)->count(),
         ];
 
+        $pembelajaran = Pembelajaran::with([
+                            'mataPelajaran:id,nama',
+                            'rombel:id,nama,kelas_id',
+                            'rombel.kelas:id,nama',
+                            'guru.user:id,name',
+                        ])
+                        ->where('tahun_ajaran_id', $pengumpulan->tahun_ajaran_id)
+                        ->where('is_aktif', true)
+                        ->get(['id', 'tahun_ajaran_id', 'mata_pelajaran_id', 'rombel_id', 'guru_id'])
+                        ->map(fn ($p) => [
+                            'id'              => $p->id,
+                            'tahun_ajaran_id' => $p->tahun_ajaran_id,
+                            'label'           => ($p->mataPelajaran?->nama ?? '—')
+                                               . ' — ' . ($p->rombel?->nama ?? '—')
+                                               . ' (' . ($p->rombel?->kelas?->nama ?? '—') . ')'
+                                               . ' · ' . ($p->guru?->user?->name ?? '—'),
+                        ]);
+
         return Inertia::render('Admin/Pengumpulan/Show', [
             'pengumpulan' => $pengumpulan->load('tahunAjaran:id,nama'),
             'items'       => $items,
             'stats'       => $stats,
             'filters'     => $request->only('status', 'search'),
             'reportItems' => $reportItems,
+            'pembelajaran' => $pembelajaran,
         ]);
     }
 
     public function update(Request $request, Pengumpulan $pengumpulan)
     {
         $data = $request->validate([
-            'judul'             => 'required|string|max:255',
-            'deskripsi'         => 'nullable|string',
-            'batas_waktu'       => 'required|date',
-            'is_aktif'          => 'boolean',
-            'allow_late_upload' => 'boolean',
-            'format_file'       => 'nullable|array',
-            'format_file.*'     => 'string|in:pdf,word,excel,ppt,image,zip',
+            'judul'                      => 'required|string|max:255',
+            'deskripsi'                  => 'nullable|string',
+            'batas_waktu'                => 'required|date',
+            'is_aktif'                   => 'boolean',
+            'allow_late_upload'          => 'boolean',
+            'format_file'                => 'nullable|array',
+            'format_file.*'              => 'string|in:pdf,word,excel,ppt,image,zip',
+            'exclude_pembelajaran_ids'   => 'nullable|array',
+            'exclude_pembelajaran_ids.*' => 'exists:pembelajaran,id',
         ]);
-        $pengumpulan->update($data);
-        return back()->with('success', 'Pengumpulan berhasil diperbarui.');
+
+        $pengumpulan->update([
+            'judul'             => $data['judul'],
+            'deskripsi'         => $data['deskripsi'] ?? null,
+            'batas_waktu'       => $data['batas_waktu'],
+            'is_aktif'          => $data['is_aktif'] ?? $pengumpulan->is_aktif,
+            'allow_late_upload' => $data['allow_late_upload'] ?? $pengumpulan->allow_late_upload,
+            'format_file'       => !empty($data['format_file']) ? $data['format_file'] : null,
+        ]);
+
+        // Tambah slot baru untuk pembelajaran yang belum ada di pengumpulan ini
+        $existingIds = PengumpulanItem::where('pengumpulan_id', $pengumpulan->id)
+            ->pluck('pembelajaran_id')
+            ->toArray();
+
+        $query = Pembelajaran::where('tahun_ajaran_id', $pengumpulan->tahun_ajaran_id)
+            ->where('is_aktif', true)
+            ->whereNotIn('id', $existingIds);
+
+        if (!empty($data['exclude_pembelajaran_ids'])) {
+            $query->whereNotIn('id', $data['exclude_pembelajaran_ids']);
+        }
+
+        $newItems = $query->get()->map(fn ($p) => [
+            'pengumpulan_id'  => $pengumpulan->id,
+            'pembelajaran_id' => $p->id,
+            'created_at'      => now(),
+            'updated_at'      => now(),
+        ])->toArray();
+
+        if (!empty($newItems)) {
+            PengumpulanItem::insert($newItems);
+        }
+
+        $msg = 'Pengumpulan berhasil diperbarui.';
+        if (!empty($newItems)) $msg .= ' ' . count($newItems) . ' slot baru ditambahkan.';
+        return back()->with('success', $msg);
     }
 
     public function destroy(Pengumpulan $pengumpulan)

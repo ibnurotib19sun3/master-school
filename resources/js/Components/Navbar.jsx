@@ -161,10 +161,10 @@ export default function Navbar({ onMenuClick }) {
 
     return (
         <>
-            <header className="sticky top-0 z-10 flex h-16 items-center gap-4 border-b border-gray-200/70 dark:border-white/6 bg-white/80 dark:bg-gray-950/80 backdrop-blur-xl px-4">
+            <header className="sticky top-0 z-10 flex h-16 items-center gap-3 border-b border-gray-200/80 dark:border-gray-800/80 bg-white dark:bg-gray-900 px-4">
                 <button
                     onClick={onMenuClick}
-                    className="lg:hidden rounded-xl p-2 text-gray-400 dark:text-gray-500 hover:bg-gray-100 dark:hover:bg-white/6 transition-colors"
+                    className="lg:hidden rounded-lg p-2 text-gray-400 dark:text-gray-500 hover:bg-gray-100 dark:hover:bg-white/6 transition-colors"
                 >
                     <Menu className="h-5 w-5" />
                 </button>
@@ -178,7 +178,7 @@ export default function Navbar({ onMenuClick }) {
                     <div ref={notifRef}>
                         <button
                             onClick={() => setNotifOpen(!notifOpen)}
-                            className="rounded-xl p-2 text-gray-400 dark:text-gray-500 hover:bg-gray-100 dark:hover:bg-white/6 transition-colors relative"
+                            className="rounded-lg p-2 text-gray-400 dark:text-gray-500 hover:bg-gray-100 dark:hover:bg-white/6 transition-colors relative"
                         >
                             <Bell className="h-5 w-5" />
                             {totalCount > 0 && (
@@ -240,7 +240,7 @@ export default function Navbar({ onMenuClick }) {
                     <div className="relative" ref={dropdownRef}>
                         <button
                             onClick={() => setDropdownOpen(!dropdownOpen)}
-                            className="flex items-center gap-2.5 rounded-xl px-2 py-1.5 hover:bg-gray-100 dark:hover:bg-white/6 transition-colors"
+                            className="flex items-center gap-2.5 rounded-lg px-2 py-1.5 hover:bg-gray-100 dark:hover:bg-white/6 transition-colors"
                         >
                             <img
                                 src={user?.avatar_url}
