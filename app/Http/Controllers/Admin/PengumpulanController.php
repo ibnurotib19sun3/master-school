@@ -201,6 +201,15 @@ class PengumpulanController extends Controller
             'format_file'       => !empty($data['format_file']) ? $data['format_file'] : null,
         ]);
 
+        // Hapus slot existing yang dikecualikan (hanya yang belum ada file)
+        $removed = 0;
+        if (!empty($data['exclude_pembelajaran_ids'])) {
+            $removed = PengumpulanItem::where('pengumpulan_id', $pengumpulan->id)
+                ->whereIn('pembelajaran_id', $data['exclude_pembelajaran_ids'])
+                ->whereNull('file_path')
+                ->delete();
+        }
+
         // Tambah slot baru untuk pembelajaran yang belum ada di pengumpulan ini
         $existingIds = PengumpulanItem::where('pengumpulan_id', $pengumpulan->id)
             ->pluck('pembelajaran_id')
@@ -226,6 +235,7 @@ class PengumpulanController extends Controller
         }
 
         $msg = 'Pengumpulan berhasil diperbarui.';
+        if ($removed > 0)      $msg .= " {$removed} slot dikecualikan.";
         if (!empty($newItems)) $msg .= ' ' . count($newItems) . ' slot baru ditambahkan.';
         return back()->with('success', $msg);
     }

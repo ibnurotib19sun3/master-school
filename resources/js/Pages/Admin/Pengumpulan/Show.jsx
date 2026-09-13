@@ -371,10 +371,16 @@ function MultiSelectPembelajaran({ options, selected, onChange }) {
 
 /* ── Edit modal ── */
 function ModalEdit({ open, onClose, pengumpulan, pembelajaran }) {
+    const toLocalDatetimeInput = (str) => {
+        if (!str) return '';
+        const d = new Date(str);
+        return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+    };
+
     const [form, setForm] = useState({
         judul: pengumpulan.judul,
         deskripsi: pengumpulan.deskripsi ?? '',
-        batas_waktu: pengumpulan.batas_waktu?.slice(0, 16) ?? '',
+        batas_waktu: toLocalDatetimeInput(pengumpulan.batas_waktu),
         is_aktif: pengumpulan.is_aktif,
         allow_late_upload: pengumpulan.allow_late_upload ?? true,
         format_file: pengumpulan.format_file ?? [],
@@ -393,7 +399,9 @@ function ModalEdit({ open, onClose, pengumpulan, pembelajaran }) {
     const handleSubmit = (e) => {
         e.preventDefault(); setBusy(true);
         router.put(`/admin/pengumpulan/${pengumpulan.id}`, form, {
-            onFinish: () => { setBusy(false); onClose(); },
+            preserveScroll: true,
+            onSuccess: () => onClose(),
+            onFinish: () => setBusy(false),
         });
     };
 
