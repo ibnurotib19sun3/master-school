@@ -387,6 +387,7 @@ function ModalEdit({ open, onClose, pengumpulan, pembelajaran, excludedIds = [] 
         exclude_pembelajaran_ids: excludedIds,
     });
     const [busy, setBusy] = useState(false);
+    const [errorMsg, setErrorMsg] = useState('');
     const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
 
     const toggleFormat = (key) => {
@@ -397,10 +398,14 @@ function ModalEdit({ open, onClose, pengumpulan, pembelajaran, excludedIds = [] 
     };
 
     const handleSubmit = (e) => {
-        e.preventDefault(); setBusy(true);
+        e.preventDefault(); setBusy(true); setErrorMsg('');
         router.put(`/admin/pengumpulan/${pengumpulan.id}`, form, {
             preserveScroll: true,
             onSuccess: () => onClose(),
+            onError: (errors) => {
+                const first = Object.values(errors)[0];
+                setErrorMsg(first || 'Gagal menyimpan perubahan. Silakan coba lagi.');
+            },
             onFinish: () => setBusy(false),
         });
     };
@@ -560,7 +565,12 @@ function ModalEdit({ open, onClose, pengumpulan, pembelajaran, excludedIds = [] 
                     </div>
 
                     {/* Footer */}
-                    <div className="px-6 py-4 border-t border-gray-200 dark:border-gray-700 flex items-center justify-between gap-3 shrink-0 bg-gray-50/80 dark:bg-gray-800/40">
+                    <div className="relative px-6 py-4 border-t border-gray-200 dark:border-gray-700 flex items-center justify-between gap-3 shrink-0 bg-gray-50/80 dark:bg-gray-800/40">
+                        {errorMsg && (
+                            <div className="absolute left-6 right-6 -translate-y-[calc(100%+8px)] rounded-lg bg-rose-50 dark:bg-rose-900/30 border border-rose-200 dark:border-rose-800 px-3 py-2 text-xs text-rose-600 dark:text-rose-400 flex items-center gap-1.5">
+                                <AlertCircle className="h-3.5 w-3.5 shrink-0" /> {errorMsg}
+                            </div>
+                        )}
                         <div className="text-xs text-gray-400 dark:text-gray-500">
                             {form.exclude_pembelajaran_ids.length > 0 ? (
                                 <span className="flex items-center gap-1 text-amber-500">
