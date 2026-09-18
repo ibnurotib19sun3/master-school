@@ -2,13 +2,16 @@
 
 namespace App\Http\Controllers\Admin;
 
+use App\Exports\TatausahaTemplateExport;
 use App\Http\Controllers\Controller;
+use App\Imports\TatausahaImport;
 use App\Models\Tatausaha;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Inertia\Inertia;
+use Maatwebsite\Excel\Facades\Excel;
 
 class TatausahaController extends Controller
 {
@@ -16,7 +19,7 @@ class TatausahaController extends Controller
     {
         $tatausaha = Tatausaha::with('user')
             ->when($request->search, fn ($q) => $q->whereHas('user', fn ($u) => $u->where('name', 'like', "%{$request->search}%")))
-            ->paginate(15)
+            ->paginate($this->resolvePerPage($request))
             ->withQueryString();
 
         // User yang belum punya record tatausaha (aktif) — untuk opsi merangkap
@@ -35,9 +38,39 @@ class TatausahaController extends Controller
 
         return Inertia::render('Admin/Tatausaha/Index', [
             'tatausaha'      => $tatausaha,
-            'filters'        => $request->only('search'),
+            'filters'        => $request->only('search', 'per_page'),
             'availableUsers' => $availableUsers,
         ]);
+    }
+
+    public function importTemplate()
+    {
+        return Excel::download(new TatausahaTemplateExport(), 'template_import_tatausaha.xlsx');
+    }
+
+    public function import(Request $request)
+    {
+        $request->validate(['file' => 'required|file|mimes:xlsx,xls,csv|max:5120']);
+
+        $import = new TatausahaImport();
+
+        try {
+            Excel::import($import, $request->file('file'));
+        } catch (\Throwable $e) {
+            return back()->withErrors(['file' => 'Gagal membaca file: ' . $e->getMessage()]);
+        }
+
+        $msg = "Import selesai: {$import->imported} berhasil";
+        if ($import->duplikat) $msg .= ", {$import->duplikat} duplikat dilewati";
+        if ($import->skipped)  $msg .= ", {$import->skipped} baris dilewati";
+        $msg .= '.';
+
+        $sessionData = ['success' => $msg];
+        if ($import->errors) {
+            $sessionData['import_errors'] = array_slice($import->errors, 0, 10);
+        }
+
+        return back()->with($sessionData);
     }
 
     public function store(Request $request)

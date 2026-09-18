@@ -6,12 +6,22 @@ import Badge from '@/Components/ui/Badge';
 import Modal from '@/Components/ui/Modal';
 import ConfirmDialog from '@/Components/ui/ConfirmDialog';
 import { Input, Select } from '@/Components/ui/Input';
-import { Plus, Search, Edit, Trash2, Briefcase, UserPlus, Users, X, ChevronDown } from 'lucide-react';
+import Pagination from '@/Components/ui/Pagination';
+import ActionButton from '@/Components/ui/ActionButton';
+import { Plus, Search, Edit, Trash2, Briefcase, UserPlus, Users, X, ChevronDown, Upload, Download, FileSpreadsheet, AlertCircle, CheckCircle } from 'lucide-react';
 import { useState, useCallback, useRef, useEffect } from 'react';
 
 const JABATAN_LIST = ['Tatausaha', 'Keuangan', 'Operator', 'Kebersihan', 'Keamanan', 'Penjaga Kantin', 'Toolman'];
 const STATUS_KEPEGAWAIAN_LIST = ['PNS', 'PPPK', 'PTY', 'Honor', 'PTT', 'Kontrak'];
 const PENDIDIKAN_LIST = ['SMP', 'SMA/SMK', 'D3', 'S1', 'S2', 'S3'];
+
+const PER_PAGE_OPTIONS = [
+    { value: '25',  label: '25' },
+    { value: '50',  label: '50' },
+    { value: '75',  label: '75' },
+    { value: '100', label: '100' },
+    { value: 'all', label: 'Semua' },
+];
 
 const JABATAN_COLOR = {
     Tatausaha: 'blue', Keuangan: 'green', Operator: 'indigo',
@@ -125,11 +135,16 @@ function nameToEmailPrefix(name) {
 
 const EMAIL_DOMAIN = 'apikmas-djurnal.id';
 
-export default function TatausahaIndex({ tatausaha, filters, availableUsers = [] }) {
+export default function TatausahaIndex({ tatausaha, filters, availableUsers = [], flash }) {
     const [showModal, setShowModal]       = useState(false);
     const [editItem, setEditItem]         = useState(null);
     const [deleteTarget, setDeleteTarget] = useState(null);
     const [dariAkunAda, setDariAkunAda]   = useState(false);
+    const [showImport, setShowImport]     = useState(false);
+    const [importFile, setImportFile]     = useState(null);
+    const [importing, setImporting]       = useState(false);
+    const [importError, setImportError]   = useState(null);
+    const importFileRef = useRef(null);
 
     const { data, setData, post, put, processing, errors, reset } = useForm({
         name: '', email: '', password: DEFAULT_PASSWORD, gender: '',
@@ -151,8 +166,37 @@ export default function TatausahaIndex({ tatausaha, filters, availableUsers = []
         });
     }, [editItem, setData]);
 
-    const search = (e) => {
-        router.get('/admin/tatausaha', { search: e.target.value }, { preserveState: true, replace: true });
+    const [searchTerm, setSearchTerm] = useState(filters.search ?? '');
+    useEffect(() => {
+        const t = setTimeout(() => {
+            router.get('/admin/tatausaha', { ...filters, search: searchTerm || undefined, page: 1 }, { preserveState: true, replace: true });
+        }, 350);
+        return () => clearTimeout(t);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [searchTerm]);
+
+    const setPerPage = (val) => {
+        router.get('/admin/tatausaha', { ...filters, per_page: val, page: 1 }, { preserveState: true, replace: true });
+    };
+
+    const closeImportModal = () => {
+        setShowImport(false);
+        setImportFile(null);
+        setImportError(null);
+        if (importFileRef.current) importFileRef.current.value = '';
+    };
+
+    const submitImport = (e) => {
+        e.preventDefault();
+        if (!importFile) return;
+        setImporting(true);
+        setImportError(null);
+        router.post('/admin/tatausaha/import', { file: importFile }, {
+            forceFormData: true,
+            onSuccess: () => closeImportModal(),
+            onError: (errs) => setImportError(errs.file ?? 'Gagal mengimport file. Periksa format dan isi file.'),
+            onFinish: () => setImporting(false),
+        });
     };
 
     const submit = (e) => {
@@ -204,22 +248,63 @@ export default function TatausahaIndex({ tatausaha, filters, availableUsers = []
 
     return (
         <AppLayout title="Data Tata Usaha">
+            {/* Flash message */}
+            {flash?.success && (
+                <div className="mb-4 flex items-start gap-2 rounded-xl px-4 py-3 text-sm font-medium bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-300">
+                    <CheckCircle className="h-4 w-4 mt-0.5 shrink-0" />
+                    <div>
+                        <p>{flash.success}</p>
+                        {flash.import_errors?.length > 0 && (
+                            <ul className="mt-1 list-disc list-inside text-xs text-green-600 dark:text-green-400 space-y-0.5">
+                                {flash.import_errors.map((e, i) => <li key={i}>{e}</li>)}
+                            </ul>
+                        )}
+                    </div>
+                </div>
+            )}
+
             <Card>
                 <CardHeader className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                     <CardTitle className="flex items-center gap-2">
                         <Briefcase className="h-5 w-5 text-violet-600" />
                         Daftar Tata Usaha ({tatausaha.total})
                     </CardTitle>
-                    <div className="flex items-center gap-3 w-full sm:w-auto">
+                    <div className="flex items-center gap-2 w-full sm:w-auto flex-wrap">
+                        {/* Per-page dropdown */}
+                        <select
+                            value={filters.per_page ?? '25'}
+                            onChange={(e) => setPerPage(e.target.value)}
+                            className="rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500"
+                        >
+                            {PER_PAGE_OPTIONS.map(({ value, label }) => (
+                                <option key={value} value={value}>{label} data</option>
+                            ))}
+                        </select>
+
+                        {/* Search */}
                         <div className="relative flex-1 sm:flex-none">
-                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
                             <input
-                                defaultValue={filters.search}
-                                onChange={search}
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
                                 placeholder="Cari tata usaha..."
-                                className="pl-9 pr-4 py-2 text-sm rounded-lg border border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100 w-full sm:w-56 focus:outline-none focus:ring-1 focus:ring-violet-500"
+                                className="pl-9 pr-8 py-2 text-sm rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 w-full sm:w-56 focus:outline-none focus:ring-2 focus:ring-violet-500"
                             />
+                            {searchTerm && (
+                                <button onClick={() => setSearchTerm('')} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
+                                    <X className="h-3.5 w-3.5" />
+                                </button>
+                            )}
                         </div>
+
+                        {/* Import */}
+                        <button
+                            onClick={() => setShowImport(true)}
+                            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border-2 border-emerald-200 dark:border-emerald-800 text-sm font-semibold text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/30 transition-colors"
+                        >
+                            <FileSpreadsheet className="h-4 w-4" /> Import Excel
+                        </button>
+
                         <Button icon={Plus} onClick={openTambah}>Tambah Tata Usaha</Button>
                     </div>
                 </CardHeader>
@@ -243,13 +328,9 @@ export default function TatausahaIndex({ tatausaha, filters, availableUsers = []
                                             <p className="text-xs text-gray-400 truncate">{item.user?.email}</p>
                                             {item.nomor_wa && <p className="text-xs text-gray-400 mt-0.5">{item.nomor_wa}</p>}
                                         </div>
-                                        <div className="flex gap-1 shrink-0">
-                                            <button onClick={() => openEdit(item)} className="rounded-lg p-1.5 bg-sky-50 text-sky-600 dark:bg-sky-900/30 dark:text-sky-400 hover:bg-sky-100 dark:hover:bg-sky-900/50 transition-colors" title="Edit">
-                                                <Edit className="h-3.5 w-3.5" />
-                                            </button>
-                                            <button onClick={() => setDeleteTarget(item)} className="rounded-lg p-1.5 bg-red-50 text-red-600 dark:bg-red-900/30 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/50 transition-colors" title="Hapus">
-                                                <Trash2 className="h-3.5 w-3.5" />
-                                            </button>
+                                        <div className="flex gap-1.5 shrink-0">
+                                            <ActionButton icon={Edit} onClick={() => openEdit(item)} title="Edit" color="sky" />
+                                            <ActionButton icon={Trash2} onClick={() => setDeleteTarget(item)} title="Hapus" color="rose" />
                                         </div>
                                     </div>
                                     <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
@@ -316,20 +397,8 @@ export default function TatausahaIndex({ tatausaha, filters, availableUsers = []
                                         </td>
                                         <td className="px-4 py-3">
                                             <div className="flex gap-1.5">
-                                                <button
-                                                    onClick={() => openEdit(item)}
-                                                    className="rounded-lg p-1.5 bg-sky-50 text-sky-600 dark:bg-sky-900/30 dark:text-sky-400 hover:bg-sky-100 dark:hover:bg-sky-900/50 transition-colors"
-                                                    title="Edit"
-                                                >
-                                                    <Edit className="h-4 w-4" />
-                                                </button>
-                                                <button
-                                                    onClick={() => setDeleteTarget(item)}
-                                                    className="rounded-lg p-1.5 bg-red-50 text-red-600 dark:bg-red-900/30 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/50 transition-colors"
-                                                    title="Hapus"
-                                                >
-                                                    <Trash2 className="h-4 w-4" />
-                                                </button>
+                                                <ActionButton icon={Edit} onClick={() => openEdit(item)} title="Edit" color="sky" />
+                                                <ActionButton icon={Trash2} onClick={() => setDeleteTarget(item)} title="Hapus" color="rose" />
                                             </div>
                                         </td>
                                     </tr>
@@ -338,26 +407,7 @@ export default function TatausahaIndex({ tatausaha, filters, availableUsers = []
                         </table>
                     </div>
 
-                    {/* Pagination */}
-                    {tatausaha.last_page > 1 && (
-                        <div className="flex items-center justify-between px-4 py-3 border-t border-gray-100 dark:border-gray-800">
-                            <p className="text-xs text-gray-500">
-                                Halaman {tatausaha.current_page} dari {tatausaha.last_page}
-                            </p>
-                            <div className="flex gap-2">
-                                {tatausaha.prev_page_url && (
-                                    <Button size="sm" variant="secondary" onClick={() => router.get(tatausaha.prev_page_url)}>
-                                        Sebelumnya
-                                    </Button>
-                                )}
-                                {tatausaha.next_page_url && (
-                                    <Button size="sm" variant="secondary" onClick={() => router.get(tatausaha.next_page_url)}>
-                                        Selanjutnya
-                                    </Button>
-                                )}
-                            </div>
-                        </div>
-                    )}
+                    <Pagination meta={tatausaha} />
                 </CardBody>
             </Card>
 
@@ -573,6 +623,60 @@ export default function TatausahaIndex({ tatausaha, filters, availableUsers = []
                         </Button>
                     </div>
                 </form>
+            </Modal>
+
+            {/* ── Import Modal ── */}
+            <Modal show={showImport} onClose={closeImportModal} title="Import Data Tata Usaha dari Excel">
+                <div className="space-y-4">
+                    {importError && (
+                        <div className="flex items-start gap-2 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 px-4 py-3 text-sm text-red-700 dark:text-red-300">
+                            <AlertCircle className="h-4 w-4 mt-0.5 shrink-0" />
+                            <span>{importError}</span>
+                        </div>
+                    )}
+
+                    <div className="rounded-xl bg-violet-50 dark:bg-violet-900/20 border border-violet-100 dark:border-violet-800 p-4 text-sm space-y-2">
+                        <p className="font-semibold text-violet-700 dark:text-violet-300">Panduan pengisian file Excel:</p>
+                        <ul className="space-y-1 text-violet-600 dark:text-violet-400 text-xs list-disc list-inside">
+                            <li><span className="font-medium">Nama</span> — wajib diisi, nama lengkap tanpa gelar</li>
+                            <li><span className="font-medium">Email</span> — kosongkan untuk auto-generate dari nama</li>
+                            <li><span className="font-medium">Jabatan</span> — pilih dari dropdown: {JABATAN_LIST.join(', ')}</li>
+                            <li><span className="font-medium">Status Kepegawaian</span> — {STATUS_KEPEGAWAIAN_LIST.join(' / ')}</li>
+                            <li><span className="font-medium">Password</span> — kosongkan untuk default <code className="bg-white/50 px-1 rounded">apikmasdjurnal</code></li>
+                        </ul>
+                    </div>
+
+                    <a
+                        href="/admin/tatausaha/import-template"
+                        className="flex items-center gap-2 w-full justify-center px-4 py-2.5 rounded-xl border-2 border-dashed border-violet-300 dark:border-violet-600 text-violet-600 dark:text-violet-400 text-sm font-medium hover:bg-violet-50 dark:hover:bg-violet-900/30 transition-colors"
+                    >
+                        <Download className="h-4 w-4" />
+                        Unduh Template Excel
+                    </a>
+
+                    <form onSubmit={submitImport} className="space-y-3">
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+                                Upload File Excel <span className="text-red-500">*</span>
+                            </label>
+                            <input
+                                ref={importFileRef}
+                                type="file"
+                                accept=".xlsx,.xls,.csv"
+                                onChange={(e) => { setImportFile(e.target.files[0] ?? null); setImportError(null); }}
+                                className="block w-full text-sm text-gray-500 dark:text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-violet-50 file:text-violet-700 dark:file:bg-violet-900/30 dark:file:text-violet-300 hover:file:bg-violet-100 dark:hover:file:bg-violet-900/50"
+                            />
+                            <p className="text-xs text-gray-400 mt-1">Format: .xlsx, .xls, atau .csv — maks. 5 MB</p>
+                        </div>
+
+                        <div className="flex justify-end gap-3 pt-1">
+                            <Button type="button" variant="secondary" onClick={closeImportModal}>Batal</Button>
+                            <Button type="submit" loading={importing} disabled={!importFile} icon={Upload}>
+                                {importing ? 'Mengimpor...' : 'Mulai Import'}
+                            </Button>
+                        </div>
+                    </form>
+                </div>
             </Modal>
 
             <ConfirmDialog

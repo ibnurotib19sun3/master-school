@@ -3,7 +3,7 @@ import { router, usePage } from '@inertiajs/react';
 import { Card, CardBody } from '@/Components/ui/Card';
 import {
     FolderUp, Upload, Trash2, CheckCircle, Clock, AlertCircle,
-    FileText, Calendar, RefreshCw, Users, Lock,
+    FileText, Calendar, RefreshCw, Users, Lock, X, Layers, User,
 } from 'lucide-react';
 import { useState, useRef } from 'react';
 
@@ -57,29 +57,24 @@ function formatLabel(formatFile) {
 
 
 /* ── Upload button ─────────────────────────────────────────────── */
-function UploadButton({ item, onUploading, forceJenjang = false }) {
+function UploadButton({ item, onUploading }) {
     const fileRef = useRef();
     const [busy, setBusy] = useState(false);
 
     const accept = resolveAccept(item.pengumpulan?.format_file);
 
-    const doUpload = (file, jenjang) => {
-        if (!file) return;
-        setBusy(true); onUploading(true);
-        const fd = new FormData();
-        fd.append('file', file);
-        fd.append('apply_jenjang', jenjang ? '1' : '0');
-        router.post(`/guru/pengumpulan/${item.id}/upload`, fd, {
-            forceFormData: true,
-            onFinish: () => { setBusy(false); onUploading(false); },
-        });
-    };
-
     const handleChange = (e) => {
         const file = e.target.files?.[0];
         if (!file) return;
         e.target.value = '';
-        doUpload(file, forceJenjang);
+        setBusy(true); onUploading(true);
+        const fd = new FormData();
+        fd.append('file', file);
+        fd.append('apply_jenjang', '0');
+        router.post(`/guru/pengumpulan/${item.id}/upload`, fd, {
+            forceFormData: true,
+            onFinish: () => { setBusy(false); onUploading(false); },
+        });
     };
 
     return (
@@ -97,6 +92,163 @@ function UploadButton({ item, onUploading, forceJenjang = false }) {
                 {!item.portal_buka ? <Lock className="h-3.5 w-3.5" /> : <Upload className="h-3.5 w-3.5" />}
                 {busy ? 'Mengunggah…' : item.file_path ? 'Ganti' : 'Upload'}
             </button>
+        </>
+    );
+}
+
+/* ── Modal konfirmasi cakupan upload untuk grup rombel sejenjang ── */
+function ScopeConfirmModal({ group, onClose, onChoose }) {
+    const kelasNama  = group.items[0].pembelajaran?.rombel?.kelas?.nama ?? '—';
+    const mapelNama  = group.items[0].pembelajaran?.mata_pelajaran?.nama ?? '—';
+    const [scope, setScope] = useState('semua');
+    const [selectedId, setSelectedId] = useState(group.items[0].id);
+
+    const handleConfirm = () => {
+        if (scope === 'semua') {
+            onChoose({ itemId: group.items[0].id, jenjang: true });
+        } else {
+            onChoose({ itemId: selectedId, jenjang: false });
+        }
+    };
+
+    return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+            <div className="w-full max-w-md bg-white dark:bg-gray-900 rounded-2xl shadow-2xl overflow-hidden">
+                {/* Header */}
+                <div className="px-5 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                        <div className="p-2 rounded-xl bg-sky-100 dark:bg-sky-800/50">
+                            <Layers className="h-4 w-4 text-sky-600 dark:text-sky-400" />
+                        </div>
+                        <div>
+                            <h2 className="text-sm font-semibold text-gray-900 dark:text-white">Pilih Cakupan Upload</h2>
+                            <p className="text-xs text-gray-500 dark:text-gray-400">{mapelNama} · Kelas {kelasNama}</p>
+                        </div>
+                    </div>
+                    <button onClick={onClose}
+                        className="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
+                        <X className="h-4 w-4" />
+                    </button>
+                </div>
+
+                {/* Body */}
+                <div className="px-5 py-4 space-y-3">
+                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                        Anda mengampu <strong>{mapelNama}</strong> di {group.items.length} rombel sejenjang. Upload untuk semua rombel sekaligus, atau pilih satu rombel saja?
+                    </p>
+
+                    {/* Opsi: semua rombel */}
+                    <button type="button" onClick={() => setScope('semua')}
+                        className={`w-full text-left rounded-xl border-2 p-3 transition-colors flex items-start gap-3 ${
+                            scope === 'semua'
+                                ? 'border-sky-500 bg-sky-50 dark:bg-sky-900/20'
+                                : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'
+                        }`}
+                    >
+                        <div className={`mt-0.5 p-1.5 rounded-lg shrink-0 ${scope === 'semua' ? 'bg-sky-500 text-white' : 'bg-gray-100 dark:bg-gray-800 text-gray-400'}`}>
+                            <Users className="h-3.5 w-3.5" />
+                        </div>
+                        <div className="min-w-0">
+                            <p className="text-sm font-medium text-gray-800 dark:text-gray-200">Semua Rombel Sejenjang</p>
+                            <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">
+                                1 file dipakai untuk {group.items.length} rombel: {group.items.map(i => i.pembelajaran?.rombel?.nama ?? '—').join(', ')}
+                            </p>
+                        </div>
+                    </button>
+
+                    {/* Opsi: rombel tertentu */}
+                    <button type="button" onClick={() => setScope('satu')}
+                        className={`w-full text-left rounded-xl border-2 p-3 transition-colors flex items-start gap-3 ${
+                            scope === 'satu'
+                                ? 'border-sky-500 bg-sky-50 dark:bg-sky-900/20'
+                                : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'
+                        }`}
+                    >
+                        <div className={`mt-0.5 p-1.5 rounded-lg shrink-0 ${scope === 'satu' ? 'bg-sky-500 text-white' : 'bg-gray-100 dark:bg-gray-800 text-gray-400'}`}>
+                            <User className="h-3.5 w-3.5" />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                            <p className="text-sm font-medium text-gray-800 dark:text-gray-200">Rombel Tertentu Saja</p>
+                            <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">File hanya berlaku untuk satu rombel yang dipilih</p>
+                            {scope === 'satu' && (
+                                <select value={selectedId} onChange={e => setSelectedId(Number(e.target.value))}
+                                    onClick={e => e.stopPropagation()}
+                                    className="mt-2 w-full rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 px-2.5 py-1.5 text-xs text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-sky-500">
+                                    {group.items.map(i => (
+                                        <option key={i.id} value={i.id}>{i.pembelajaran?.rombel?.nama ?? '—'}</option>
+                                    ))}
+                                </select>
+                            )}
+                        </div>
+                    </button>
+                </div>
+
+                {/* Footer */}
+                <div className="px-5 py-4 border-t border-gray-200 dark:border-gray-700 flex justify-end gap-2 bg-gray-50/80 dark:bg-gray-800/40">
+                    <button type="button" onClick={onClose}
+                        className="px-4 py-2 rounded-xl text-sm font-medium text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
+                        Batal
+                    </button>
+                    <button type="button" onClick={handleConfirm}
+                        className="px-4 py-2 rounded-xl text-sm font-semibold bg-sky-600 text-white hover:bg-sky-700 transition-colors flex items-center gap-1.5">
+                        <Upload className="h-3.5 w-3.5" /> Pilih File
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+}
+
+/* ── Upload button khusus grup rombel sejenjang (dengan konfirmasi cakupan) ── */
+function GroupedUploadButton({ group, onUploading }) {
+    const fileRef = useRef();
+    const pendingRef = useRef(null);
+    const [busy, setBusy] = useState(false);
+    const [showModal, setShowModal] = useState(false);
+
+    const rep = group.items[0];
+    const accept = resolveAccept(rep.pengumpulan?.format_file);
+    const portalBuka = group.items.some(i => i.portal_buka);
+
+    const handleChoose = (choice) => {
+        pendingRef.current = choice;
+        setShowModal(false);
+        setTimeout(() => fileRef.current?.click(), 50);
+    };
+
+    const handleFileChange = (e) => {
+        const file = e.target.files?.[0];
+        const pending = pendingRef.current;
+        if (!file || !pending) return;
+        e.target.value = '';
+        setBusy(true); onUploading(true);
+        const fd = new FormData();
+        fd.append('file', file);
+        fd.append('apply_jenjang', pending.jenjang ? '1' : '0');
+        router.post(`/guru/pengumpulan/${pending.itemId}/upload`, fd, {
+            forceFormData: true,
+            onFinish: () => { setBusy(false); onUploading(false); pendingRef.current = null; },
+        });
+    };
+
+    return (
+        <>
+            <input ref={fileRef} type="file" className="hidden" accept={accept} onChange={handleFileChange} />
+            <button type="button" disabled={busy || !portalBuka}
+                onClick={() => setShowModal(true)}
+                title={!portalBuka ? 'Portal upload ditutup' : ''}
+                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium disabled:opacity-60 transition-colors ${
+                    portalBuka
+                        ? 'text-sky-600 dark:text-sky-400 bg-sky-50 dark:bg-sky-900/30 hover:bg-sky-100 dark:hover:bg-sky-900/50'
+                        : 'text-gray-400 dark:text-gray-500 bg-gray-100 dark:bg-gray-800 cursor-not-allowed'
+                }`}
+            >
+                {!portalBuka ? <Lock className="h-3.5 w-3.5" /> : <Upload className="h-3.5 w-3.5" />}
+                {busy ? 'Mengunggah…' : group.items.some(i => i.file_path) ? 'Ganti' : 'Upload'}
+            </button>
+            {showModal && (
+                <ScopeConfirmModal group={group} onClose={() => setShowModal(false)} onChoose={handleChoose} />
+            )}
         </>
     );
 }
@@ -168,7 +320,7 @@ function GroupedRow({ group, onUploading }) {
                     </span>
                 )}
                 <div className="flex items-center gap-1.5 shrink-0">
-                    <UploadButton item={rep} onUploading={onUploading} forceJenjang />
+                    <GroupedUploadButton group={group} onUploading={onUploading} />
                     {hasFile && <DeleteFileButton item={rep} allJenjang />}
                 </div>
             </div>

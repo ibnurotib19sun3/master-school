@@ -1,15 +1,27 @@
 import { useState, useEffect } from 'react';
 import AppLayout from '@/Layouts/AppLayout';
-import { usePage } from '@inertiajs/react';
-import { Users, GraduationCap, BookOpen, TrendingUp, ClipboardCheck, FileText, BarChart3, ArrowUpRight } from 'lucide-react';
+import { usePage, Link } from '@inertiajs/react';
+import { Users, GraduationCap, BookOpen, TrendingUp, ClipboardCheck, FileText, BarChart3, ArrowUpRight, ChevronRight } from 'lucide-react';
 
 /* ─── StatCard / QuickCard palette ─────────────────────────────────────── */
 const PALETTE = {
-    indigo:  { orb: 'bg-sky-400',    icon: 'from-sky-600 to-sky-800',      bar: 'bg-sky-600'    },
-    emerald: { orb: 'bg-emerald-400', icon: 'from-emerald-500 to-teal-600',   bar: 'bg-emerald-500' },
-    blue:    { orb: 'bg-sky-400',     icon: 'from-sky-500 to-cyan-600',       bar: 'bg-sky-500'     },
-    purple:  { orb: 'bg-violet-400',  icon: 'from-violet-500 to-purple-600',  bar: 'bg-violet-500'  },
-    orange:  { orb: 'bg-orange-400',  icon: 'from-orange-500 to-amber-600',   bar: 'bg-orange-500'  },
+    indigo:  { icon: 'from-sky-500 to-blue-600',     accent: 'text-sky-600 dark:text-sky-400',       soft: 'bg-sky-50/70 dark:bg-sky-500/10',      bar: 'bg-sky-500'    },
+    emerald: { icon: 'from-emerald-500 to-teal-600', accent: 'text-emerald-600 dark:text-emerald-400', soft: 'bg-emerald-50/70 dark:bg-emerald-500/10', bar: 'bg-emerald-500' },
+    blue:    { icon: 'from-cyan-500 to-sky-600',     accent: 'text-cyan-600 dark:text-cyan-400',     soft: 'bg-cyan-50/70 dark:bg-cyan-500/10',    bar: 'bg-cyan-500'    },
+    purple:  { icon: 'from-violet-500 to-purple-600',accent: 'text-violet-600 dark:text-violet-400', soft: 'bg-violet-50/70 dark:bg-violet-500/10',bar: 'bg-violet-500'  },
+    orange:  { icon: 'from-orange-500 to-amber-600', accent: 'text-orange-600 dark:text-orange-400', soft: 'bg-orange-50/70 dark:bg-orange-500/10',bar: 'bg-orange-500'  },
+    rose:    { icon: 'from-rose-500 to-red-600',     accent: 'text-rose-600 dark:text-rose-400',     soft: 'bg-rose-50/70 dark:bg-rose-500/10',    bar: 'bg-rose-500'    },
+    gray:    { icon: 'from-gray-400 to-gray-500',    accent: 'text-gray-500 dark:text-gray-400',     soft: 'bg-gray-50/70 dark:bg-gray-500/10',    bar: 'bg-gray-400'    },
+};
+
+/* Warna StatCard dinamis berdasarkan status absensi guru hari ini */
+const ABSENSI_COLOR = {
+    Hadir: 'emerald',
+    Sakit: 'orange',
+    Izin: 'orange',
+    Tugas_Sekolah: 'blue',
+    Alpha: 'rose',
+    Tidak_Hadir: 'rose',
 };
 
 /* ─── Validated dataviz palette (dataviz skill, adjacent-pair CVD-safe) ─ */
@@ -214,31 +226,39 @@ function ChartCard({ title, subtitle, children }) {
 }
 
 /* ─── StatCard ───────────────────────────────────────────────────────── */
-function StatCard({ icon: Icon, label, value, color = 'indigo', trend }) {
+function StatCard({ icon: Icon, label, value, color = 'indigo', sub, href }) {
     const p = PALETTE[color] ?? PALETTE.indigo;
+    const Tag = href ? Link : 'div';
+
     return (
-        <div className="relative overflow-hidden rounded-2xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 p-5 shadow-sm hover:shadow-xl transition-all duration-300 group">
-            <div className={`pointer-events-none absolute -right-5 -top-5 h-24 w-24 rounded-full blur-2xl opacity-20 dark:opacity-10 ${p.orb}`} />
-            <div className={`absolute bottom-0 left-0 h-0.75 w-0 group-hover:w-full transition-all duration-500 ease-out rounded-full ${p.bar}`} />
-            <div className="relative flex items-start justify-between gap-3">
-                <div className="min-w-0 flex-1">
-                    <p className="text-[11px] font-semibold uppercase tracking-widest text-gray-400 dark:text-gray-500">
-                        {label}
-                    </p>
-                    <p className="mt-2 text-3xl font-extrabold tabular-nums text-gray-900 dark:text-white">
-                        {value ?? '—'}
-                    </p>
-                    {trend && (
-                        <p className="mt-1.5 flex items-center gap-0.5 text-xs font-medium text-emerald-600 dark:text-emerald-400">
-                            <TrendingUp className="h-3 w-3" />{trend}
-                        </p>
-                    )}
-                </div>
-                <div className={`shrink-0 rounded-2xl bg-linear-to-br ${p.icon} p-3 shadow-lg shadow-${color}-200 dark:shadow-none`}>
+        <Tag
+            {...(href ? { href } : {})}
+            className={`group relative overflow-hidden rounded-2xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 p-5 shadow-sm hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300 block ${href ? 'cursor-pointer' : ''}`}
+        >
+            <div className={`pointer-events-none absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300 ${p.soft}`} />
+            <div className="relative flex items-center gap-4">
+                <div className={`shrink-0 rounded-2xl bg-linear-to-br ${p.icon} p-3.5 shadow-md`}>
                     <Icon className="h-5 w-5 text-white" />
                 </div>
+                <div className="min-w-0 flex-1">
+                    <p className="text-[11px] font-semibold uppercase tracking-widest text-gray-400 dark:text-gray-500 truncate">
+                        {label}
+                    </p>
+                    <p className="mt-1 text-2xl font-extrabold tabular-nums text-gray-900 dark:text-white truncate">
+                        {value ?? '—'}
+                    </p>
+                </div>
+                {href && (
+                    <ChevronRight className="relative shrink-0 h-4 w-4 text-gray-300 dark:text-gray-600 opacity-0 group-hover:opacity-100 group-hover:translate-x-0.5 transition-all duration-200" />
+                )}
             </div>
-        </div>
+            {sub && (
+                <p className={`relative mt-3.5 pt-3 border-t border-gray-100 dark:border-gray-800 text-xs font-medium ${p.accent}`}>
+                    {sub}
+                </p>
+            )}
+            <div className={`absolute bottom-0 left-0 h-1 w-0 group-hover:w-full transition-all duration-500 ease-out ${p.bar}`} />
+        </Tag>
     );
 }
 
@@ -308,10 +328,10 @@ export default function Dashboard({ stats, charts = {} }) {
                             Statistik Sekolah
                         </h2>
                         <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-                            <StatCard icon={Users}         label="Total Siswa"  value={stats.total_siswa}  color="indigo" />
-                            <StatCard icon={GraduationCap} label="Total Guru"   value={stats.total_guru}   color="emerald" />
-                            <StatCard icon={BookOpen}      label="Rombel Aktif" value={stats.total_rombel} color="blue" />
-                            <StatCard icon={Users}         label="Pengguna"     value={stats.total_users}  color="purple" />
+                            <StatCard icon={Users}         label="Total Siswa"  value={stats.total_siswa}  color="indigo"  sub="Status: Aktif" href="/admin/siswa" />
+                            <StatCard icon={GraduationCap} label="Total Guru"   value={stats.total_guru}   color="emerald" sub="Status: Aktif" href="/admin/guru" />
+                            <StatCard icon={BookOpen}      label="Rombel Aktif" value={stats.total_rombel} color="blue"    sub={stats.tahun_aktif ? `${stats.tahun_aktif.nama} · ${stats.tahun_aktif.semester}` : 'Tahun ajaran belum diatur'} href="/admin/rombel" />
+                            <StatCard icon={Users}         label="Pengguna"     value={stats.total_users}  color="purple"  sub="Seluruh akun sistem" href="/admin/users" />
                         </div>
                     </section>
                 )}
@@ -366,9 +386,12 @@ export default function Dashboard({ stats, charts = {} }) {
                             Aktivitas Saya
                         </h2>
                         <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
-                            <StatCard icon={BookOpen}       label="Kelas Saya"       value={stats.pembelajaran_saya ?? 0} color="indigo" />
-                            <StatCard icon={ClipboardCheck} label="Absensi Hari Ini" value="–"                           color="emerald" />
-                            <StatCard icon={FileText}       label="Jurnal Bulan Ini" value="–"                           color="blue" />
+                            <StatCard icon={BookOpen}       label="Kelas Saya"       value={stats.pembelajaran_saya ?? 0}
+                                color="indigo" sub={stats.tahun_aktif ? `${stats.tahun_aktif.nama} · ${stats.tahun_aktif.semester}` : 'Rombel yang diampu'} href="/guru/jadwal-saya" />
+                            <StatCard icon={ClipboardCheck} label="Absensi Hari Ini" value={(stats.absensi_hari_ini ?? 'Belum Absen').replace(/_/g, ' ')}
+                                color={ABSENSI_COLOR[stats.absensi_hari_ini] ?? 'gray'} sub={new Date().toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long' })} />
+                            <StatCard icon={FileText}       label="Jurnal Bulan Ini" value={stats.jurnal_bulan_ini ?? 0}
+                                color="blue" sub="Entri jurnal mengajar tercatat" href="/guru/jurnal" />
                         </div>
                     </section>
                 )}

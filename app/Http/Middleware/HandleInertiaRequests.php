@@ -49,6 +49,7 @@ class HandleInertiaRequests extends Middleware
                 'login_success'    => fn () => $request->session()->get('login_success'),
                 'import_errors'    => fn () => $request->session()->get('import_errors'),
                 'redirect_message' => fn () => $request->session()->get('redirect_message'),
+                'plain_token'      => fn () => $request->session()->get('plain_token'),
             ],
             'active_popup'  => fn () => $request->user() ? PesanPopup::getAktif() : null,
             'menu_badges'   => fn () => MenuBadge::asMap(),

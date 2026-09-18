@@ -2,7 +2,9 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\AbsensiGuru;
 use App\Models\Guru;
+use App\Models\JurnalMengajar;
 use App\Models\Rombel;
 use App\Models\Siswa;
 use App\Models\Tatausaha;
@@ -29,6 +31,17 @@ class DashboardController extends Controller
             $guru = $user->guru;
             $stats['pembelajaran_saya'] = $guru
                 ? $guru->pembelajaran()->where('tahun_ajaran_id', optional($tahunAktif)->id)->count()
+                : 0;
+
+            $stats['absensi_hari_ini'] = $guru
+                ? (AbsensiGuru::where('guru_id', $guru->id)->whereDate('tanggal', now())->value('status') ?? 'Belum Absen')
+                : 'Belum Absen';
+
+            $stats['jurnal_bulan_ini'] = $guru
+                ? JurnalMengajar::whereHas('pembelajaran', fn ($q) => $q->where('guru_id', $guru->id))
+                    ->whereYear('tanggal', now()->year)
+                    ->whereMonth('tanggal', now()->month)
+                    ->count()
                 : 0;
         }
 

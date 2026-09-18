@@ -6,6 +6,7 @@ import Badge from '@/Components/ui/Badge';
 import Modal from '@/Components/ui/Modal';
 import ConfirmDialog from '@/Components/ui/ConfirmDialog';
 import { Input, Select, Textarea } from '@/Components/ui/Input';
+import ActionButton from '@/Components/ui/ActionButton';
 import { Plus, Trash2, Search, Edit, LayoutList, LayoutGrid, BookOpen, ChevronLeft, ChevronRight, X } from 'lucide-react';
 import { useState, useEffect } from 'react';
 
@@ -172,13 +173,9 @@ export default function MataPelajaranIndex({ mataPelajaran, jurusan, filters }) 
                                                 <span className="font-semibold text-sky-600 dark:text-sky-400">{item.kkm}</span>
                                             </td>
                                             <td className="px-4 py-3">
-                                                <div className="flex items-center gap-1">
-                                                    <button onClick={() => openEdit(item)} className="rounded-lg p-1.5 bg-sky-50 text-sky-600 dark:bg-sky-900/30 dark:text-sky-400 hover:bg-sky-100 dark:hover:bg-sky-900/50 transition-colors">
-                                                        <Edit className="h-4 w-4" />
-                                                    </button>
-                                                    <button onClick={() => setDeleteTarget(item)} className="rounded-lg p-1.5 bg-red-50 text-red-600 dark:bg-red-900/30 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/50 transition-colors">
-                                                        <Trash2 className="h-4 w-4" />
-                                                    </button>
+                                                <div className="flex items-center gap-1.5">
+                                                    <ActionButton icon={Edit} onClick={() => openEdit(item)} title="Edit" color="sky" />
+                                                    <ActionButton icon={Trash2} onClick={() => setDeleteTarget(item)} title="Hapus" color="rose" />
                                                 </div>
                                             </td>
                                         </tr>
@@ -206,13 +203,9 @@ export default function MataPelajaranIndex({ mataPelajaran, jurusan, filters }) 
                                     <p className="text-xs text-gray-400 mt-1">{item.jurusan?.nama ?? 'Umum'}</p>
                                     <div className="flex items-center justify-between mt-3 pt-3 border-t border-gray-100 dark:border-gray-800">
                                         <span className="text-xs font-semibold text-sky-600 dark:text-sky-400">KKM {item.kkm}</span>
-                                        <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                            <button onClick={() => openEdit(item)} className="rounded-lg p-1.5 bg-sky-50 text-sky-600 dark:bg-sky-900/30 dark:text-sky-400 hover:bg-sky-100 dark:hover:bg-sky-900/50 transition-colors">
-                                                <Edit className="h-3.5 w-3.5" />
-                                            </button>
-                                            <button onClick={() => setDeleteTarget(item)} className="rounded-lg p-1.5 bg-red-50 text-red-600 dark:bg-red-900/30 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/50 transition-colors">
-                                                <Trash2 className="h-3.5 w-3.5" />
-                                            </button>
+                                        <div className="flex gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                                            <ActionButton icon={Edit} onClick={() => openEdit(item)} title="Edit" color="sky" />
+                                            <ActionButton icon={Trash2} onClick={() => setDeleteTarget(item)} title="Hapus" color="rose" />
                                         </div>
                                     </div>
                                 </div>

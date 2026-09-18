@@ -5,6 +5,8 @@ import Button from '@/Components/ui/Button';
 import Modal from '@/Components/ui/Modal';
 import ConfirmDialog from '@/Components/ui/ConfirmDialog';
 import { Input, Select } from '@/Components/ui/Input';
+import Pagination from '@/Components/ui/Pagination';
+import ActionButton from '@/Components/ui/ActionButton';
 import { Plus, Edit, Trash2, CalendarRange } from 'lucide-react';
 import { useState } from 'react';
 
@@ -98,12 +100,8 @@ export default function TahunAjaranIndex({ tahunAjaran }) {
                                         </td>
                                         <td className="px-4 py-3">
                                             <div className="flex gap-1.5">
-                                                <button onClick={() => openEdit(item)} className="rounded-lg p-1.5 bg-sky-50 text-sky-600 dark:bg-sky-900/30 dark:text-sky-400 hover:bg-sky-100 dark:hover:bg-sky-900/50 transition-colors" title="Edit">
-                                                    <Edit className="h-4 w-4" />
-                                                </button>
-                                                <button onClick={() => setDeleteTarget(item)} className="rounded-lg p-1.5 bg-red-50 text-red-600 dark:bg-red-900/30 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/50 transition-colors" title="Hapus">
-                                                    <Trash2 className="h-4 w-4" />
-                                                </button>
+                                                <ActionButton icon={Edit} onClick={() => openEdit(item)} title="Edit" color="sky" />
+                                                <ActionButton icon={Trash2} onClick={() => setDeleteTarget(item)} title="Hapus" color="rose" />
                                             </div>
                                         </td>
                                     </tr>
@@ -111,6 +109,7 @@ export default function TahunAjaranIndex({ tahunAjaran }) {
                             </tbody>
                         </table>
                     </div>
+                    <Pagination meta={tahunAjaran} />
                 </CardBody>
             </Card>
 

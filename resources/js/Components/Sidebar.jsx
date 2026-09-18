@@ -6,7 +6,7 @@ import {
     Clock, PieChart, ShieldCheck, Settings, BookCheck, BookText,
     UserCog, Megaphone, MailOpen, Send, FolderUp, Layers, History, CalendarX, Tag,
     ChevronDown, Lock, NotebookPen, Database, Inbox, Crown, Trophy,
-    FolderOpen, Briefcase, ChevronRight,
+    FolderOpen, Briefcase, ChevronRight, KeyRound,
 } from 'lucide-react';
 import { useState, useRef, useEffect } from 'react';
 import { clsx } from 'clsx';
@@ -275,6 +275,7 @@ const menuGroups = [
             { label: 'Masukan & Laporan', href: '/admin/masukan',      icon: Inbox,       roles: ['super_admin'] },
             { label: 'Pemeliharaan',      href: '/admin/pemeliharaan', icon: Settings,    roles: ['super_admin'] },
             { label: 'Backup & Restore',  href: '/admin/backup',       icon: Database,    roles: ['super_admin'] },
+            { label: 'API Eksternal',     href: '/admin/api-token',    icon: KeyRound,    roles: ['super_admin'] },
         ],
     },
     {

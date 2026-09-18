@@ -65,13 +65,13 @@ class GuruController extends Controller
     {
         $guru = Guru::with('user')
             ->when($request->search, fn ($q) => $q->whereHas('user', fn ($u) => $u->where('name', 'like', "%{$request->search}%")))
-            ->paginate(15)->withQueryString();
+            ->paginate($this->resolvePerPage($request))->withQueryString();
 
         $mataPelajaran = MataPelajaran::orderBy('nama')->get(['id', 'nama']);
 
         return Inertia::render('Admin/Guru/Index', [
             'guru'          => $guru,
-            'filters'       => $request->only('search'),
+            'filters'       => $request->only('search', 'per_page'),
             'mataPelajaran' => $mataPelajaran,
         ]);
     }

@@ -6,7 +6,8 @@ import Badge from '@/Components/ui/Badge';
 import Modal from '@/Components/ui/Modal';
 import ConfirmDialog from '@/Components/ui/ConfirmDialog';
 import { Input, Select, Textarea } from '@/Components/ui/Input';
-import { Plus, Edit, Trash2 } from 'lucide-react';
+import ActionButton from '@/Components/ui/ActionButton';
+import { Plus, Edit, Trash2, School, Layers, Inbox } from 'lucide-react';
 import { useState } from 'react';
 
 export default function KelasJurusanIndex({ kelas, jurusan }) {
@@ -86,7 +87,13 @@ export default function KelasJurusanIndex({ kelas, jurusan }) {
                 {/* Kelas */}
                 <Card>
                     <CardHeader className="flex items-center justify-between gap-3">
-                        <CardTitle className="min-w-0 truncate">Kelas</CardTitle>
+                        <CardTitle className="min-w-0 truncate flex items-center gap-2">
+                            <span className="flex items-center justify-center h-8 w-8 rounded-xl bg-sky-100 dark:bg-sky-900/40 text-sky-600 dark:text-sky-400 shrink-0">
+                                <School className="h-4 w-4" />
+                            </span>
+                            Kelas
+                            <span className="text-xs font-normal text-gray-400 dark:text-gray-500">({kelas.length})</span>
+                        </CardTitle>
                         <Button icon={Plus} size="sm" onClick={() => setShowKelas(true)} className="shrink-0">Tambah</Button>
                     </CardHeader>
                     <CardBody className="p-0">
@@ -101,31 +108,22 @@ export default function KelasJurusanIndex({ kelas, jurusan }) {
                                 </thead>
                                 <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
                                     {kelas.length === 0 && (
-                                        <tr><td colSpan={4} className="px-4 py-6 text-center text-gray-400 text-xs">Belum ada data kelas.</td></tr>
+                                        <tr><td colSpan={4} className="px-4 py-10 text-center">
+                                            <Inbox className="h-8 w-8 mx-auto mb-2 text-gray-300 dark:text-gray-600" />
+                                            <p className="text-gray-400 text-xs">Belum ada data kelas.</p>
+                                        </td></tr>
                                     )}
                                     {kelas.map((k) => (
-                                        <tr key={k.id} className="hover:bg-gray-50 dark:hover:bg-gray-800/50">
+                                        <tr key={k.id} className="hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
                                             <td className="px-4 py-3 font-medium text-gray-900 dark:text-gray-100">{k.nama}</td>
                                             <td className="px-4 py-3 text-gray-500">{k.tingkat}</td>
                                             <td className="px-4 py-3">
                                                 <Badge color="indigo">{k.jenjang}</Badge>
                                             </td>
                                             <td className="px-4 py-3">
-                                                <div className="flex items-center gap-1">
-                                                    <button
-                                                        onClick={() => openEditKelas(k)}
-                                                        className="rounded-lg p-1.5 bg-sky-50 text-sky-600 dark:bg-sky-900/30 dark:text-sky-400 hover:bg-sky-100 dark:hover:bg-sky-900/50 transition-colors"
-                                                        title="Edit"
-                                                    >
-                                                        <Edit className="h-4 w-4" />
-                                                    </button>
-                                                    <button
-                                                        onClick={() => setDeleteTarget({ type: 'kelas', item: k })}
-                                                        className="rounded-lg p-1.5 bg-red-50 text-red-600 dark:bg-red-900/30 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/50 transition-colors"
-                                                        title="Hapus"
-                                                    >
-                                                        <Trash2 className="h-4 w-4" />
-                                                    </button>
+                                                <div className="flex items-center gap-1.5">
+                                                    <ActionButton icon={Edit} onClick={() => openEditKelas(k)} title="Edit" color="sky" />
+                                                    <ActionButton icon={Trash2} onClick={() => setDeleteTarget({ type: 'kelas', item: k })} title="Hapus" color="rose" />
                                                 </div>
                                             </td>
                                         </tr>
@@ -139,7 +137,13 @@ export default function KelasJurusanIndex({ kelas, jurusan }) {
                 {/* Jurusan */}
                 <Card>
                     <CardHeader className="flex items-center justify-between gap-3">
-                        <CardTitle className="min-w-0 truncate">Jurusan / Kompetensi Keahlian</CardTitle>
+                        <CardTitle className="min-w-0 truncate flex items-center gap-2">
+                            <span className="flex items-center justify-center h-8 w-8 rounded-xl bg-violet-100 dark:bg-violet-900/40 text-violet-600 dark:text-violet-400 shrink-0">
+                                <Layers className="h-4 w-4" />
+                            </span>
+                            <span className="truncate">Jurusan / Kompetensi Keahlian</span>
+                            <span className="text-xs font-normal text-gray-400 dark:text-gray-500 shrink-0">({jurusan.length})</span>
+                        </CardTitle>
                         <Button icon={Plus} size="sm" onClick={() => setShowJurusan(true)} className="shrink-0">Tambah</Button>
                     </CardHeader>
                     <CardBody className="p-0">
@@ -156,10 +160,13 @@ export default function KelasJurusanIndex({ kelas, jurusan }) {
                                 </thead>
                                 <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
                                     {jurusan.length === 0 && (
-                                        <tr><td colSpan={5} className="px-4 py-6 text-center text-gray-400 text-xs">Belum ada data jurusan.</td></tr>
+                                        <tr><td colSpan={5} className="px-4 py-10 text-center">
+                                            <Inbox className="h-8 w-8 mx-auto mb-2 text-gray-300 dark:text-gray-600" />
+                                            <p className="text-gray-400 text-xs">Belum ada data jurusan.</p>
+                                        </td></tr>
                                     )}
                                     {jurusan.map((j) => (
-                                        <tr key={j.id} className="hover:bg-gray-50 dark:hover:bg-gray-800/50">
+                                        <tr key={j.id} className="hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
                                             <td className="px-4 py-3 font-mono text-xs text-gray-500">{j.kode}</td>
                                             <td className="px-4 py-3 font-medium text-gray-900 dark:text-gray-100">{j.nama}</td>
                                             <td className="px-4 py-3 hidden sm:table-cell">
@@ -171,21 +178,9 @@ export default function KelasJurusanIndex({ kelas, jurusan }) {
                                                 </Badge>
                                             </td>
                                             <td className="px-4 py-3">
-                                                <div className="flex items-center gap-1">
-                                                    <button
-                                                        onClick={() => openEditJurusan(j)}
-                                                        className="rounded-lg p-1.5 bg-sky-50 text-sky-600 dark:bg-sky-900/30 dark:text-sky-400 hover:bg-sky-100 dark:hover:bg-sky-900/50 transition-colors"
-                                                        title="Edit"
-                                                    >
-                                                        <Edit className="h-4 w-4" />
-                                                    </button>
-                                                    <button
-                                                        onClick={() => setDeleteTarget({ type: 'jurusan', item: j })}
-                                                        className="rounded-lg p-1.5 bg-red-50 text-red-600 dark:bg-red-900/30 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/50 transition-colors"
-                                                        title="Hapus"
-                                                    >
-                                                        <Trash2 className="h-4 w-4" />
-                                                    </button>
+                                                <div className="flex items-center gap-1.5">
+                                                    <ActionButton icon={Edit} onClick={() => openEditJurusan(j)} title="Edit" color="sky" />
+                                                    <ActionButton icon={Trash2} onClick={() => setDeleteTarget({ type: 'jurusan', item: j })} title="Hapus" color="rose" />
                                                 </div>
                                             </td>
                                         </tr>

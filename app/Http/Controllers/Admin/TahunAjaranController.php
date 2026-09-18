@@ -12,7 +12,7 @@ class TahunAjaranController extends Controller
     public function index()
     {
         return Inertia::render('Admin/TahunAjaran/Index', [
-            'tahunAjaran' => TahunAjaran::latest()->paginate(10),
+            'tahunAjaran' => TahunAjaran::latest()->paginate(10)->withQueryString(),
         ]);
     }
 

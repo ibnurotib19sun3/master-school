@@ -374,6 +374,8 @@ Route::middleware('auth')->group(function () {
         Route::post('tatausaha', [TatausahaController::class, 'store'])->name('tatausaha.store')->middleware('role:super_admin|kepala_tatausaha');
         Route::put('tatausaha/{tatausaha}', [TatausahaController::class, 'update'])->name('tatausaha.update')->middleware('role:super_admin|kepala_tatausaha');
         Route::delete('tatausaha/{tatausaha}', [TatausahaController::class, 'destroy'])->name('tatausaha.destroy')->middleware('role:super_admin|kepala_tatausaha');
+        Route::get('tatausaha/import-template', [TatausahaController::class, 'importTemplate'])->name('tatausaha.import-template')->middleware('role:super_admin|kepala_tatausaha');
+        Route::post('tatausaha/import', [TatausahaController::class, 'import'])->name('tatausaha.import')->middleware('role:super_admin|kepala_tatausaha');
 
         // Jurnal Mengajar (view admin)
         Route::get('jurnal-mengajar', [\App\Http\Controllers\Admin\JurnalController::class, 'index'])->name('jurnal-mengajar.index');
@@ -450,6 +452,11 @@ Route::middleware('auth')->group(function () {
         Route::post('pengaturan-surat/kode-jenis',            [PengaturanSuratController::class, 'storeJenis'])->name('pengaturan-surat.jenis.store')->middleware('role:super_admin');
         Route::put('pengaturan-surat/kode-jenis/{jenis}',     [PengaturanSuratController::class, 'updateJenis'])->name('pengaturan-surat.jenis.update')->middleware('role:super_admin');
         Route::delete('pengaturan-surat/kode-jenis/{jenis}',  [PengaturanSuratController::class, 'destroyJenis'])->name('pengaturan-surat.jenis.destroy')->middleware('role:super_admin');
+
+        // API Eksternal — kelola token akses API (super_admin only)
+        Route::get('api-token',        [\App\Http\Controllers\Admin\ApiTokenController::class, 'index'])->name('api-token.index')->middleware('role:super_admin');
+        Route::post('api-token',       [\App\Http\Controllers\Admin\ApiTokenController::class, 'store'])->name('api-token.store')->middleware('role:super_admin');
+        Route::delete('api-token/{token}', [\App\Http\Controllers\Admin\ApiTokenController::class, 'destroy'])->name('api-token.destroy')->middleware('role:super_admin');
 
         // Pesan Popup (super_admin only)
         Route::get('pesan-popup',                   [\App\Http\Controllers\Admin\PesanPopupController::class, 'index'])->name('pesan-popup.index')->middleware('role:super_admin');
@@ -1003,7 +1010,7 @@ Route::middleware('auth')->group(function () {
         Route::get('jurnal/riwayat',    [PimpinanJurnalController::class, 'riwayat'])->name('jurnal.riwayat');
         Route::get('jurnal/bawahan',    [PimpinanJurnalBawahanController::class, 'index'])
             ->name('jurnal.bawahan')
-            ->middleware('role:wakasek_kurikulum|wakasek_kesiswaan|kepala_tatausaha|super_admin');
+            ->middleware('role:wakasek_kurikulum|wakasek_kesiswaan|wakasek_sarpras|wakasek_humas|kepala_tatausaha|super_admin');
     });
 
     // Pokja area

@@ -6,6 +6,8 @@ import Badge from '@/Components/ui/Badge';
 import Modal from '@/Components/ui/Modal';
 import ConfirmDialog from '@/Components/ui/ConfirmDialog';
 import { Input, Select } from '@/Components/ui/Input';
+import Pagination from '@/Components/ui/Pagination';
+import ActionButton from '@/Components/ui/ActionButton';
 import { Plus, Search, Edit, Trash2, X, ChevronDown, Upload, Download, FileSpreadsheet, CheckCircle, AlertCircle, Eye, Phone, GraduationCap, Briefcase, CalendarDays, BookOpen, Clock } from 'lucide-react';
 import { useState, useRef, useEffect, useCallback } from 'react';
 
@@ -21,6 +23,14 @@ function nameToEmailPrefix(name) {
 const EMAIL_DOMAIN = 'apikmas-djurnal.id';
 
 const statusColors = { PNS: 'blue', PPPK: 'blue', GTY: 'green', GTT: 'yellow', Honorer: 'gray' };
+
+const PER_PAGE_OPTIONS = [
+    { value: '25',  label: '25' },
+    { value: '50',  label: '50' },
+    { value: '75',  label: '75' },
+    { value: '100', label: '100' },
+    { value: 'all', label: 'Semua' },
+];
 
 const JABATAN_OPTIONS = [
     'Kepala Sekolah',
@@ -210,8 +220,17 @@ export default function GuruIndex({ guru, filters, mataPelajaran, flash }) {
     const mapelMap = Object.fromEntries(mataPelajaran.map((m) => [m.id, m.nama]));
     const mapelNames = (ids) => (ids ?? []).map((id) => mapelMap[id] ?? id).join(', ');
 
-    const search = (e) => {
-        router.get('/admin/guru', { search: e.target.value }, { preserveState: true, replace: true });
+    const [searchTerm, setSearchTerm] = useState(filters.search ?? '');
+    useEffect(() => {
+        const t = setTimeout(() => {
+            router.get('/admin/guru', { ...filters, search: searchTerm || undefined, page: 1 }, { preserveState: true, replace: true });
+        }, 350);
+        return () => clearTimeout(t);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [searchTerm]);
+
+    const setPerPage = (val) => {
+        router.get('/admin/guru', { ...filters, per_page: val, page: 1 }, { preserveState: true, replace: true });
     };
 
     const submit = (e) => {
@@ -336,21 +355,41 @@ export default function GuruIndex({ guru, filters, mataPelajaran, flash }) {
                             </>
                         ) : (
                             <>
+                                {/* Per-page dropdown */}
+                                <select
+                                    value={filters.per_page ?? '25'}
+                                    onChange={(e) => setPerPage(e.target.value)}
+                                    className="rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-sky-500"
+                                >
+                                    {PER_PAGE_OPTIONS.map(({ value, label }) => (
+                                        <option key={value} value={value}>{label} data</option>
+                                    ))}
+                                </select>
+
+                                {/* Search */}
                                 <div className="relative flex-1 sm:flex-none">
-                                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
                                     <input
-                                        defaultValue={filters.search}
-                                        onChange={search}
+                                        value={searchTerm}
+                                        onChange={(e) => setSearchTerm(e.target.value)}
                                         placeholder="Cari guru..."
-                                        className="pl-9 pr-4 py-2 text-sm rounded-lg border border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100 w-full sm:w-52 focus:outline-none focus:ring-1 focus:ring-sky-500"
+                                        className="pl-9 pr-8 py-2 text-sm rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 w-full sm:w-52 focus:outline-none focus:ring-2 focus:ring-sky-500"
                                     />
+                                    {searchTerm && (
+                                        <button onClick={() => setSearchTerm('')} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
+                                            <X className="h-3.5 w-3.5" />
+                                        </button>
+                                    )}
                                 </div>
+
+                                {/* Import */}
                                 <button
                                     onClick={() => setShowImport(true)}
-                                    className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium bg-emerald-600 hover:bg-emerald-700 text-white transition-colors"
+                                    className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border-2 border-emerald-200 dark:border-emerald-800 text-sm font-semibold text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/30 transition-colors"
                                 >
                                     <FileSpreadsheet className="h-4 w-4" /> Import Excel
                                 </button>
+
                                 <Button icon={Plus} onClick={() => setShowModal(true)}>Tambah Guru</Button>
                             </>
                         )}
@@ -371,16 +410,10 @@ export default function GuruIndex({ guru, filters, mataPelajaran, flash }) {
                                             </p>
                                             <p className="text-xs text-gray-400 truncate">{item.user?.email}</p>
                                         </div>
-                                        <div className="flex gap-1 shrink-0">
-                                            <button onClick={() => openDetail(item)} className="rounded-lg p-1.5 bg-emerald-50 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400 hover:bg-emerald-100 dark:hover:bg-emerald-900/50 transition-colors" title="Detail">
-                                                <Eye className="h-3.5 w-3.5" />
-                                            </button>
-                                            <button onClick={() => openEdit(item)} className="rounded-lg p-1.5 bg-sky-50 text-sky-600 dark:bg-sky-900/30 dark:text-sky-400 hover:bg-sky-100 dark:hover:bg-sky-900/50 transition-colors" title="Edit">
-                                                <Edit className="h-3.5 w-3.5" />
-                                            </button>
-                                            <button onClick={() => setDeleteTarget(item)} className="rounded-lg p-1.5 bg-red-50 text-red-600 dark:bg-red-900/30 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/50 transition-colors" title="Hapus">
-                                                <Trash2 className="h-3.5 w-3.5" />
-                                            </button>
+                                        <div className="flex gap-1.5 shrink-0">
+                                            <ActionButton icon={Eye} onClick={() => openDetail(item)} title="Detail" color="emerald" />
+                                            <ActionButton icon={Edit} onClick={() => openEdit(item)} title="Edit" color="sky" />
+                                            <ActionButton icon={Trash2} onClick={() => setDeleteTarget(item)} title="Hapus" color="rose" />
                                         </div>
                                     </div>
                                     <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
@@ -470,16 +503,10 @@ export default function GuruIndex({ guru, filters, mataPelajaran, flash }) {
                                             </td>
                                             <td className="px-4 py-3 text-gray-500 text-sm">{item.pendidikan_terakhir ?? '–'}</td>
                                             <td className="px-4 py-3">
-                                                <div className="flex gap-1">
-                                                    <button onClick={() => openDetail(item)} className="rounded-lg p-1.5 bg-emerald-50 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400 hover:bg-emerald-100 dark:hover:bg-emerald-900/50 transition-colors" title="Detail & Jadwal">
-                                                        <Eye className="h-4 w-4" />
-                                                    </button>
-                                                    <button onClick={() => openEdit(item)} className="rounded-lg p-1.5 bg-sky-50 text-sky-600 dark:bg-sky-900/30 dark:text-sky-400 hover:bg-sky-100 dark:hover:bg-sky-900/50 transition-colors" title="Edit">
-                                                        <Edit className="h-4 w-4" />
-                                                    </button>
-                                                    <button onClick={() => setDeleteTarget(item)} className="rounded-lg p-1.5 bg-red-50 text-red-600 dark:bg-red-900/30 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/50 transition-colors" title="Hapus">
-                                                        <Trash2 className="h-4 w-4" />
-                                                    </button>
+                                                <div className="flex gap-1.5">
+                                                    <ActionButton icon={Eye} onClick={() => openDetail(item)} title="Detail & Jadwal" color="emerald" />
+                                                    <ActionButton icon={Edit} onClick={() => openEdit(item)} title="Edit" color="sky" />
+                                                    <ActionButton icon={Trash2} onClick={() => setDeleteTarget(item)} title="Hapus" color="rose" />
                                                 </div>
                                             </td>
                                         </tr>
@@ -488,6 +515,7 @@ export default function GuruIndex({ guru, filters, mataPelajaran, flash }) {
                             </tbody>
                         </table>
                     </div>
+                    <Pagination meta={guru} />
                 </CardBody>
             </Card>
 
