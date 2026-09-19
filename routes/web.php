@@ -540,6 +540,7 @@ Route::middleware('auth')->group(function () {
         Route::post('kpi',                   [KpiController::class, 'store'])->name('kpi.store');
         Route::post('kpi/bobot',             [KpiController::class, 'updateBobot'])->name('kpi.bobot');
         Route::post('kpi/hitung-batch',      [KpiController::class, 'hitungBatch'])->name('kpi.hitung-batch');
+        Route::delete('kpi/hapus-bulan',     [KpiController::class, 'destroyByBulan'])->name('kpi.hapus-bulan')->middleware('role:super_admin');
 
         // KPI Tata Usaha
         Route::get('kpi-tatausaha',               [KpiTatausahaController::class, 'index'])->name('kpi-tatausaha.index');
@@ -547,6 +548,7 @@ Route::middleware('auth')->group(function () {
         Route::post('kpi-tatausaha',              [KpiTatausahaController::class, 'store'])->name('kpi-tatausaha.store');
         Route::post('kpi-tatausaha/bobot',        [KpiTatausahaController::class, 'updateBobot'])->name('kpi-tatausaha.bobot');
         Route::post('kpi-tatausaha/hitung-batch', [KpiTatausahaController::class, 'hitungBatch'])->name('kpi-tatausaha.hitung-batch');
+        Route::delete('kpi-tatausaha/hapus-bulan', [KpiTatausahaController::class, 'destroyByBulan'])->name('kpi-tatausaha.hapus-bulan')->middleware('role:super_admin');
 
         // KPI Manajemen
         Route::get('kpi-manajemen',               [KpiManajemenController::class, 'index'])->name('kpi-manajemen.index');

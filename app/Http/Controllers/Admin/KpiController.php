@@ -351,6 +351,25 @@ class KpiController extends Controller
         return back()->with('success', $msg . '.');
     }
 
+    // ── Hapus KPI sebulan (batch) ───────────────────────────────────────────────
+    public function destroyByBulan(Request $request)
+    {
+        $data = $request->validate([
+            'bulan' => 'required|date_format:Y-m',
+            'tipe'  => 'nullable|in:biasa,manajemen',
+        ]);
+
+        $query = KpiGuru::where('bulan', $data['bulan']);
+        if (!empty($data['tipe'])) {
+            $query->where('tipe_guru', $data['tipe']);
+        }
+
+        $count = $query->count();
+        $query->delete();
+
+        return back()->with('success', "KPI Guru bulan {$data['bulan']} berhasil dihapus ({$count} data). Ranking untuk bulan ini otomatis ikut terhapus.");
+    }
+
     // ── Update bobot ──────────────────────────────────────────────────────────
     public function updateBobot(Request $request)
     {

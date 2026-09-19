@@ -7,7 +7,7 @@ import { Select, Textarea } from '@/Components/ui/Input';
 import {
     Calculator, Save, TrendingUp, CheckCircle2, AlertCircle,
     UserCheck, BookOpen, RefreshCw, Crown, Search, X, ChevronDown,
-    Play, BarChart2, ShieldCheck, AlertTriangle,
+    Play, BarChart2, ShieldCheck, AlertTriangle, Trash2,
 } from 'lucide-react';
 import { useState, useEffect, useRef, useCallback } from 'react';
 
@@ -149,6 +149,49 @@ function ConfirmBatchModal({ open, onClose, onConfirm, tipe, bulan, loading }) {
                         <Button type="button" icon={Play} loading={loading} onClick={() => onConfirm(force)}>
                             Mulai Hitung
                         </Button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+}
+
+function ConfirmDeleteBulanModal({ open, onClose, onConfirm, tipe, loading }) {
+    const [bulan, setBulan] = useState(bulanOptions()[bulanOptions().length - 1]?.value ?? '');
+    if (!open) return null;
+    return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+            <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-xl w-full max-w-md mx-4 overflow-hidden">
+                <div className="px-6 py-4 bg-linear-to-r from-red-500 to-rose-600">
+                    <div className="flex items-center gap-3">
+                        <Trash2 className="h-5 w-5 text-white" />
+                        <h2 className="text-base font-bold text-white">Hapus KPI Guru per Bulan</h2>
+                    </div>
+                    <p className="text-xs text-white/80 mt-1">
+                        Menghapus semua KPI {tipe === 'manajemen' ? 'Guru Manajemen' : 'Guru Biasa'} untuk 1 bulan
+                    </p>
+                </div>
+                <div className="p-6 space-y-4">
+                    <Select label="Pilih Bulan" value={bulan} onChange={(e) => setBulan(e.target.value)}>
+                        {bulanOptions().map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+                    </Select>
+                    <div className="flex items-start gap-2.5 p-3 rounded-xl border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20">
+                        <AlertTriangle className="h-4 w-4 text-red-500 shrink-0 mt-0.5" />
+                        <p className="text-xs text-red-700 dark:text-red-400">
+                            Semua data KPI {tipe === 'manajemen' ? 'Guru Manajemen' : 'Guru Biasa'} bulan <strong>{bulanLabel(bulan)}</strong> akan
+                            dihapus permanen dan tidak dapat dikembalikan. Data ranking bulan ini juga otomatis ikut hilang
+                            karena ranking dihitung langsung dari data KPI yang sama.
+                        </p>
+                    </div>
+                    <div className="flex gap-3 justify-end pt-2">
+                        <button type="button" onClick={onClose}
+                            className="px-4 py-2 rounded-lg text-sm font-medium text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
+                            Batal
+                        </button>
+                        <button type="button" disabled={!bulan || loading} onClick={() => onConfirm(bulan)}
+                            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold text-white bg-red-600 hover:bg-red-700 disabled:opacity-60 transition-colors">
+                            <Trash2 className="h-4 w-4" /> {loading ? 'Menghapus…' : 'Ya, Hapus'}
+                        </button>
                     </div>
                 </div>
             </div>
@@ -543,9 +586,21 @@ function HitungPanel({ guruList, tipe, pengaturan, tahunAjaran }) {
 function RekapTable({ rekap, tipe, guruList, filters }) {
     const [bulanFilter, setBulanFilter] = useState(filters.bulan ?? '');
     const [guruFilter,  setGuruFilter]  = useState(filters.guru_id ?? '');
+    const [showDelete,  setShowDelete]  = useState(false);
+    const [deleting,    setDeleting]    = useState(false);
 
     const applyFilter = () => {
         router.get('/admin/kpi', { tipe, bulan: bulanFilter || undefined, guru_id: guruFilter || undefined }, { preserveState: true });
+    };
+
+    const confirmDelete = (bulan) => {
+        setDeleting(true);
+        router.delete('/admin/kpi/hapus-bulan', {
+            data: { bulan, tipe },
+            preserveScroll: true,
+            onSuccess: () => setShowDelete(false),
+            onFinish: () => setDeleting(false),
+        });
     };
 
     const badgeColor = (kode) => {
@@ -576,6 +631,10 @@ function RekapTable({ rekap, tipe, guruList, filters }) {
                                 Reset
                             </button>
                         )}
+                        <button type="button" onClick={() => setShowDelete(true)}
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border-2 border-red-200 dark:border-red-800 text-sm font-semibold text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30 transition-colors">
+                            <Trash2 className="h-3.5 w-3.5" /> Hapus per Bulan
+                        </button>
                     </div>
                 </div>
             </CardHeader>
@@ -652,6 +711,14 @@ function RekapTable({ rekap, tipe, guruList, filters }) {
                     </div>
                 )}
             </CardBody>
+
+            <ConfirmDeleteBulanModal
+                open={showDelete}
+                tipe={tipe}
+                loading={deleting}
+                onClose={() => setShowDelete(false)}
+                onConfirm={confirmDelete}
+            />
         </Card>
     );
 }

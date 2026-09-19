@@ -233,6 +233,19 @@ class KpiTatausahaController extends Controller
         return back()->with('success', $msg . '.');
     }
 
+    // ── Hapus KPI sebulan (batch) ───────────────────────────────────────────────
+    public function destroyByBulan(Request $request)
+    {
+        $data = $request->validate([
+            'bulan' => 'required|date_format:Y-m',
+        ]);
+
+        $count = KpiTatausaha::where('bulan', $data['bulan'])->count();
+        KpiTatausaha::where('bulan', $data['bulan'])->delete();
+
+        return back()->with('success', "KPI Tata Usaha bulan {$data['bulan']} berhasil dihapus ({$count} data). Ranking untuk bulan ini otomatis ikut terhapus.");
+    }
+
     public function updateBobot(Request $request)
     {
         $data = $request->validate([
