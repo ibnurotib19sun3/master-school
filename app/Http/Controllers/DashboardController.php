@@ -5,6 +5,9 @@ namespace App\Http\Controllers;
 use App\Models\AbsensiGuru;
 use App\Models\Guru;
 use App\Models\JurnalMengajar;
+use App\Models\LmsMateri;
+use App\Models\LmsMateriAkses;
+use App\Models\Pembelajaran;
 use App\Models\Rombel;
 use App\Models\Siswa;
 use App\Models\Tatausaha;
@@ -41,6 +44,26 @@ class DashboardController extends Controller
                 ? JurnalMengajar::whereHas('pembelajaran', fn ($q) => $q->where('guru_id', $guru->id))
                     ->whereYear('tanggal', now()->year)
                     ->whereMonth('tanggal', now()->month)
+                    ->count()
+                : 0;
+        }
+
+        if ($user->hasRole('siswa')) {
+            $siswa = $user->siswa;
+
+            $mapelIds = $siswa && $siswa->rombel_id
+                ? Pembelajaran::where('rombel_id', $siswa->rombel_id)
+                    ->when($tahunAktif, fn ($q) => $q->where('tahun_ajaran_id', $tahunAktif->id))
+                    ->where('is_aktif', true)
+                    ->pluck('id')
+                : collect();
+
+            $stats['mapel_saya']  = $mapelIds->count();
+            $stats['materi_lms']  = $mapelIds->isEmpty() ? 0 : LmsMateri::whereIn('pembelajaran_id', $mapelIds)->where('is_aktif', true)->count();
+            $stats['materi_dibaca'] = ($siswa && $mapelIds->isNotEmpty())
+                ? LmsMateriAkses::where('siswa_id', $siswa->id)
+                    ->whereNotNull('dilihat_at')
+                    ->whereHas('materi', fn ($q) => $q->whereIn('pembelajaran_id', $mapelIds))
                     ->count()
                 : 0;
         }

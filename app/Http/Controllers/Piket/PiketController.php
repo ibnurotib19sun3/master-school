@@ -157,11 +157,10 @@ class PiketController extends Controller
             'isLiburPenuh' => $isLiburPenuh,
         ] = $this->baseData();
 
-        $managementRoles = [
-            'kepala_sekolah', 'wakasek_kurikulum', 'wakasek_kesiswaan',
-            'wakasek_sarpras', 'wakasek_humas', 'kepala_konsentrasi_keahlian',
-            'kepala_tatausaha', 'bendahara_sekolah',
-        ];
+        // Diambil dari config/roles.php supaya selalu sinkron dengan daftar yang
+        // dipakai di Laporan Kehadiran Manajemen — sebelumnya dua daftar terpisah
+        // ini beda isi, jadi 'tim_penjamin_mutu' muncul di laporan tapi tidak di piket.
+        $managementRoles = config('roles.management');
 
         $manajemenList = ($isHariAktif && !$isLiburPenuh)
             ? Guru::with(['user.roles'])->where('is_aktif', true)

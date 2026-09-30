@@ -3,9 +3,11 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Models\Jadwal;
 use App\Models\PengaturanSekolah;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 
 class PengaturanSekolahController extends Controller
@@ -17,20 +19,35 @@ class PengaturanSekolahController extends Controller
         return Inertia::render('Admin/PengaturanSekolah/Index', [
             'pengaturan' => $pengaturan,
             'jamSlots'   => $pengaturan->getJamSlots(),
+            'jpMinimum'  => $this->jpMinimum(),
         ]);
+    }
+
+    /**
+     * JP tertinggi yang sedang benar-benar dipakai di jadwal aktif manapun
+     * (termasuk Jam Literasi) — jumlah_jp tidak boleh diturunkan di bawah ini,
+     * kalau tidak jadwal di slot tersebut kehilangan jam mulai/selesai yang valid.
+     */
+    private function jpMinimum(): int
+    {
+        return max(1, (int) Jadwal::where('is_aktif', true)->max('jam_ke'));
     }
 
     public function update(Request $request)
     {
+        $jpMinimum = $this->jpMinimum();
+
         $data = $request->validate([
             'jam_mulai_sekolah'        => 'required|date_format:H:i',
             'durasi_jp'                => 'required|integer|min:15|max:120',
-            'jumlah_jp'                => 'required|integer|min:1|max:14',
+            'jumlah_jp'                => ['required', 'integer', 'max:14', Rule::in(range($jpMinimum, 14))],
             'istirahat'                => 'nullable|array',
             'istirahat.*.setelah_jp'   => 'required|integer|min:1',
             'istirahat.*.durasi_menit' => 'required|integer|min:5|max:120',
             'hari_aktif'               => 'required|array|min:1',
             'hari_aktif.*'             => 'in:Senin,Selasa,Rabu,Kamis,Jumat,Sabtu,Ahad',
+        ], [
+            'jumlah_jp.in' => "Jumlah JP tidak boleh kurang dari {$jpMinimum} — ada jadwal (termasuk Jam Literasi) yang sudah memakai JP sampai ke-{$jpMinimum}. Kurangi/sesuaikan jadwal itu dulu di menu Jadwal Pelajaran / Jam Literasi sebelum menurunkan jumlah JP.",
         ]);
 
         // Pastikan urutan hari selalu Senin → Selasa → ... → Ahad

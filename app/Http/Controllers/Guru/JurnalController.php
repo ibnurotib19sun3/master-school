@@ -55,6 +55,9 @@ class JurnalController extends Controller
         ->where('hari', $hariIni)
         ->where('is_aktif', true)
         ->when($guruId, fn ($q) => $q->whereHas('pembelajaran', fn ($p) => $p->where('guru_id', $guruId)))
+        // Jam Literasi punya toggle "isi jurnal" tersendiri (default nonaktif) —
+        // pembelajaran lain selalu true lewat default kolom, jadi tidak berubah perilakunya.
+        ->whereHas('pembelajaran', fn ($p) => $p->where('isi_jurnal', true))
         ->orderBy('jam_ke')
         ->get()
         ->values()

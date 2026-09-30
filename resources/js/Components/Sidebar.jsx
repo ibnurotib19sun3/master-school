@@ -6,7 +6,7 @@ import {
     Clock, PieChart, ShieldCheck, Settings, BookCheck, BookText,
     UserCog, Megaphone, MailOpen, Send, FolderUp, Layers, History, CalendarX, Tag,
     ChevronDown, Lock, NotebookPen, Database, Inbox, Crown, Trophy,
-    FolderOpen, Briefcase, ChevronRight, KeyRound,
+    FolderOpen, Briefcase, ChevronRight, KeyRound, BadgeCheck,
 } from 'lucide-react';
 import { useState, useRef, useEffect } from 'react';
 import { clsx } from 'clsx';
@@ -33,6 +33,7 @@ const ROLE_LABELS = {
     bimbingan_konseling:         'Bimbingan Konseling',
     tim_penjamin_mutu:           'Tim Penjamin Mutu',
     kepala_konsentrasi_keahlian: 'Kepala Konsentrasi Keahlian',
+    siswa:                       'Siswa',
 };
 
 /* ─── Per-group: icon + color key ────────────────────────────────── */
@@ -51,6 +52,7 @@ const GROUP_META = {
     'Pokja':              { icon: Layers,           ck: 'teal'   },
     'Tata Usaha':         { icon: UserCog,          ck: 'cyan'   },
     'Masukan & Laporan':  { icon: MessageSquare,    ck: 'slate'  },
+    'Portal Siswa':       { icon: BookOpen,         ck: 'emerald'},
 };
 
 /* Active item — tinted bg + bright colored text (not solid pill) */
@@ -158,8 +160,10 @@ const menuGroups = [
             { label: 'Guru',               href: '/admin/guru',               icon: GraduationCap, roles: ['super_admin', 'wakasek_kurikulum', 'kepala_tatausaha', 'tatausaha'] },
             { label: 'Tata Usaha',         href: '/admin/tatausaha',          icon: UserCog,       roles: ['super_admin', 'kepala_tatausaha', 'tatausaha'] },
             { label: 'Siswa',              href: '/admin/siswa',              icon: Users,         roles: ['super_admin', 'wakasek_kesiswaan', 'kepala_tatausaha', 'tatausaha'] },
+            { label: 'Cetak Kartu Siswa',  href: '/admin/kartu-siswa',        icon: BadgeCheck,    roles: ['super_admin', 'wakasek_kesiswaan', 'kepala_tatausaha', 'tatausaha'] },
             { label: 'Pembelajaran',       href: '/admin/pembelajaran',       icon: BookOpen,      roles: ['super_admin', 'wakasek_kurikulum'] },
             { label: 'Jadwal Pelajaran',   href: '/admin/jadwal',             icon: Clock,         roles: ['super_admin', 'wakasek_kurikulum', 'kepala_sekolah'] },
+            { label: 'Jam Literasi',       href: '/admin/jadwal-literasi',    icon: BookOpen,      roles: ['super_admin', 'wakasek_kurikulum'] },
             { label: 'Hari Libur',         href: '/admin/hari-libur',         icon: CalendarX,     roles: ['super_admin', 'wakasek_kurikulum'] },
             { label: 'Pengumpulan',        href: '/admin/pengumpulan',        icon: FolderUp,      roles: ['super_admin', 'wakasek_kurikulum'] },
             { label: 'Pengaturan Sekolah', href: '/admin/pengaturan-sekolah', icon: Settings,      roles: ['super_admin'] },
@@ -176,6 +180,7 @@ const menuGroups = [
             { label: 'Keaktifan Jurnal Guru', href: '/admin/laporan/keaktifan-jurnal',           icon: BookCheck, roles: ['super_admin', 'kepala_sekolah', 'wakasek_kurikulum'] },
             { label: 'Kehadiran TU',          href: '/admin/laporan/kehadiran-tatausaha',        icon: Users,     roles: ['super_admin', 'kepala_sekolah', 'kepala_tatausaha'] },
             { label: 'Keaktifan Jurnal TU',   href: '/admin/laporan/keaktifan-jurnal-tatausaha', icon: BookText,  roles: ['super_admin', 'kepala_sekolah', 'kepala_tatausaha'] },
+            { label: 'Progress LMS',          href: '/admin/laporan/lms-progress',               icon: Layers,    roles: ['super_admin', 'kepala_sekolah', 'wakasek_kurikulum'] },
         ],
     },
     {
@@ -215,10 +220,19 @@ const menuGroups = [
             { label: 'Presensi Harian (BK)', href: '/guru/presensi-harian',      icon: ClipboardCheck, roles: ['guru', 'super_admin', 'kepala_sekolah', 'wakasek_kesiswaan'], guruBkOnly: true },
             { label: 'Rekap Presensi',       href: '/guru/presensi-harian/rekap',icon: BarChart3,     roles: ['guru', 'super_admin', 'kepala_sekolah', 'wakasek_kesiswaan'], guruBkOnly: true },
             { label: 'Pengumpulan',          href: '/guru/pengumpulan',          icon: FolderUp,      roles: ['guru'] },
+            { label: 'LMS',                  href: '/guru/lms',                  icon: Layers,        roles: ['guru'] },
             { label: 'Jurnal Mengajar Guru', href: '/admin/jurnal-mengajar',     icon: FileText,      roles: ['super_admin', 'kepala_sekolah', 'wakasek_kurikulum'] },
             { label: 'Input Nilai',          href: '/guru/nilai',                icon: BarChart3 },
             { label: 'Laporan KPI',          href: '/guru/kpi',                  icon: Star,          roles: ['guru'] },
             { label: 'Catatan Kepsek',       href: '/guru/catatan-kepsek',       icon: MessageSquare, roles: ['guru'], excludeRoles: ['kepala_sekolah', 'super_admin'] },
+        ],
+    },
+    {
+        label: 'Portal Siswa',
+        roles: ['siswa'],
+        roleSection: 'siswa',
+        items: [
+            { label: 'LMS', href: '/siswa/lms', icon: Layers, roles: ['siswa'] },
         ],
     },
     {

@@ -1,11 +1,21 @@
 import AppLayout from '@/Layouts/AppLayout';
-import { router, Link } from '@inertiajs/react';
+import { router, Link, useForm } from '@inertiajs/react';
 import { Card, CardBody, CardHeader, CardTitle } from '@/Components/ui/Card';
+import Button from '@/Components/ui/Button';
+import Modal from '@/Components/ui/Modal';
+import { Input, Textarea } from '@/Components/ui/Input';
 import {
     BookText, Search, X, ChevronLeft, ChevronRight,
-    History, Plus, BookOpen, Printer, CheckSquare, Square, GraduationCap,
+    History, Plus, BookOpen, Printer, CheckSquare, Square, GraduationCap, Edit,
 } from 'lucide-react';
 import { useState, useCallback } from 'react';
+
+const METODE_OPTIONS = ['Ceramah', 'Diskusi', 'Praktik', 'Proyek', 'Kooperatif', 'Lainnya'];
+
+function todayStr() {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
 
 function toDatePart(val) {
     if (!val) return '';
@@ -152,6 +162,70 @@ function doPrint(items, kop) {
 }
 
 /* ------------------------------------------------------------------ */
+/* Edit modal — hanya untuk entri hari ini (dibatasi juga di backend)   */
+/* ------------------------------------------------------------------ */
+function EditJurnalModal({ item, onClose }) {
+    const form = useForm({
+        materi_pokok:  item?.materi_pokok ?? '',
+        uraian_materi: item?.uraian_materi ?? '',
+        metode:        Array.isArray(item?.metode) ? item.metode : (item?.metode ? [item.metode] : []),
+        catatan:       item?.catatan ?? '',
+        capaian_ids:   (item?.capaian_pembelajaran ?? []).map((c) => c.id),
+        media_type:    item?.media_type ?? null,
+        media_ref_id:  item?.media_ref_id ?? null,
+        media_url:     item?.media_url ?? null,
+    });
+
+    const toggleMetode = (m) => {
+        form.setData('metode', form.data.metode.includes(m)
+            ? form.data.metode.filter((x) => x !== m)
+            : [...form.data.metode, m]);
+    };
+
+    const submit = (e) => {
+        e.preventDefault();
+        form.put(`/guru/jurnal/${item.id}`, {
+            preserveScroll: true,
+            onSuccess: onClose,
+        });
+    };
+
+    return (
+        <Modal show={!!item} onClose={onClose} title="Edit Jurnal Mengajar" size="lg">
+            <form onSubmit={submit} className="space-y-4">
+                <p className="text-xs text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg px-3 py-2">
+                    Jurnal hanya bisa diedit pada hari yang sama saat dibuat.
+                </p>
+                <Input label="Materi Pokok" value={form.data.materi_pokok} onChange={(e) => form.setData('materi_pokok', e.target.value)} error={form.errors.materi_pokok} required />
+                <Textarea label="Uraian Materi" rows={4} value={form.data.uraian_materi} onChange={(e) => form.setData('uraian_materi', e.target.value)} error={form.errors.uraian_materi} required />
+                <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Metode</label>
+                    <div className="flex flex-wrap gap-2">
+                        {METODE_OPTIONS.map((m) => {
+                            const active = form.data.metode.includes(m);
+                            return (
+                                <button key={m} type="button" onClick={() => toggleMetode(m)}
+                                    className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
+                                        active ? (METODE_BADGE[m] ?? METODE_BADGE.Lainnya) + ' border-transparent' : 'border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400'
+                                    }`}>
+                                    {m}
+                                </button>
+                            );
+                        })}
+                    </div>
+                    {form.errors.metode && <p className="text-xs text-red-500 mt-1">{form.errors.metode}</p>}
+                </div>
+                <Textarea label="Catatan (opsional)" rows={2} value={form.data.catatan} onChange={(e) => form.setData('catatan', e.target.value)} error={form.errors.catatan} />
+                <div className="flex justify-end gap-2 pt-1">
+                    <Button type="button" variant="secondary" onClick={onClose}>Batal</Button>
+                    <Button type="submit" loading={form.processing}>Simpan Perubahan</Button>
+                </div>
+            </form>
+        </Modal>
+    );
+}
+
+/* ------------------------------------------------------------------ */
 /* Main component                                                        */
 /* ------------------------------------------------------------------ */
 export default function GuruJurnalRiwayat({ riwayat, filters, mataPelajaran, isAdmin, kop }) {
@@ -160,6 +234,9 @@ export default function GuruJurnalRiwayat({ riwayat, filters, mataPelajaran, isA
     const [mapel,    setMapel]    = useState(filters.mapel  ?? '');
     const [q,        setQ]        = useState(filters.q      ?? '');
     const [selected, setSelected] = useState(new Set());
+    const [editItem, setEditItem] = useState(null);
+
+    const isEditable = (item) => toDatePart(item.tanggal) === todayStr();
 
     const applyFilter = useCallback((nd, ns, nm, nq) => {
         router.get('/guru/jurnal/riwayat', {
@@ -342,10 +419,18 @@ export default function GuruJurnalRiwayat({ riwayat, filters, mataPelajaran, isA
                                                                 <span className="text-xs text-gray-500">{item.jumlah_hadir ?? 0} hadir</span>
                                                             </div>
                                                         </div>
-                                                        <button onClick={() => doPrint([item], kop)} title="Cetak"
-                                                            className="shrink-0 p-1.5 rounded-lg text-gray-400 hover:text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 transition-colors">
-                                                            <Printer className="h-3.5 w-3.5" />
-                                                        </button>
+                                                        <div className="flex items-center gap-1 shrink-0">
+                                                            {isEditable(item) && (
+                                                                <button onClick={() => setEditItem(item)} title="Edit jurnal (hari ini)"
+                                                                    className="p-1.5 rounded-lg text-gray-400 hover:text-sky-600 hover:bg-sky-50 dark:hover:bg-sky-900/20 transition-colors">
+                                                                    <Edit className="h-3.5 w-3.5" />
+                                                                </button>
+                                                            )}
+                                                            <button onClick={() => doPrint([item], kop)} title="Cetak"
+                                                                className="p-1.5 rounded-lg text-gray-400 hover:text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 transition-colors">
+                                                                <Printer className="h-3.5 w-3.5" />
+                                                            </button>
+                                                        </div>
                                                     </div>
                                                 </div>
                                             </div>
@@ -439,13 +524,24 @@ export default function GuruJurnalRiwayat({ riwayat, filters, mataPelajaran, isA
                                                             </span>
                                                         </td>
                                                         <td className="px-4 py-3">
-                                                            <button
-                                                                onClick={() => doPrint([item], kop)}
-                                                                className="p-1.5 rounded-lg text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-emerald-600 transition-colors"
-                                                                title="Cetak jurnal ini"
-                                                            >
-                                                                <Printer className="h-3.5 w-3.5" />
-                                                            </button>
+                                                            <div className="flex items-center gap-1">
+                                                                {isEditable(item) && (
+                                                                    <button
+                                                                        onClick={() => setEditItem(item)}
+                                                                        className="p-1.5 rounded-lg text-gray-400 hover:bg-sky-50 dark:hover:bg-sky-900/20 hover:text-sky-600 transition-colors"
+                                                                        title="Edit jurnal (hari ini)"
+                                                                    >
+                                                                        <Edit className="h-3.5 w-3.5" />
+                                                                    </button>
+                                                                )}
+                                                                <button
+                                                                    onClick={() => doPrint([item], kop)}
+                                                                    className="p-1.5 rounded-lg text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-emerald-600 transition-colors"
+                                                                    title="Cetak jurnal ini"
+                                                                >
+                                                                    <Printer className="h-3.5 w-3.5" />
+                                                                </button>
+                                                            </div>
                                                         </td>
                                                     </tr>
                                                 );
@@ -497,6 +593,8 @@ export default function GuruJurnalRiwayat({ riwayat, filters, mataPelajaran, isA
                     </CardBody>
                 </Card>
             </div>
+
+            <EditJurnalModal item={editItem} onClose={() => setEditItem(null)} />
         </AppLayout>
     );
 }

@@ -221,6 +221,13 @@ Route::middleware('auth')->group(function () {
         Route::post('siswa/bulk-delete', [SiswaController::class, 'destroyBulk'])->name('siswa.bulk-delete')->middleware('role:super_admin|wakasek_kesiswaan|kepala_tatausaha|tatausaha');
         Route::post('siswa/import', [SiswaController::class, 'import'])->name('siswa.import')->middleware('role:super_admin|wakasek_kesiswaan|kepala_tatausaha|tatausaha');
 
+        // Kartu Tanda Siswa
+        Route::get('kartu-siswa', [\App\Http\Controllers\Admin\KartuSiswaController::class, 'index'])->name('kartu-siswa.index');
+        Route::post('kartu-siswa/template', [\App\Http\Controllers\Admin\KartuSiswaController::class, 'storeTemplate'])->name('kartu-siswa.template.store');
+        Route::post('kartu-siswa/template/{template}', [\App\Http\Controllers\Admin\KartuSiswaController::class, 'updateTemplate'])->name('kartu-siswa.template.update');
+        Route::delete('kartu-siswa/template/{template}', [\App\Http\Controllers\Admin\KartuSiswaController::class, 'destroyTemplate'])->name('kartu-siswa.template.destroy');
+        Route::post('kartu-siswa/cetak', [\App\Http\Controllers\Admin\KartuSiswaController::class, 'cetak'])->name('kartu-siswa.cetak');
+
         // Mata Pelajaran
         Route::get('mata-pelajaran', function (\Illuminate\Http\Request $request) {
             $q = $request->q;
@@ -387,6 +394,9 @@ Route::middleware('auth')->group(function () {
         Route::get('jadwal/export', [JadwalController::class, 'export'])->name('jadwal.export');
         Route::get('jadwal/template', [JadwalController::class, 'template'])->name('jadwal.template');
         Route::post('jadwal/import', [JadwalController::class, 'import'])->name('jadwal.import')->middleware('role:super_admin|wakasek_kurikulum');
+        Route::get('jadwal-literasi',  [\App\Http\Controllers\Admin\JadwalLiterasiController::class, 'index'])->name('jadwal-literasi.index')->middleware('role:super_admin|wakasek_kurikulum');
+        Route::post('jadwal-literasi', [\App\Http\Controllers\Admin\JadwalLiterasiController::class, 'store'])->name('jadwal-literasi.store')->middleware('role:super_admin|wakasek_kurikulum');
+        Route::post('jadwal-literasi/isi-jurnal', [\App\Http\Controllers\Admin\JadwalLiterasiController::class, 'toggleIsiJurnal'])->name('jadwal-literasi.isi-jurnal')->middleware('role:super_admin|wakasek_kurikulum');
 
         // Pengaturan Sekolah — read semua admin, write hanya super_admin
         Route::get('pengaturan-sekolah', [PengaturanSekolahController::class, 'index'])->name('pengaturan-sekolah.index');
@@ -408,6 +418,7 @@ Route::middleware('auth')->group(function () {
         Route::get('laporan/kehadiran-tatausaha/export', [LaporanController::class, 'exportKehadiranTatausaha'])->name('laporan.kehadiran-tatausaha.export');
         Route::get('laporan/keaktifan-jurnal-tatausaha', [LaporanController::class, 'keaktifanJurnalTatausaha'])->name('laporan.keaktifan-jurnal-tatausaha');
         Route::get('laporan/keaktifan-jurnal-tatausaha/{tatausaha}/detail', [LaporanController::class, 'keaktifanJurnalTatausahaDetail'])->name('laporan.keaktifan-jurnal-tatausaha.detail');
+        Route::get('laporan/lms-progress', [LaporanController::class, 'lmsProgress'])->name('laporan.lms-progress');
         Route::get('laporan/kehadiran-manajemen', [LaporanController::class, 'kehadiranManajemen'])->name('laporan.kehadiran-manajemen');
         Route::post('laporan/absensi-guru', [LaporanController::class, 'storeAbsensiGuru'])->name('laporan.absensi-guru.store')->middleware('role:super_admin|wakasek_kurikulum');
 
@@ -979,6 +990,13 @@ Route::middleware('auth')->group(function () {
         Route::post('pengumpulan/{item}/upload',                [GuruPengumpulanController::class, 'upload'])->name('pengumpulan.upload');
         Route::delete('pengumpulan/{item}/file',                [GuruPengumpulanController::class, 'deleteFile'])->name('pengumpulan.file.delete');
 
+        // LMS (guru kelola materi per kelas)
+        Route::get('lms',                        [\App\Http\Controllers\Guru\LmsController::class, 'index'])->name('lms.index');
+        Route::get('lms/{pembelajaran}',         [\App\Http\Controllers\Guru\LmsController::class, 'show'])->name('lms.show');
+        Route::post('lms/{pembelajaran}',        [\App\Http\Controllers\Guru\LmsController::class, 'store'])->name('lms.store');
+        Route::put('lms/materi/{materi}',        [\App\Http\Controllers\Guru\LmsController::class, 'update'])->name('lms.update');
+        Route::delete('lms/materi/{materi}',     [\App\Http\Controllers\Guru\LmsController::class, 'destroy'])->name('lms.destroy');
+
         // Laporan KPI (baca sendiri untuk guru)
         Route::get('kpi', [\App\Http\Controllers\Admin\KpiController::class, 'guruIndex'])->name('kpi.index');
 
@@ -1077,5 +1095,12 @@ Route::middleware('auth')->group(function () {
 
         // Laporan KPI (baca sendiri untuk TU)
         Route::get('kpi', [KpiTatausahaController::class, 'tuIndex'])->name('kpi.index');
+    });
+
+    // Portal Siswa
+    Route::prefix('siswa')->name('siswa.')->middleware('role:siswa')->group(function () {
+        Route::get('lms', [\App\Http\Controllers\Siswa\LmsController::class, 'index'])->name('lms.index');
+        Route::get('lms/{pembelajaran}', [\App\Http\Controllers\Siswa\LmsController::class, 'show'])->name('lms.show');
+        Route::get('lms/materi/{materi}/akses', [\App\Http\Controllers\Siswa\LmsController::class, 'akses'])->name('lms.akses');
     });
 });

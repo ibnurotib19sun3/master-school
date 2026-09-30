@@ -15,6 +15,7 @@ class PengaturanSekolah extends Model
         'telepon', 'email_sekolah', 'website', 'kepala_sekolah_nama', 'nip_kepala',
         'logo_path', 'yayasan_dinas',
         'jam_mulai_sekolah', 'durasi_jp', 'jumlah_jp', 'istirahat', 'hari_aktif',
+        'literasi_isi_jurnal',
         'is_maintenance', 'maintenance_message',
     ];
 
@@ -26,9 +27,10 @@ class PengaturanSekolah extends Model
     protected $appends = ['logo_url'];
 
     protected $casts = [
-        'istirahat'      => 'array',
-        'hari_aktif'     => 'array',
-        'is_maintenance' => 'boolean',
+        'istirahat'            => 'array',
+        'hari_aktif'           => 'array',
+        'is_maintenance'       => 'boolean',
+        'literasi_isi_jurnal'  => 'boolean',
     ];
 
     public static function current(): self

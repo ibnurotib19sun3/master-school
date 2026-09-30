@@ -23,7 +23,7 @@ createInertiaApp({
             </ThemeProvider>
         );
     },
-    progress: {
-        color: '#4f46e5',
-    },
+    // Progress bar tipis di atas diganti dengan overlay full-screen (GlobalNavigationLoader
+    // di AppLayout) yang mem-block klik selama loading — lihat resources/js/Layouts/AppLayout.jsx.
+    progress: false,
 });

@@ -93,7 +93,7 @@ function LogoPicker({ currentUrl, onSave, onDelete, saving }) {
     );
 }
 
-export default function PengaturanSekolahIndex({ pengaturan }) {
+export default function PengaturanSekolahIndex({ pengaturan, jpMinimum = 1 }) {
     /* ── Identitas state ── */
     const [id, setId] = useState({
         nama_sekolah:        pengaturan.nama_sekolah ?? '',
@@ -261,9 +261,14 @@ export default function PengaturanSekolahIndex({ pengaturan }) {
                                 </div>
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Jumlah JP per Hari</label>
-                                    <input type="number" min="1" max="14" value={jumlahJp}
+                                    <input type="number" min={jpMinimum} max="14" value={jumlahJp}
                                         onChange={(e) => setJumlahJp(e.target.value)}
                                         className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-sky-500" />
+                                    {jpMinimum > 1 && (
+                                        <p className="mt-1 text-xs text-amber-600 dark:text-amber-400">
+                                            Minimal {jpMinimum} JP — mengikuti jadwal yang sudah ada, termasuk Jam Literasi.
+                                        </p>
+                                    )}
                                 </div>
                             </div>
                         </CardBody>

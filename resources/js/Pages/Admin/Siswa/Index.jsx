@@ -7,6 +7,7 @@ import Modal from '@/Components/ui/Modal';
 import ConfirmDialog from '@/Components/ui/ConfirmDialog';
 import { Input, Select } from '@/Components/ui/Input';
 import ActionButton from '@/Components/ui/ActionButton';
+import PhotoCropModal from './PhotoCropModal';
 import { Plus, Search, Edit, Trash2, Download, Upload, FileSpreadsheet, X, AlertCircle, KeyRound, CheckCircle } from 'lucide-react';
 import { useState, useRef, useCallback } from 'react';
 
@@ -37,11 +38,14 @@ export default function SiswaIndex({ siswa, rombel, filters }) {
     const [showBulkDelete, setShowBulkDelete]   = useState(false);
     const fileRef = useRef(null);
 
-    const { data, setData, post, put, processing, errors, reset } = useForm({
+    const { data, setData, post, transform, processing, errors, reset } = useForm({
         name: '', email: '', gender: '', tanggal_lahir: '',
-        nis: '', nisn: '', tempat_lahir: '', agama: 'Islam',
-        rombel_id: '', jurusan_id: '', status_siswa: 'Aktif',
+        nis: '', nisn: '', tempat_lahir: '', agama: 'Islam', alamat: '',
+        rombel_id: '', jurusan_id: '', status_siswa: 'Aktif', foto: null,
     });
+    const [fotoPreview, setFotoPreview] = useState(null);
+    const [cropSrc, setCropSrc] = useState(null);
+    const fotoInputRef = useRef(null);
 
     /* ── Helpers filter ── */
     const setFilter = (key, val) =>
@@ -50,13 +54,19 @@ export default function SiswaIndex({ siswa, rombel, filters }) {
     const setPerPage = (val) =>
         router.get('/admin/siswa', { ...filters, per_page: val, page: 1 }, { preserveState: true, replace: true });
 
-    /* ── Modal tambah/edit ── */
+    /* ── Modal tambah/edit ──
+       Edit dikirim sebagai POST + _method:put (bukan form.put() langsung) karena PHP
+       tidak mem-parsing multipart/form-data pada method PUT asli — kalau ada foto yang
+       diupload, form.put() mengirim PUT sungguhan dan request itu hang tanpa respons
+       sama sekali. POST + _method override adalah cara resmi Laravel menangani ini. */
     const submit = (e) => {
         e.preventDefault();
         if (editItem) {
-            put(`/admin/siswa/${editItem.id}`, { onSuccess: () => { setEditItem(null); reset(); setShowModal(false); } });
+            transform((data) => ({ ...data, _method: 'put' }));
+            post(`/admin/siswa/${editItem.id}`, { onSuccess: () => { setEditItem(null); reset(); setFotoPreview(null); setShowModal(false); }, forceFormData: true });
         } else {
-            post('/admin/siswa', { onSuccess: () => { setShowModal(false); reset(); } });
+            transform((data) => data);
+            post('/admin/siswa', { onSuccess: () => { setShowModal(false); reset(); setFotoPreview(null); }, forceFormData: true });
         }
     };
 
@@ -66,13 +76,42 @@ export default function SiswaIndex({ siswa, rombel, filters }) {
             name: item.user.name, email: item.user.email ?? '', gender: item.user.gender ?? '',
             tanggal_lahir: item.user.tanggal_lahir ?? '',
             nis: item.nis, nisn: item.nisn ?? '', tempat_lahir: item.tempat_lahir ?? '',
-            agama: item.agama ?? 'Islam', rombel_id: item.rombel_id ?? '',
-            jurusan_id: item.jurusan_id ?? '', status_siswa: item.status_siswa,
+            agama: item.agama ?? 'Islam', alamat: item.user.alamat ?? '', rombel_id: item.rombel_id ?? '',
+            jurusan_id: item.jurusan_id ?? '', status_siswa: item.status_siswa, foto: null,
         });
+        setFotoPreview(item.user?.avatar_url ?? null);
         setShowModal(true);
     };
 
-    const closeModal = () => { setShowModal(false); setEditItem(null); reset(); };
+    const closeModal = () => {
+        setShowModal(false); setEditItem(null); reset(); setFotoPreview(null);
+        if (cropSrc) URL.revokeObjectURL(cropSrc);
+        setCropSrc(null);
+        if (fotoInputRef.current) fotoInputRef.current.value = '';
+    };
+
+    const handleFotoChange = (e) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        // Jangan langsung pakai file mentah — buka editor crop dulu supaya admin
+        // bisa pilih bagian foto yang mau dipakai sebelum diupload.
+        setCropSrc(URL.createObjectURL(file));
+    };
+
+    const handleCropCancel = () => {
+        if (cropSrc) URL.revokeObjectURL(cropSrc);
+        setCropSrc(null);
+        if (fotoInputRef.current) fotoInputRef.current.value = '';
+    };
+
+    const handleCropConfirm = (blob) => {
+        const file = new File([blob], 'foto-siswa.jpg', { type: 'image/jpeg' });
+        setData('foto', file);
+        setFotoPreview(URL.createObjectURL(blob));
+        if (cropSrc) URL.revokeObjectURL(cropSrc);
+        setCropSrc(null);
+        if (fotoInputRef.current) fotoInputRef.current.value = '';
+    };
 
     /* Auto-generate email dari NIS (hanya mode tambah) */
     const handleNisChange = useCallback((nis) => {
@@ -379,6 +418,27 @@ export default function SiswaIndex({ siswa, rombel, filters }) {
                             </p>
                         </div>
                     )}
+                    {/* Foto siswa — bingkai kotak rounded */}
+                    <div className="flex items-center gap-4">
+                        <button type="button" onClick={() => fotoInputRef.current?.click()}
+                            className="group relative shrink-0 h-20 w-20 rounded-2xl overflow-hidden border-2 border-dashed border-gray-300 dark:border-gray-600 hover:border-sky-400 dark:hover:border-sky-500 transition-colors bg-gray-50 dark:bg-gray-800">
+                            {fotoPreview ? (
+                                <img src={fotoPreview} alt="Foto siswa" className="h-full w-full object-cover" />
+                            ) : (
+                                <span className="flex h-full w-full items-center justify-center text-[10px] text-gray-400 text-center px-1">Pilih Foto</span>
+                            )}
+                            <span className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity text-white text-[10px] font-medium">
+                                Ganti
+                            </span>
+                        </button>
+                        <div>
+                            <p className="text-sm font-medium text-gray-700 dark:text-gray-300">Foto Siswa</p>
+                            <p className="text-xs text-gray-400 mt-0.5">Untuk kartu tanda siswa & profil. JPG/PNG, maks. 8MB.</p>
+                            {errors.foto && <p className="text-xs text-red-500 mt-1">{errors.foto}</p>}
+                        </div>
+                        <input ref={fotoInputRef} type="file" accept="image/*" className="hidden" onChange={handleFotoChange} />
+                    </div>
+
                     <div className="grid grid-cols-2 gap-4">
                         <Input label="Nama Lengkap" value={data.name} onChange={(e) => setData('name', e.target.value)} error={errors.name} required />
                         <Input label="NIS" value={data.nis} onChange={(e) => handleNisChange(e.target.value)} error={errors.nis} required />
@@ -399,6 +459,9 @@ export default function SiswaIndex({ siswa, rombel, filters }) {
                         <Select label="Agama" value={data.agama} onChange={(e) => setData('agama', e.target.value)}>
                             {['Islam', 'Kristen', 'Katolik', 'Hindu', 'Buddha', 'Konghucu'].map((a) => <option key={a} value={a}>{a}</option>)}
                         </Select>
+                        <div className="col-span-2">
+                            <Input label="Alamat" value={data.alamat} onChange={(e) => setData('alamat', e.target.value)} placeholder="Alamat tempat tinggal" />
+                        </div>
                         <Select label="Rombel" value={data.rombel_id} onChange={(e) => {
                             const rombelId = e.target.value;
                             const r = rombel.find(x => String(x.id) === String(rombelId));
@@ -556,6 +619,13 @@ export default function SiswaIndex({ siswa, rombel, filters }) {
                 message={`${selectedIds.size} siswa yang dipilih akan dihapus permanen beserta akun terkait. Tindakan ini tidak dapat dibatalkan.`}
                 onConfirm={submitBulkDelete}
                 onCancel={() => setShowBulkDelete(false)}
+            />
+
+            <PhotoCropModal
+                show={!!cropSrc}
+                imageSrc={cropSrc}
+                onCancel={handleCropCancel}
+                onConfirm={handleCropConfirm}
             />
         </AppLayout>
     );

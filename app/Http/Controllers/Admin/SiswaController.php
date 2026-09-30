@@ -10,6 +10,7 @@ use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
 use Maatwebsite\Excel\Facades\Excel;
 use App\Exports\SiswaExport;
@@ -59,15 +60,21 @@ class SiswaController extends Controller
             'rombel_id' => 'nullable|exists:rombel,id',
             'jurusan_id'=> 'nullable|exists:jurusan,id',
             'agama'     => 'nullable',
+            'alamat'    => 'nullable|string',
+            'foto'      => 'nullable|image|mimes:jpg,jpeg,png,webp|max:8192',
         ]);
 
         DB::transaction(function () use ($request) {
+            $fotoPath = $request->hasFile('foto') ? $request->file('foto')->store('avatars', 'public') : null;
+
             $user = User::create([
                 'name'          => $request->name,
                 'email'         => $request->email,
                 'password'      => Hash::make($request->nis),
                 'gender'        => $request->gender,
                 'tanggal_lahir' => $request->tanggal_lahir,
+                'alamat'        => $request->alamat,
+                'avatar'        => $fotoPath,
                 'is_active'     => true,
             ]);
             $user->assignRole('siswa');
@@ -96,14 +103,26 @@ class SiswaController extends Controller
             'nis'        => "required|unique:siswa,nis,{$siswa->id}",
             'rombel_id'  => 'nullable|exists:rombel,id',
             'jurusan_id' => 'nullable|exists:jurusan,id',
+            'alamat'     => 'nullable|string',
+            'foto'       => 'nullable|image|mimes:jpg,jpeg,png,webp|max:8192',
         ]);
 
         DB::transaction(function () use ($request, $siswa) {
-            $siswa->user->update([
+            $userUpdate = [
                 'name'          => $request->name,
                 'gender'        => $request->gender,
                 'tanggal_lahir' => $request->tanggal_lahir,
-            ]);
+                'alamat'        => $request->alamat,
+            ];
+
+            if ($request->hasFile('foto')) {
+                if ($siswa->user->avatar) {
+                    Storage::disk('public')->delete($siswa->user->avatar);
+                }
+                $userUpdate['avatar'] = $request->file('foto')->store('avatars', 'public');
+            }
+
+            $siswa->user->update($userUpdate);
             $siswa->update([
                 'nis'          => $request->nis,
                 'nisn'         => $request->nisn,

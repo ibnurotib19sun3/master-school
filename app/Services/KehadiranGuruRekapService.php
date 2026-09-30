@@ -6,6 +6,7 @@ use App\Models\AbsensiGuru;
 use App\Models\AbsensiPiket;
 use App\Models\Guru;
 use App\Models\HariLibur;
+use App\Models\PengaturanSekolah;
 use Carbon\Carbon;
 use Illuminate\Support\Collection;
 
@@ -80,27 +81,43 @@ class KehadiranGuruRekapService
         // Kemunculan tiap hari-dalam-seminggu hingga hari ini (jangan hitung hari yg belum terjadi)
         $effectiveTo = $to->gt(Carbon::today()) ? Carbon::today() : $to->copy();
 
-        // Tanggal yang memiliki aktivitas piket — tanggal tanpa catatan piket sama sekali
-        // dianggap libur tidak resmi dan tidak dihitung dalam jam terjadwal
+        // Tanggal yang punya aktivitas piket ATAU catatan absensi guru harian — tanggal
+        // tanpa keduanya sama sekali dianggap libur tidak resmi dan tidak dihitung dalam
+        // jam terjadwal. Sebelumnya hanya piket yang dicek: kalau piket kosong di suatu
+        // tanggal (mis. guru diabsen manual lewat form harian tanpa piket per-JP diisi),
+        // tanggal itu hilang dari jam terjadwal SEMUA guru — termasuk guru yang sakit/izin/
+        // alpha hari itu — sehingga absen itu tidak pernah mengurangi persentase.
         $activePiketDates = AbsensiPiket::whereBetween('absensi_piket.tanggal', [$tanggalMulai, $tanggalSelesai])
             ->distinct()->pluck('absensi_piket.tanggal')
             ->map(fn ($t) => Carbon::parse($t)->format('Y-m-d'))
             ->flip()->toArray();
+
+        $activeAbsensiDates = AbsensiGuru::whereBetween('tanggal', [$tanggalMulai, $tanggalSelesai])
+            ->distinct()->pluck('tanggal')
+            ->map(fn ($t) => Carbon::parse($t)->format('Y-m-d'))
+            ->flip()->toArray();
+
+        $activeDates = $activePiketDates + $activeAbsensiDates;
 
         $firstPiket = count($activePiketDates) > 0 ? min(array_keys($activePiketDates)) : null;
         $firstAbsen = AbsensiGuru::whereBetween('tanggal', [$tanggalMulai, $tanggalSelesai])->min('tanggal');
         $firstDate  = collect([$firstPiket, $firstAbsen])->filter()->sort()->first();
         $from = $firstDate ? Carbon::parse($firstDate)->startOfDay() : Carbon::parse($tanggalMulai);
 
+        // Nama hari aktif sekolah ini — JANGAN asumsikan Ahad selalu libur, itu salah untuk
+        // sekolah yang justru masuk hari Ahad (dan libur di hari lain, mis. Jumat).
+        $hariAktif = PengaturanSekolah::current()->hari_aktif
+            ?? ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat'];
+        $namaHariByIndex = array_flip(self::HARI_MAP);
+
         $today = Carbon::today();
         $kemunculanHari = [];
         for ($d = $from->copy(); $d->lte($effectiveTo); $d->addDay()) {
             $dateStr = $d->format('Y-m-d');
             if (in_array($dateStr, $liburPenuh)) continue;
-            // Hari Ahad selalu skip
-            if ($d->isSunday()) continue;
-            // Hari yang sudah lewat tapi tidak ada piket sama sekali → libur tidak resmi
-            if ($d->lte($today) && !isset($activePiketDates[$dateStr])) continue;
+            if (!in_array($namaHariByIndex[$d->dayOfWeek] ?? null, $hariAktif, true)) continue;
+            // Hari yang sudah lewat tapi tidak ada piket maupun absensi guru sama sekali → libur tidak resmi
+            if ($d->lte($today) && !isset($activeDates[$dateStr])) continue;
             $kemunculanHari[$d->dayOfWeek] = ($kemunculanHari[$d->dayOfWeek] ?? 0) + 1;
         }
 
@@ -133,11 +150,17 @@ class KehadiranGuruRekapService
     public function buildRekapGuru($guruList, $absensiData, $piketData, array $hariMap, array $kemunculanHari, $piketPengganti = null): Collection
     {
         return $guruList->map(function ($guru) use ($absensiData, $piketData, $hariMap, $kemunculanHari, $piketPengganti) {
-            $data  = $absensiData->get($guru->id, collect());
-            $hadir = (int) $data->where('status', 'Hadir')->sum('jumlah');
-            $sakit = (int) $data->where('status', 'Sakit')->sum('jumlah');
-            $izin  = (int) $data->where('status', 'Izin')->sum('jumlah');
-            $alpha = (int) $data->where('status', 'Alpha')->sum('jumlah');
+            $data       = $absensiData->get($guru->id, collect());
+            $hadir      = (int) $data->where('status', 'Hadir')->sum('jumlah');
+            $sakit      = (int) $data->where('status', 'Sakit')->sum('jumlah');
+            $izin       = (int) $data->where('status', 'Izin')->sum('jumlah');
+            $alpha      = (int) $data->where('status', 'Alpha')->sum('jumlah');
+            $tidakHadir = (int) $data->where('status', 'Tidak_Hadir')->sum('jumlah');
+            // Tidak_Hadir digabung ke alpha (sama-sama absen tanpa kategori S/I) —
+            // sebelumnya status ini diabaikan total dari total maupun hadir, jadi hari itu
+            // tidak pernah mengurangi persentase. Tugas_Sekolah tidak dihitung wajib hadir
+            // di sini, konsisten dengan JP efektif (jpEfektif) yang mengecualikannya juga.
+            $alpha = $alpha + $tidakHadir;
             $total = $hadir + $sakit + $izin + $alpha;
 
             // JP dari piket per status

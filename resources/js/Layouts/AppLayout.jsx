@@ -466,6 +466,75 @@ function Toast() {
     );
 }
 
+/**
+ * Overlay blocking saat berpindah halaman / memuat data (Inertia visit apa pun —
+ * navigasi menu, filter, pagination, submit form). Sengaja MENUTUP seluruh layar
+ * (bukan cuma progress bar tipis di atas) supaya user tidak mengklik berulang saat
+ * proses masih berjalan. Delay 150ms supaya navigasi yang sangat cepat (localhost)
+ * tidak membuat overlay "kedip" sekilas.
+ */
+function GlobalNavigationLoader() {
+    const [visible, setVisible] = useState(false);
+    const timerRef = useRef(null);
+
+    useEffect(() => {
+        const showDelayed = () => {
+            clearTimeout(timerRef.current);
+            timerRef.current = setTimeout(() => setVisible(true), 150);
+        };
+        const hide = () => {
+            clearTimeout(timerRef.current);
+            setVisible(false);
+        };
+        const removeStart = router.on('start', showDelayed);
+        const removeFinish = router.on('finish', hide);
+        return () => {
+            removeStart();
+            removeFinish();
+            clearTimeout(timerRef.current);
+        };
+    }, []);
+
+    if (!visible) return null;
+
+    return (
+        <div className="fixed inset-0 z-100 flex items-center justify-center bg-white/70 dark:bg-gray-950/75 backdrop-blur-sm">
+            <div className="flex flex-col items-center gap-5">
+                <div className="relative h-20 w-20">
+                    {/* Cincin gradient berputar */}
+                    <div
+                        className="absolute inset-0 rounded-full animate-spin"
+                        style={{
+                            background: 'conic-gradient(from 0deg, transparent 0%, #0ea5e9 65%, transparent 100%)',
+                            WebkitMask: 'radial-gradient(farthest-side, transparent calc(100% - 5px), #000 calc(100% - 5px))',
+                            mask: 'radial-gradient(farthest-side, transparent calc(100% - 5px), #000 calc(100% - 5px))',
+                        }}
+                    />
+                    {/* Glow lembut berdenyut di belakang logo */}
+                    <div className="absolute inset-3 rounded-full bg-sky-400/25 animate-ping" />
+                    {/* Logo APIKMAS DJurnal — sama seperti di sidebar, "bernapas" pelan */}
+                    <div className="absolute inset-0 flex items-center justify-center">
+                        <div
+                            className="h-11 w-11 rounded-xl bg-sky-600 shadow-lg shadow-sky-600/30 flex items-center justify-center"
+                            style={{ animation: 'loaderBreathe 1.8s ease-in-out infinite' }}
+                        >
+                            <img src="/logodjurnal.svg" alt="" className="h-7 w-7 object-contain" />
+                        </div>
+                    </div>
+                </div>
+                <p className="text-sm font-medium text-gray-500 dark:text-gray-400 tracking-wide">Memuat…</p>
+            </div>
+
+            <style>{`
+                @keyframes loaderBreathe {
+                    0%, 100% { transform: scale(1); }
+                    50% { transform: scale(1.1); }
+                }
+            `}</style>
+        </div>
+    );
+}
+
 export default function AppLayout({ children, title }) {
     const [sidebarOpen, setSidebarOpen] = useState(false);
 
@@ -484,6 +553,7 @@ export default function AppLayout({ children, title }) {
             {title && <Head title={title} />}
             <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
+            <GlobalNavigationLoader />
             <AutoLogout />
             <LoginWelcome />
             <AnnouncementPopup />

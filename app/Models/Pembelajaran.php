@@ -11,12 +11,12 @@ class Pembelajaran extends Model
 
     protected $fillable = [
         'tahun_ajaran_id', 'rombel_id', 'mata_pelajaran_id', 'jurusan_id', 'guru_id',
-        'jam_per_minggu', 'hari', 'jam_mulai', 'jam_selesai', 'is_aktif',
+        'jam_per_minggu', 'hari', 'jam_mulai', 'jam_selesai', 'is_aktif', 'isi_jurnal',
     ];
 
     protected function casts(): array
     {
-        return ['is_aktif' => 'boolean'];
+        return ['is_aktif' => 'boolean', 'isi_jurnal' => 'boolean'];
     }
 
     public function tahunAjaran()
@@ -72,5 +72,10 @@ class Pembelajaran extends Model
     public function assessment()
     {
         return $this->hasMany(Assessment::class);
+    }
+
+    public function lmsMateri()
+    {
+        return $this->hasMany(LmsMateri::class);
     }
 }

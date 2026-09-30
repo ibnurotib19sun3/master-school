@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\AbsensiTatausaha;
 use App\Models\HariLibur;
+use App\Models\PengaturanSekolah;
 use App\Models\Tatausaha;
 use Carbon\Carbon;
 use Illuminate\Support\Collection;
@@ -53,12 +54,27 @@ class KehadiranTatausahaRekapService
             $hkEnd = $today->copy();
         }
 
-        // Hitung Senin-Sabtu kecuali hari libur (Jumat jika masuk HariLibur, dsb.)
+        // Tanggal dengan minimal 1 catatan absensi TU — tanggal tanpa aktivitas sama
+        // sekali (dari staf manapun) dianggap libur tidak resmi dan tidak dihitung
+        // sebagai hari kerja, sama seperti logika kehadiran guru.
+        $activeDates = AbsensiTatausaha::whereBetween('tanggal', [$tanggalMulai, $tanggalSelesai])
+            ->distinct()->pluck('tanggal')
+            ->map(fn ($t) => Carbon::parse($t)->format('Y-m-d'))
+            ->flip()->toArray();
+
+        // Nama hari aktif sekolah ini — JANGAN asumsikan Ahad selalu libur, itu salah untuk
+        // sekolah yang justru masuk hari Ahad (dan libur di hari lain, mis. Jumat).
+        $hariAktif = PengaturanSekolah::current()->hari_aktif
+            ?? ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat'];
+        $namaHariByIndex = ['Ahad', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
+
         $hariKerja = 0;
         for ($d = $hkStart->copy(); $d->lte($hkEnd); $d->addDay()) {
-            if (!$d->isSunday() && !in_array($d->format('Y-m-d'), $liburPenuh)) {
-                $hariKerja++;
-            }
+            $dateStr = $d->format('Y-m-d');
+            if (!in_array($namaHariByIndex[$d->dayOfWeek], $hariAktif, true)) continue;
+            if (in_array($dateStr, $liburPenuh)) continue;
+            if ($d->lte($today) && !isset($activeDates[$dateStr])) continue;
+            $hariKerja++;
         }
 
         return $tuList->map(function ($tu) use ($absensiData, $hariKerja) {

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import AppLayout from '@/Layouts/AppLayout';
 import { usePage, Link } from '@inertiajs/react';
-import { Users, GraduationCap, BookOpen, TrendingUp, ClipboardCheck, FileText, BarChart3, ArrowUpRight, ChevronRight } from 'lucide-react';
+import { Users, GraduationCap, BookOpen, TrendingUp, ClipboardCheck, FileText, BarChart3, ArrowUpRight, ChevronRight, Layers } from 'lucide-react';
 
 /* ─── StatCard / QuickCard palette ─────────────────────────────────────── */
 const PALETTE = {
@@ -285,6 +285,7 @@ export default function Dashboard({ stats, charts = {} }) {
     const isDark     = useDark();
 
     const isGuru        = roles.includes('guru');
+    const isSiswa       = roles.includes('siswa');
     const isWakasek     = roles.includes('wakasek_kurikulum');
     const isAdmin       = roles.some(r => ['super_admin', 'kepala_sekolah', 'wakasek_kurikulum'].includes(r));
     const showQuickActions = isGuru || (isAdmin && !isWakasek);
@@ -392,6 +393,23 @@ export default function Dashboard({ stats, charts = {} }) {
                                 color={ABSENSI_COLOR[stats.absensi_hari_ini] ?? 'gray'} sub={new Date().toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long' })} />
                             <StatCard icon={FileText}       label="Jurnal Bulan Ini" value={stats.jurnal_bulan_ini ?? 0}
                                 color="blue" sub="Entri jurnal mengajar tercatat" href="/guru/jurnal" />
+                        </div>
+                    </section>
+                )}
+
+                {/* Siswa stats */}
+                {isSiswa && (
+                    <section className="space-y-3">
+                        <h2 className="text-sm font-semibold uppercase tracking-widest text-gray-400 dark:text-gray-500">
+                            Belajar Saya
+                        </h2>
+                        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
+                            <StatCard icon={BookOpen} label="Mata Pelajaran" value={stats.mapel_saya ?? 0}
+                                color="indigo" sub={stats.tahun_aktif ? `${stats.tahun_aktif.nama} · ${stats.tahun_aktif.semester}` : 'Tahun ajaran berjalan'} href="/siswa/lms" />
+                            <StatCard icon={Layers}   label="Materi LMS" value={stats.materi_lms ?? 0}
+                                color="blue" sub="Materi tersedia" href="/siswa/lms" />
+                            <StatCard icon={FileText} label="Materi Dibaca" value={stats.materi_dibaca ?? 0}
+                                color="emerald" sub={`dari ${stats.materi_lms ?? 0} materi`} href="/siswa/lms" />
                         </div>
                     </section>
                 )}

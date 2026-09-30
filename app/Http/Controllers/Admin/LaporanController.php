@@ -21,17 +21,13 @@ use App\Models\TahunAjaran;
 use App\Models\Tatausaha;
 use App\Models\PengaturanSekolah;
 use App\Models\PengaturanSurat;
+use App\Services\KehadiranGuruRekapService;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 
 class LaporanController extends Controller
 {
-    private const MANAGEMENT_ROLES = [
-        'kepala_sekolah', 'wakasek_kurikulum', 'wakasek_kesiswaan',
-        'wakasek_sarpras', 'wakasek_humas', 'kepala_konsentrasi_keahlian',
-        'kepala_tatausaha', 'bendahara_sekolah', 'tim_penjamin_mutu',
-    ];
     public function kehadiranSiswa(Request $request)
     {
         $bulan       = $request->get('bulan', now()->format('Y-m'));
@@ -152,27 +148,42 @@ class LaporanController extends Controller
         $hariMap = ['Ahad' => 0, 'Senin' => 1, 'Selasa' => 2, 'Rabu' => 3, 'Kamis' => 4, 'Jumat' => 5, 'Sabtu' => 6];
         $effectiveTo = $to->gt(Carbon::today()) ? Carbon::today() : $to->copy();
 
-        // Tanggal yang memiliki aktivitas piket — tanggal tanpa catatan piket sama sekali
-        // dianggap libur tidak resmi dan tidak dihitung dalam jam terjadwal
+        // Tanggal yang punya aktivitas piket ATAU catatan absensi guru harian — tanggal
+        // tanpa keduanya sama sekali dianggap libur tidak resmi dan tidak dihitung dalam
+        // jam terjadwal. Sebelumnya hanya piket yang dicek: kalau piket kosong di suatu
+        // tanggal (mis. guru diabsen manual lewat form harian tanpa piket per-JP diisi),
+        // tanggal itu hilang dari jam terjadwal SEMUA guru — termasuk guru yang sakit/izin/
+        // alpha hari itu — sehingga absen itu tidak pernah mengurangi persentase.
         $activePiketDates = AbsensiPiket::whereBetween('absensi_piket.tanggal', [$tanggalMulai, $tanggalSelesai])
             ->distinct()->pluck('absensi_piket.tanggal')
             ->map(fn ($t) => Carbon::parse($t)->format('Y-m-d'))
             ->flip()->toArray();
+
+        $activeAbsensiDates = AbsensiGuru::whereBetween('tanggal', [$tanggalMulai, $tanggalSelesai])
+            ->distinct()->pluck('tanggal')
+            ->map(fn ($t) => Carbon::parse($t)->format('Y-m-d'))
+            ->flip()->toArray();
+
+        $activeDates = $activePiketDates + $activeAbsensiDates;
 
         $firstPiket = count($activePiketDates) > 0 ? min(array_keys($activePiketDates)) : null;
         $firstAbsen = AbsensiGuru::whereBetween('tanggal', [$tanggalMulai, $tanggalSelesai])->min('tanggal');
         $firstDate  = collect([$firstPiket, $firstAbsen])->filter()->sort()->first();
         $from = $firstDate ? Carbon::parse($firstDate)->startOfDay() : Carbon::parse($tanggalMulai);
 
+        // Nama hari aktif sekolah ini (mis. sekolah yang masuk hari Ahad tapi libur Jumat) —
+        // JANGAN asumsikan Ahad selalu libur, itu salah untuk sekolah yang masuk hari Ahad.
+        $hariAktif = $this->hariAktifNames();
+        $namaHariByIndex = array_flip($hariMap);
+
         $today = Carbon::today();
         $kemunculanHari = [];
         for ($d = $from->copy(); $d->lte($effectiveTo); $d->addDay()) {
             $dateStr = $d->format('Y-m-d');
             if (in_array($dateStr, $liburPenuh)) continue;
-            // Hari Ahad selalu skip
-            if ($d->isSunday()) continue;
-            // Hari yang sudah lewat tapi tidak ada piket sama sekali → libur tidak resmi
-            if ($d->lte($today) && !isset($activePiketDates[$dateStr])) continue;
+            if (!in_array($namaHariByIndex[$d->dayOfWeek] ?? null, $hariAktif, true)) continue;
+            // Hari yang sudah lewat tapi tidak ada piket maupun absensi guru sama sekali → libur tidak resmi
+            if ($d->lte($today) && !isset($activeDates[$dateStr])) continue;
             $kemunculanHari[$d->dayOfWeek] = ($kemunculanHari[$d->dayOfWeek] ?? 0) + 1;
         }
 
@@ -258,6 +269,60 @@ class LaporanController extends Controller
         return response()->json($rows);
     }
 
+    /**
+     * Hari kerja tata usaha dalam rentang tanggal — sama seperti logika kehadiran guru:
+     * tanggal tanpa catatan absensi TU sama sekali (dari staf manapun) dianggap libur
+     * tidak resmi dan tidak dihitung sebagai hari kerja.
+     */
+    /**
+     * Daftar nama hari (format "Ahad".."Sabtu") yang aktif di sekolah ini — dipakai untuk
+     * mengganti asumsi hardcode "Ahad selalu libur", yang salah untuk sekolah yang memang
+     * beroperasi hari Ahad (dan/atau libur di hari lain seperti Jumat).
+     */
+    private function hariAktifNames(): array
+    {
+        return PengaturanSekolah::current()->hari_aktif
+            ?? ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat'];
+    }
+
+    private function hariKerjaTatausaha(string $tanggalMulai, string $tanggalSelesai): int
+    {
+        $liburPenuh = HariLibur::whereNull('jam_tertentu')
+            ->whereBetween('tanggal', [$tanggalMulai, $tanggalSelesai])
+            ->pluck('tanggal')
+            ->map(fn ($t) => $t->format('Y-m-d'))
+            ->all();
+
+        $earliestTU = AbsensiTatausaha::whereBetween('tanggal', [$tanggalMulai, $tanggalSelesai])->min('tanggal');
+        $hkStart    = $earliestTU ? Carbon::parse($earliestTU) : Carbon::parse($tanggalMulai);
+        $hkEnd      = Carbon::parse($tanggalSelesai);
+        $today      = Carbon::today();
+        if ($today->lt($hkEnd)) {
+            $hkEnd = $today->copy();
+        }
+
+        // Tanggal dengan minimal 1 catatan absensi TU — tanggal tanpa aktivitas sama
+        // sekali dianggap libur tidak resmi dan tidak dihitung sebagai hari kerja.
+        $activeDates = AbsensiTatausaha::whereBetween('tanggal', [$tanggalMulai, $tanggalSelesai])
+            ->distinct()->pluck('tanggal')
+            ->map(fn ($t) => Carbon::parse($t)->format('Y-m-d'))
+            ->flip()->toArray();
+
+        $hariAktif = $this->hariAktifNames();
+        $namaHariByIndex = ['Ahad', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
+
+        $hariKerja = 0;
+        for ($d = $hkStart->copy(); $d->lte($hkEnd); $d->addDay()) {
+            $dateStr = $d->format('Y-m-d');
+            if (!in_array($namaHariByIndex[$d->dayOfWeek], $hariAktif, true)) continue;
+            if (in_array($dateStr, $liburPenuh)) continue;
+            if ($d->lte($today) && !isset($activeDates[$dateStr])) continue;
+            $hariKerja++;
+        }
+
+        return $hariKerja;
+    }
+
     private function kopData(): array
     {
         $sekolah = PengaturanSekolah::current();
@@ -285,11 +350,17 @@ class LaporanController extends Controller
     private function buildRekapGuru($guruList, $absensiData, $piketData, array $hariMap, array $kemunculanHari, $piketPengganti = null): \Illuminate\Support\Collection
     {
         return $guruList->map(function ($guru) use ($absensiData, $piketData, $hariMap, $kemunculanHari, $piketPengganti) {
-            $data  = $absensiData->get($guru->id, collect());
-            $hadir = (int) $data->where('status', 'Hadir')->sum('jumlah');
-            $sakit = (int) $data->where('status', 'Sakit')->sum('jumlah');
-            $izin  = (int) $data->where('status', 'Izin')->sum('jumlah');
-            $alpha = (int) $data->where('status', 'Alpha')->sum('jumlah');
+            $data       = $absensiData->get($guru->id, collect());
+            $hadir      = (int) $data->where('status', 'Hadir')->sum('jumlah');
+            $sakit      = (int) $data->where('status', 'Sakit')->sum('jumlah');
+            $izin       = (int) $data->where('status', 'Izin')->sum('jumlah');
+            $alpha      = (int) $data->where('status', 'Alpha')->sum('jumlah');
+            $tidakHadir = (int) $data->where('status', 'Tidak_Hadir')->sum('jumlah');
+            // Tidak_Hadir digabung ke alpha (sama-sama absen tanpa kategori S/I) —
+            // sebelumnya status ini diabaikan total dari total maupun hadir, jadi hari itu
+            // tidak pernah mengurangi persentase. Tugas_Sekolah tidak dihitung wajib hadir
+            // di sini, konsisten dengan JP efektif (jpEfektif) yang mengecualikannya juga.
+            $alpha = $alpha + $tidakHadir;
             $total = $hadir + $sakit + $izin + $alpha;
 
             // JP dari piket per status
@@ -408,14 +479,21 @@ class LaporanController extends Controller
             ->distinct()->pluck('absensi_piket.tanggal')
             ->map(fn ($t) => Carbon::parse($t)->format('Y-m-d'))
             ->flip()->toArray();
+        $activeAbsensiDatesSemester = AbsensiGuru::whereBetween('tanggal', [$tanggalMulai, $tanggalSelesai])
+            ->distinct()->pluck('tanggal')
+            ->map(fn ($t) => Carbon::parse($t)->format('Y-m-d'))
+            ->flip()->toArray();
+        $activeDatesSemester = $activePiketDatesSemester + $activeAbsensiDatesSemester;
         $todaySemester = Carbon::today();
+        $hariAktif = $this->hariAktifNames();
+        $namaHariByIndex = array_flip($hariMap);
 
         $kemunculanHari = [];
         for ($d = $from->copy(); $d->lte($effectiveTo); $d->addDay()) {
             $dateStr = $d->format('Y-m-d');
             if (in_array($dateStr, $liburPenuh)) continue;
-            if ($d->isSunday()) continue;
-            if ($d->lte($todaySemester) && !isset($activePiketDatesSemester[$dateStr])) continue;
+            if (!in_array($namaHariByIndex[$d->dayOfWeek] ?? null, $hariAktif, true)) continue;
+            if ($d->lte($todaySemester) && !isset($activeDatesSemester[$dateStr])) continue;
             $kemunculanHari[$d->dayOfWeek] = ($kemunculanHari[$d->dayOfWeek] ?? 0) + 1;
         }
 
@@ -475,8 +553,31 @@ class LaporanController extends Controller
 
         $hariMap = ['Ahad' => 0, 'Senin' => 1, 'Selasa' => 2, 'Rabu' => 3, 'Kamis' => 4, 'Jumat' => 5, 'Sabtu' => 6];
         $effectiveTo = $to->gt(Carbon::today()) ? Carbon::today() : $to->copy();
+
+        // Sama seperti kehadiranGuruSemester() — jangan hitung hari libur penuh, hari
+        // yang bukan hari aktif sekolah, atau hari yang sudah lewat tapi sama sekali
+        // tidak ada aktivitas piket/absensi (libur tidak resmi). Sebelumnya export ini
+        // menghitung SEMUA hari kalender sebagai jam terjadwal, jadi JP di hari libur
+        // ikut masuk ke jp_tidak_hadir dan bikin persentase mengajar/tidak mengajar salah.
+        $activePiketDatesSemester = AbsensiPiket::whereBetween('absensi_piket.tanggal', [$tanggalMulai, $tanggalSelesai])
+            ->distinct()->pluck('absensi_piket.tanggal')
+            ->map(fn ($t) => Carbon::parse($t)->format('Y-m-d'))
+            ->flip()->toArray();
+        $activeAbsensiDatesSemester = AbsensiGuru::whereBetween('tanggal', [$tanggalMulai, $tanggalSelesai])
+            ->distinct()->pluck('tanggal')
+            ->map(fn ($t) => Carbon::parse($t)->format('Y-m-d'))
+            ->flip()->toArray();
+        $activeDatesSemester = $activePiketDatesSemester + $activeAbsensiDatesSemester;
+        $todaySemester = Carbon::today();
+        $hariAktif = $this->hariAktifNames();
+        $namaHariByIndex = array_flip($hariMap);
+
         $kemunculanHari = [];
         for ($d = $from->copy(); $d->lte($effectiveTo); $d->addDay()) {
+            $dateStr = $d->format('Y-m-d');
+            if (in_array($dateStr, $liburPenuh)) continue;
+            if (!in_array($namaHariByIndex[$d->dayOfWeek] ?? null, $hariAktif, true)) continue;
+            if ($d->lte($todaySemester) && !isset($activeDatesSemester[$dateStr])) continue;
             $kemunculanHari[$d->dayOfWeek] = ($kemunculanHari[$d->dayOfWeek] ?? 0) + 1;
         }
 
@@ -492,53 +593,11 @@ class LaporanController extends Controller
         $bulan  = $request->input('bulan', now()->format('Y-m'));
         $guruId = $request->input('guru_id');
 
-        [$tahun, $bln]  = explode('-', $bulan);
-        $tanggalMulai   = "{$tahun}-{$bln}-01";
-        $tanggalSelesai = date('Y-m-t', strtotime($tanggalMulai));
-        $to   = Carbon::parse($tanggalSelesai);
-
-        $guruList = Guru::with([
-            'user',
-            'pembelajaran' => fn ($q) => $q->where('is_aktif', true)->select('id', 'guru_id'),
-            'pembelajaran.jadwal' => fn ($q) => $q->where('is_aktif', true)->select('id', 'pembelajaran_id', 'hari'),
-        ])
-        ->where('is_aktif', true)
-        ->when($guruId, fn ($q) => $q->where('id', $guruId))
-        ->get();
-
-        $guruIds    = $guruList->pluck('id');
-        $liburPenuh = HariLibur::whereNull('jam_tertentu')
-            ->whereBetween('tanggal', [$tanggalMulai, $tanggalSelesai])
-            ->pluck('tanggal')->map(fn ($t) => $t->format('Y-m-d'))->all();
-
-        $absensiData = AbsensiGuru::whereBetween('tanggal', [$tanggalMulai, $tanggalSelesai])
-            ->whereIn('guru_id', $guruIds)
-            ->when(count($liburPenuh) > 0, fn ($q) => $q->whereNotIn('tanggal', $liburPenuh))
-            ->selectRaw('guru_id, status, COUNT(*) as jumlah')
-            ->groupBy('guru_id', 'status')->get()->groupBy('guru_id');
-
-        $piketData = AbsensiPiket::whereBetween('absensi_piket.tanggal', [$tanggalMulai, $tanggalSelesai])
-            ->join('jadwal', 'absensi_piket.jadwal_id', '=', 'jadwal.id')
-            ->join('pembelajaran', 'jadwal.pembelajaran_id', '=', 'pembelajaran.id')
-            ->whereIn('pembelajaran.guru_id', $guruIds)
-            ->where('pembelajaran.is_aktif', true)
-            ->whereRaw("DAYOFWEEK(absensi_piket.tanggal) = FIELD(jadwal.hari, 'Ahad','Senin','Selasa','Rabu','Kamis','Jumat','Sabtu')")
-            ->selectRaw('pembelajaran.guru_id as guru_id, absensi_piket.status_guru, COUNT(*) as jumlah')
-            ->groupBy('pembelajaran.guru_id', 'absensi_piket.status_guru')
-            ->get()->groupBy('guru_id');
-
-        $hariMap = ['Ahad' => 0, 'Senin' => 1, 'Selasa' => 2, 'Rabu' => 3, 'Kamis' => 4, 'Jumat' => 5, 'Sabtu' => 6];
-        $effectiveTo = $to->gt(Carbon::today()) ? Carbon::today() : $to->copy();
-        $firstPiket = AbsensiPiket::whereBetween('absensi_piket.tanggal', [$tanggalMulai, $tanggalSelesai])->min('absensi_piket.tanggal');
-        $firstAbsen = AbsensiGuru::whereBetween('tanggal', [$tanggalMulai, $tanggalSelesai])->min('tanggal');
-        $firstDate  = collect([$firstPiket, $firstAbsen])->filter()->sort()->first();
-        $from = $firstDate ? Carbon::parse($firstDate)->startOfDay() : Carbon::parse($tanggalMulai);
-        $kemunculanHari = [];
-        for ($d = $from->copy(); $d->lte($effectiveTo); $d->addDay()) {
-            $kemunculanHari[$d->dayOfWeek] = ($kemunculanHari[$d->dayOfWeek] ?? 0) + 1;
-        }
-
-        $rekap = $this->buildRekapGuru($guruList, $absensiData, $piketData, $hariMap, $kemunculanHari);
+        // Pakai KehadiranGuruRekapService (sumber tunggal, sama dengan halaman
+        // Kehadiran Guru) — sebelumnya export ini punya hitungan sendiri yang tidak
+        // mengecualikan hari libur/hari tidak aktif/hari tanpa aktivitas sama sekali,
+        // jadi JP hari libur ikut terhitung "jam terjadwal" di file Excel-nya.
+        $rekap = (new KehadiranGuruRekapService())->hitung($bulan, $guruId);
 
         return Excel::download(new KehadiranGuruExport($rekap, $bulan), "kehadiran-guru-{$bulan}.xlsx");
     }
@@ -601,25 +660,7 @@ class LaporanController extends Controller
             ->selectRaw('tatausaha_id, status, COUNT(*) as jumlah')
             ->groupBy('tatausaha_id', 'status')->get()->groupBy('tatausaha_id');
 
-        $liburPenuhExport = HariLibur::whereNull('jam_tertentu')
-            ->whereBetween('tanggal', [$tanggalMulai, $tanggalSelesai])
-            ->pluck('tanggal')
-            ->map(fn ($t) => $t->format('Y-m-d'))
-            ->all();
-
-        $earliestTU = AbsensiTatausaha::whereBetween('tanggal', [$tanggalMulai, $tanggalSelesai])->min('tanggal');
-        $hkStart    = $earliestTU ? Carbon::parse($earliestTU) : Carbon::parse($tanggalMulai);
-        $hkEnd      = Carbon::parse($tanggalSelesai);
-        $today      = Carbon::today();
-        if ($today->lt($hkEnd)) {
-            $hkEnd = $today->copy();
-        }
-        $hariKerja = 0;
-        for ($d = $hkStart->copy(); $d->lte($hkEnd); $d->addDay()) {
-            if (!$d->isSunday() && !in_array($d->format('Y-m-d'), $liburPenuhExport)) {
-                $hariKerja++;
-            }
-        }
+        $hariKerja = $this->hariKerjaTatausaha($tanggalMulai, $tanggalSelesai);
 
         $rekap = $tuList->map(function ($tu) use ($absensiData, $hariKerja) {
             $data  = $absensiData->get($tu->id, collect());
@@ -824,28 +865,7 @@ class LaporanController extends Controller
             ->get()
             ->groupBy('tatausaha_id');
 
-        // Hari libur penuh (Jumat libur dan lainnya)
-        $liburPenuh = HariLibur::whereNull('jam_tertentu')
-            ->whereBetween('tanggal', [$tanggalMulai, $tanggalSelesai])
-            ->pluck('tanggal')
-            ->map(fn ($t) => $t->format('Y-m-d'))
-            ->all();
-
-        // Mulai hitung dari tanggal absensi pertama agar bulan baru tidak merah semua
-        $earliestTU    = AbsensiTatausaha::whereBetween('tanggal', [$tanggalMulai, $tanggalSelesai])->min('tanggal');
-        $hkStart       = $earliestTU ? Carbon::parse($earliestTU) : Carbon::parse($tanggalMulai);
-        $hkEnd         = Carbon::parse($tanggalSelesai);
-        $today         = Carbon::today();
-        if ($today->lt($hkEnd)) {
-            $hkEnd = $today->copy();
-        }
-        // Hitung Senin-Sabtu kecuali hari libur (Jumat jika masuk HariLibur, dsb.)
-        $hariKerja = 0;
-        for ($d = $hkStart->copy(); $d->lte($hkEnd); $d->addDay()) {
-            if (!$d->isSunday() && !in_array($d->format('Y-m-d'), $liburPenuh)) {
-                $hariKerja++;
-            }
-        }
+        $hariKerja = $this->hariKerjaTatausaha($tanggalMulai, $tanggalSelesai);
 
         $rekap = $tuList->map(function ($tu) use ($absensiData, $hariKerja) {
             $data  = $absensiData->get($tu->id, collect());
@@ -905,21 +925,7 @@ class LaporanController extends Controller
             ->pluck('jumlah', 'tatausaha_id');
 
         // Hitung hari kerja: mulai dari absensi pertama, tidak melebihi hari ini
-        $liburPenuhJurnal = HariLibur::whereNull('jam_tertentu')
-            ->whereBetween('tanggal', [$from->toDateString(), $to->toDateString()])
-            ->pluck('tanggal')
-            ->map(fn ($t) => $t->format('Y-m-d'))
-            ->all();
-
-        $earliestTU = AbsensiTatausaha::whereBetween('tanggal', [$from->toDateString(), $to->toDateString()])->min('tanggal');
-        $hkStart    = $earliestTU ? Carbon::parse($earliestTU) : $from->copy();
-        $hkEnd      = $to->gt(Carbon::today()) ? Carbon::today() : $to->copy();
-        $hariKerja  = 0;
-        for ($d = $hkStart->copy(); $d->lte($hkEnd); $d->addDay()) {
-            if (!$d->isSunday() && !in_array($d->format('Y-m-d'), $liburPenuhJurnal)) {
-                $hariKerja++;
-            }
-        }
+        $hariKerja = $this->hariKerjaTatausaha($from->toDateString(), $to->toDateString());
 
         $rekap = $tuList->map(function ($tu) use ($hadirPerTU, $jurnalPerTU, $hariKerja) {
             $hadirCount  = $hadirPerTU[$tu->id] ?? 0;
@@ -992,7 +998,7 @@ class LaporanController extends Controller
 
         $manajemenList = Guru::with(['user.roles'])
             ->where('is_aktif', true)
-            ->whereHas('user.roles', fn ($q) => $q->whereIn('name', self::MANAGEMENT_ROLES))
+            ->whereHas('user.roles', fn ($q) => $q->whereIn('name', config('roles.management')))
             ->get();
         $guruIds = $manajemenList->pluck('id');
 
@@ -1074,5 +1080,83 @@ class LaporanController extends Controller
         );
 
         return back()->with('success', 'Absensi guru berhasil disimpan.');
+    }
+
+    /**
+     * Rekap progress LMS — cakupan materi (dibandingkan pertemuan yang sudah
+     * dilaksanakan menurut jurnal mengajar) dan keterlibatan siswa (yang sudah
+     * mengakses minimal 1 materi) per pembelajaran (guru + mapel + rombel).
+     */
+    public function lmsProgress(Request $request)
+    {
+        $tahunAjaran = TahunAjaran::orderByDesc('tanggal_mulai')->get();
+        $tahunId     = $request->tahun_ajaran_id ?: optional(TahunAjaran::aktif())->id;
+
+        $pembelajaranList = \App\Models\Pembelajaran::with(['mataPelajaran', 'guru.user', 'rombel'])
+            ->when($tahunId, fn ($q) => $q->where('tahun_ajaran_id', $tahunId))
+            ->where('is_aktif', true)
+            ->get();
+
+        $pembIds  = $pembelajaranList->pluck('id');
+        $rombelIds = $pembelajaranList->pluck('rombel_id')->unique();
+
+        $pertemuanTerlaksana = JurnalMengajar::whereIn('pembelajaran_id', $pembIds)
+            ->selectRaw('pembelajaran_id, COUNT(DISTINCT pertemuan_ke) as cnt')
+            ->groupBy('pembelajaran_id')
+            ->pluck('cnt', 'pembelajaran_id');
+
+        $materiRows = \App\Models\LmsMateri::whereIn('pembelajaran_id', $pembIds)
+            ->where('is_aktif', true)
+            ->selectRaw('pembelajaran_id, COUNT(*) as total, COUNT(DISTINCT pertemuan_ke) as distinct_pertemuan')
+            ->groupBy('pembelajaran_id')
+            ->get()
+            ->keyBy('pembelajaran_id');
+
+        $siswaTerlibat = \App\Models\LmsMateriAkses::join('lms_materi', 'lms_materi.id', '=', 'lms_materi_akses.lms_materi_id')
+            ->whereIn('lms_materi.pembelajaran_id', $pembIds)
+            ->whereNotNull('lms_materi_akses.dilihat_at')
+            ->selectRaw('lms_materi.pembelajaran_id as pembelajaran_id, COUNT(DISTINCT lms_materi_akses.siswa_id) as cnt')
+            ->groupBy('lms_materi.pembelajaran_id')
+            ->pluck('cnt', 'pembelajaran_id');
+
+        $totalSiswaPerRombel = Siswa::where('status_siswa', 'Aktif')
+            ->whereIn('rombel_id', $rombelIds)
+            ->selectRaw('rombel_id, COUNT(*) as cnt')
+            ->groupBy('rombel_id')
+            ->pluck('cnt', 'rombel_id');
+
+        $rekap = $pembelajaranList->map(function ($p) use ($pertemuanTerlaksana, $materiRows, $siswaTerlibat, $totalSiswaPerRombel) {
+            $terlaksana   = (int) ($pertemuanTerlaksana[$p->id] ?? 0);
+            $materi       = $materiRows[$p->id] ?? null;
+            $totalMateri  = (int) ($materi->total ?? 0);
+            $adaMateri    = (int) ($materi->distinct_pertemuan ?? 0);
+
+            $persenCakupan = $terlaksana > 0
+                ? min(100, round($adaMateri / $terlaksana * 100, 1))
+                : ($totalMateri > 0 ? 100 : 0);
+
+            $totalSiswa    = (int) ($totalSiswaPerRombel[$p->rombel_id] ?? 0);
+            $terlibat      = (int) ($siswaTerlibat[$p->id] ?? 0);
+            $persenTerlibat = $totalSiswa > 0 ? round($terlibat / $totalSiswa * 100, 1) : 0;
+
+            return [
+                'id'                => $p->id,
+                'mapel'             => $p->mataPelajaran?->nama,
+                'guru'              => $p->guru?->nama_lengkap,
+                'rombel'            => $p->rombel?->nama,
+                'pertemuan_terlaksana' => $terlaksana,
+                'total_materi'      => $totalMateri,
+                'persen_cakupan'    => $persenCakupan,
+                'total_siswa'       => $totalSiswa,
+                'siswa_terlibat'    => $terlibat,
+                'persen_keterlibatan' => $persenTerlibat,
+            ];
+        })->sortBy('mapel')->values();
+
+        return Inertia::render('Admin/Laporan/LmsProgress', [
+            'rekap'       => $rekap,
+            'tahunAjaran' => $tahunAjaran,
+            'filters'     => ['tahun_ajaran_id' => $tahunId],
+        ]);
     }
 }
