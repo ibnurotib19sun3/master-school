@@ -43,8 +43,9 @@ class JurnalController extends Controller
     {
         $guruId  = $this->guruId();
         $isAdmin = $this->isAdmin();
-        $today   = today()->toDateString();
-        $hariIni = $this->hariIndonesia();
+        $today    = today()->toDateString();
+        $hariIni  = $this->hariIndonesia();
+        $jamSlots = null;
 
         $jadwalHariIni = Jadwal::with([
             'pembelajaran.mataPelajaran',
@@ -61,7 +62,20 @@ class JurnalController extends Controller
         ->orderBy('jam_ke')
         ->get()
         ->values()
-        ->map(fn ($j) => $j->toArray());
+        ->map(function ($j) use (&$jamSlots) {
+            // Jam per JP dihitung ULANG dari pengaturan sekolah saat ini — kolom
+            // jam_mulai/jam_selesai di jadwal cuma snapshot saat jadwal dibuat/digeser
+            // (mis. oleh migrasi Jam Literasi), jadi basi begitu durasi JP atau jam
+            // istirahat diubah lagi. $jamSlots dihitung sekali lazy di bawah.
+            $jamSlots ??= collect(PengaturanSekolah::current()->getJamSlots())->keyBy('jam_ke');
+            $arr  = $j->toArray();
+            $slot = $jamSlots[$j->jam_ke] ?? null;
+            if ($slot) {
+                $arr['jam_mulai']   = $slot['jam_mulai'];
+                $arr['jam_selesai'] = $slot['jam_selesai'];
+            }
+            return $arr;
+        });
 
         $jadwalIds       = collect($jadwalHariIni)->pluck('id');
         $pembelajaranIds = collect($jadwalHariIni)->pluck('pembelajaran_id');

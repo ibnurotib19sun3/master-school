@@ -728,6 +728,9 @@ Route::middleware('auth')->group(function () {
 
         // Absensi — per jurnal mengajar
         Route::get('absensi', [AbsensiController::class, 'index'])->name('absensi.index');
+        // Harus di atas 'absensi/{jurnal}' — kalau tidak, "riwayat" akan ketangkap
+        // sebagai nilai route-model-binding {jurnal} dan jadi 404.
+        Route::get('absensi/riwayat', [AbsensiController::class, 'riwayat'])->name('absensi.riwayat');
         Route::get('absensi/{jurnal}', [AbsensiController::class, 'show'])->name('absensi.show');
         Route::post('absensi/{jurnal}', [AbsensiController::class, 'store'])->name('absensi.store');
 

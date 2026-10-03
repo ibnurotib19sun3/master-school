@@ -35,6 +35,11 @@ class JurnalMengajar extends Model
         return $this->hasMany(CatatanKepsek::class);
     }
 
+    public function absensi()
+    {
+        return $this->hasMany(Absensi::class, 'jurnal_id');
+    }
+
     public function capaianPembelajaran()
     {
         return $this->belongsToMany(CapaianPembelajaran::class, 'jurnal_capaian');

@@ -53,11 +53,22 @@ class PiketController extends Controller
         ])
         ->where('hari', $hari)
         ->where('is_aktif', true)
-        ->orderBy('jam_mulai')
+        ->orderBy('jam_ke')
         ->get();
 
-        $jadwal = $jadwalRaw->values()->map(function ($j) {
-            $arr = $j->toArray();
+        // Jam per JP dihitung ULANG dari pengaturan sekolah saat ini, bukan dipercaya
+        // dari kolom jam_mulai/jam_selesai yang tersimpan di jadwal — kolom itu cuma
+        // snapshot sekali saat jadwal dibuat/digeser (mis. oleh migrasi Jam Literasi),
+        // jadi basi begitu durasi JP atau jam istirahat diubah lagi di Pengaturan Sekolah.
+        $jamSlots = collect(PengaturanSekolah::current()->getJamSlots())->keyBy('jam_ke');
+
+        $jadwal = $jadwalRaw->values()->map(function ($j) use ($jamSlots) {
+            $arr  = $j->toArray();
+            $slot = $jamSlots[$j->jam_ke] ?? null;
+            if ($slot) {
+                $arr['jam_mulai']   = $slot['jam_mulai'];
+                $arr['jam_selesai'] = $slot['jam_selesai'];
+            }
             $arr['guru_nomor_wa'] = $j->pembelajaran?->guru?->nomor_wa;
             $arr['guru_nama']     = $j->pembelajaran?->guru?->user?->name;
             $arr['rombel_nama']   = $j->pembelajaran?->rombel?->nama;

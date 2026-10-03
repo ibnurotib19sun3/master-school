@@ -217,6 +217,7 @@ const menuGroups = [
             { label: 'Jurnal Mengajar',      href: '/guru/jurnal',               icon: FileText,      roles: ['guru'] },
             { label: 'Riwayat Jurnal',       href: '/guru/jurnal/riwayat',       icon: History,       roles: ['guru'] },
             { label: 'Presensi Siswa',       href: '/guru/absensi',              icon: ClipboardList },
+            { label: 'Riwayat Presensi Siswa', href: '/guru/absensi/riwayat',    icon: History },
             { label: 'Presensi Harian (BK)', href: '/guru/presensi-harian',      icon: ClipboardCheck, roles: ['guru', 'super_admin', 'kepala_sekolah', 'wakasek_kesiswaan'], guruBkOnly: true },
             { label: 'Rekap Presensi',       href: '/guru/presensi-harian/rekap',icon: BarChart3,     roles: ['guru', 'super_admin', 'kepala_sekolah', 'wakasek_kesiswaan'], guruBkOnly: true },
             { label: 'Pengumpulan',          href: '/guru/pengumpulan',          icon: FolderUp,      roles: ['guru'] },

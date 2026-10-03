@@ -8,6 +8,9 @@ use App\Models\AbsensiPiket;
 use App\Models\Jadwal;
 use App\Models\JurnalMengajar;
 use App\Models\Pembelajaran;
+use App\Models\PengaturanSekolah;
+use App\Models\PengaturanSurat;
+use App\Models\Rombel;
 use App\Models\Siswa;
 use App\Models\TahunAjaran;
 use Illuminate\Http\Request;
@@ -203,5 +206,70 @@ class AbsensiController extends Controller
         $jurnal->update(['jumlah_hadir' => $jumlahHadir]);
 
         return back()->with('success', 'Absensi berhasil disimpan.');
+    }
+
+    /**
+     * Riwayat presensi siswa per sesi jurnal mengajar — guru hanya melihat
+     * miliknya sendiri (lewat guruId() null-check, sama seperti JurnalController::
+     * riwayat()), super_admin/kepala_sekolah melihat semua.
+     */
+    public function riwayat(Request $request)
+    {
+        $guruId  = $this->guruId();
+        $isAdmin = $this->isAdmin();
+
+        $riwayat = JurnalMengajar::with([
+                'pembelajaran.mataPelajaran',
+                'pembelajaran.rombel',
+                'pembelajaran.jurusan',
+                'pembelajaran.guru.user',
+                'absensi.siswa.user',
+            ])
+            ->when($guruId, fn ($q) => $q->whereHas('pembelajaran', fn ($p) => $p->where('guru_id', $guruId)))
+            ->when($request->dari,      fn ($q) => $q->where('tanggal', '>=', $request->dari))
+            ->when($request->sampai,    fn ($q) => $q->where('tanggal', '<=', $request->sampai))
+            ->when($request->rombel_id, fn ($q) => $q->whereHas('pembelajaran', fn ($p) => $p->where('rombel_id', $request->rombel_id)))
+            ->when($request->q,         fn ($q) => $q->where('materi_pokok', 'like', "%{$request->q}%"))
+            ->whereHas('absensi')
+            ->latest('tanggal')
+            ->paginate(15)
+            ->withQueryString();
+
+        // Ringkasan hadir/sakit/izin/alpha per sesi, dihitung dari data absensi yang
+        // sudah di-eager-load (bukan query count terpisah per baris).
+        $riwayat->getCollection()->transform(function ($j) {
+            $counts = $j->absensi->countBy('status');
+            $j->setAttribute('ringkasan', [
+                'hadir' => $counts->get('Hadir', 0),
+                'sakit' => $counts->get('Sakit', 0),
+                'izin'  => $counts->get('Izin', 0),
+                'alpha' => $counts->get('Alpha', 0),
+                'total' => $j->absensi->count(),
+            ]);
+            return $j;
+        });
+
+        $rombelList = Rombel::where('is_aktif', true)->orderBy('nama')->get(['id', 'nama']);
+
+        $kop     = PengaturanSurat::current();
+        $sekolah = PengaturanSekolah::current();
+
+        return Inertia::render('Guru/Absensi/Riwayat', [
+            'riwayat'    => $riwayat,
+            'filters'    => $request->only('dari', 'sampai', 'rombel_id', 'q'),
+            'rombelList' => $rombelList,
+            'isAdmin'    => $isAdmin,
+            'kop'        => [
+                'nama_instansi' => $kop->nama_instansi,
+                'sub_nama'      => $kop->sub_nama,
+                'yayasan_dinas' => $kop->yayasan_dinas,
+                'alamat_kop'    => $kop->alamat_kop,
+                'telepon_kop'   => $kop->telepon_kop,
+                'website_kop'   => $kop->website_kop,
+                'email_kop'     => $kop->email_kop,
+                'npsn_kop'      => $kop->npsn_kop,
+                'logo_url'      => $sekolah->logo_url,
+            ],
+        ]);
     }
 }

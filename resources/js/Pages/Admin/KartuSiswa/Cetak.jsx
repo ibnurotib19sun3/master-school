@@ -24,8 +24,13 @@ function slugify(text) {
 function computeCardsPerPage(template) {
     const availW = template.kertas_lebar_mm - 2 * template.margin_mm;
     const availH = template.kertas_tinggi_mm - 2 * template.margin_mm;
-    const cols = Math.max(1, Math.floor((availW + template.jarak_x_mm) / (template.lebar_mm + template.jarak_x_mm)));
-    const rows = Math.max(1, Math.floor((availH + template.jarak_y_mm) / (template.tinggi_mm + template.jarak_y_mm)));
+    // Jarak antar kartu diterapkan lewat margin-right/bottom per kartu (bukan CSS
+    // `gap` pada flex container — gap tidak selalu di-render benar oleh html-to-image
+    // di dalam SVG foreignObject saat capture, bikin grid kartu tampak bergeser/
+    // terpotong), jadi setiap kartu (termasuk yang terakhir di baris/kolom) efektif
+    // makan `ukuran + jarak`, tanpa kompensasi "+jarak" seperti rumus gap sebelumnya.
+    const cols = Math.max(1, Math.floor(availW / (template.lebar_mm + template.jarak_x_mm)));
+    const rows = Math.max(1, Math.floor(availH / (template.tinggi_mm + template.jarak_y_mm)));
     return cols * rows;
 }
 
@@ -369,7 +374,14 @@ export default function KartuSiswaCetak({ template, siswaList, sekolah }) {
             </div>
 
             {pages.map((pageSiswa, pageIdx) => (
-                <div key={pageIdx}>
+                // Centering lewat flex+justify-center pada parent, BUKAN mx-auto di
+                // .kartu-page sendiri — getComputedStyle meng-resolve margin:auto jadi
+                // nilai piksel absolut (mis. "403px"), dan html-to-image menyalin nilai
+                // computed itu apa adanya ke node hasil clone. Di dalam SVG foreignObject
+                // (yang cuma seukuran .kartu-page sendiri, tanpa konteks parent asli),
+                // margin-left sebesar itu mendorong seluruh halaman ke kanan dan
+                // memotong sisanya — persis gejala "kartu bergeser ke kanan & terpotong".
+                <div key={pageIdx} className="flex flex-col items-center">
                     {pages.length > 1 && (
                         <p className="no-print text-center text-xs text-gray-400 dark:text-gray-500 mt-4 mb-1">
                             Halaman {pageIdx + 1} dari {pages.length}
@@ -377,21 +389,23 @@ export default function KartuSiswaCetak({ template, siswaList, sekolah }) {
                     )}
                     <div
                         ref={(el) => (pageRefs.current[pageIdx] = el)}
-                        className="kartu-page mx-auto bg-white"
+                        className="kartu-page bg-white"
                         style={{
                             width: `${template.kertas_lebar_mm}mm`,
                             minHeight: `${template.kertas_tinggi_mm}mm`,
                             padding: `${template.margin_mm}mm`,
                         }}
                     >
-                        <div
-                            className="flex flex-wrap"
-                            style={{ gap: `${template.jarak_y_mm}mm ${template.jarak_x_mm}mm` }}
-                        >
+                        <div className="flex flex-wrap">
                             {pageSiswa.map((s) => {
                                 const isSelected = selected.has(s.id);
                                 return (
-                                    <div key={s.id} ref={(el) => (cardRefs.current[s.id] = el)} className="relative group">
+                                    <div
+                                        key={s.id}
+                                        ref={(el) => (cardRefs.current[s.id] = el)}
+                                        className="relative group"
+                                        style={{ marginRight: `${template.jarak_x_mm}mm`, marginBottom: `${template.jarak_y_mm}mm` }}
+                                    >
                                         <KartuSiswaCard template={template} siswa={s} sekolah={sekolah} />
                                         <button
                                             onClick={() => toggleSelect(s.id)}

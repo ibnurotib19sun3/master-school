@@ -546,10 +546,10 @@ export default function JurnalIndex({
                                                     <div className="flex items-center gap-3 mt-1 text-sm text-gray-500 dark:text-gray-400 flex-wrap">
                                                         <span className="flex items-center gap-1">
                                                             <Clock className="h-3.5 w-3.5 shrink-0" />
-                                                            {firstUncov.jam_mulai?.substring(0,5)} – {lastUncov.jam_selesai?.substring(0,5)}
-                                                            {multiJam && (
-                                                                <span className="ml-1 text-xs text-sky-500 dark:text-sky-400">({jamLabel})</span>
-                                                            )}
+                                                            {jamLabel}
+                                                            <span className="ml-1 text-xs text-gray-400 dark:text-gray-500">
+                                                                ({firstUncov.jam_mulai?.substring(0,5)} – {lastUncov.jam_selesai?.substring(0,5)})
+                                                            </span>
                                                         </span>
                                                         <span className="flex items-center gap-1">
                                                             <BookOpen className="h-3.5 w-3.5 shrink-0" />
