@@ -18,16 +18,24 @@ const ROMAN = ['','I','II','III','IV','V','VI','VII','VIII','IX','X','XI','XII']
 const STATUS_COLOR = { Draft: 'yellow', Terkirim: 'green' };
 const STATUS_LIST  = ['Draft', 'Terkirim'];
 
+// Harus persis sama dengan PengaturanSurat::formatNomor() di backend (termasuk
+// opsi gabungan kode_jenis_dept/kode_dept_jenis) — sebelumnya dua opsi gabungan
+// itu tidak dipetakan di sini, jadi nomor yang dihasilkan di layar beda dengan
+// yang sebenarnya dipakai backend untuk sekolah yang format nomornya pakai opsi itu.
 function buildNomor(fmt, seq, kodeJenis, kodeDept, tanggal) {
     const d   = tanggal ? new Date(tanggal) : new Date();
     const sep = fmt?.separator || '/';
+    kodeJenis = kodeJenis || '';
+    kodeDept  = kodeDept  || '';
     const map = {
-        prefix:       fmt?.prefix_kode || '',
-        seq:          String(seq).padStart(3, '0'),
-        kode_jenis:   kodeJenis || '',
-        kode_dept:    kodeDept  || '',
-        bulan_romawi: ROMAN[d.getMonth() + 1],
-        tahun:        String(d.getFullYear()),
+        prefix:          fmt?.prefix_kode || '',
+        seq:             String(seq).padStart(3, '0'),
+        kode_jenis:      kodeJenis,
+        kode_dept:       kodeDept,
+        kode_jenis_dept: kodeJenis && kodeDept ? `${kodeJenis}.${kodeDept}` : (kodeJenis || kodeDept),
+        kode_dept_jenis: kodeDept && kodeJenis ? `${kodeDept}.${kodeJenis}` : (kodeDept || kodeJenis),
+        bulan_romawi:    ROMAN[d.getMonth() + 1],
+        tahun:           String(d.getFullYear()),
     };
     const bagian = fmt?.format_bagian || ['seq', 'kode_jenis', 'kode_dept', 'bulan_romawi', 'tahun'];
     return bagian.map(p => map[p] || '').filter(Boolean).join(sep) || '';
@@ -110,7 +118,7 @@ function StepNomor({ fmt, nextSeq, kodeDeptList, kodeJenisList, onLanjutkan, onS
     };
 
     const useFmtBagian = fmt?.format_bagian ?? [];
-    const showDept     = useFmtBagian.includes('kode_dept');
+    const showDept     = useFmtBagian.some(p => ['kode_dept', 'kode_jenis_dept', 'kode_dept_jenis'].includes(p));
 
     return (
         <div className="space-y-5">
@@ -434,6 +442,12 @@ export default function SuratKeluarIndex({ surat, filters, kode_departemen, kode
                                                         className="rounded-lg p-1.5 bg-sky-50 text-sky-600 dark:bg-sky-900/30 dark:text-sky-400 hover:bg-sky-100 dark:hover:bg-sky-900/50 transition-colors" title="Download">
                                                         <Download className="h-4 w-4" />
                                                     </a>
+                                                )}
+                                                {item.template_kode && (
+                                                    <button onClick={() => router.visit(`/tatausaha/buat-surat/${item.id}/edit`)} title="Buka di Editor Surat"
+                                                        className="rounded-lg p-1.5 bg-violet-50 text-violet-600 dark:bg-violet-900/30 dark:text-violet-400 hover:bg-violet-100 dark:hover:bg-violet-900/50 transition-colors">
+                                                        <FileText className="h-4 w-4" />
+                                                    </button>
                                                 )}
                                                 <button onClick={() => openEdit(item)} className="rounded-lg p-1.5 bg-sky-50 text-sky-600 dark:bg-sky-900/30 dark:text-sky-400 hover:bg-sky-100 dark:hover:bg-sky-900/50 transition-colors">
                                                     <Edit className="h-4 w-4" />

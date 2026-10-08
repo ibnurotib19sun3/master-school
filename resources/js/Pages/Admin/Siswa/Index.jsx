@@ -8,7 +8,7 @@ import ConfirmDialog from '@/Components/ui/ConfirmDialog';
 import { Input, Select } from '@/Components/ui/Input';
 import ActionButton from '@/Components/ui/ActionButton';
 import PhotoCropModal from './PhotoCropModal';
-import { Plus, Search, Edit, Trash2, Download, Upload, FileSpreadsheet, X, AlertCircle, KeyRound, CheckCircle } from 'lucide-react';
+import { Plus, Search, Edit, Trash2, Download, Upload, FileSpreadsheet, X, AlertCircle, KeyRound, CheckCircle, Eye } from 'lucide-react';
 import { useState, useRef, useCallback } from 'react';
 
 const EMAIL_DOMAIN = 'apikmas-djurnal.id';
@@ -331,6 +331,7 @@ export default function SiswaIndex({ siswa, rombel, filters }) {
                                             </td>
                                             <td className="px-4 py-3">
                                                 <div className="flex gap-1.5">
+                                                    <ActionButton icon={Eye} onClick={() => router.visit(`/admin/siswa/${item.id}`)} title="Detail" color="emerald" />
                                                     <ActionButton icon={Edit} onClick={() => openEdit(item)} title="Edit" color="sky" />
                                                     <ActionButton icon={Trash2} onClick={() => setDeleteTarget(item)} title="Hapus" color="rose" />
                                                 </div>

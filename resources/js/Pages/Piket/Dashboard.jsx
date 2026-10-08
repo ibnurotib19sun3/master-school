@@ -501,9 +501,15 @@ export default function PiketDashboard({ jadwal, piketRecords, jurnalStatus, har
                                                     />
                                                 )}
 
-                                                {/* Status jurnal */}
+                                                {/* Status jurnal — JP yang isi_jurnal-nya nonaktif (mis. Jam
+                                                Literasi saat togglenya dimatikan) sengaja tidak pernah punya
+                                                jurnal, jangan diingatkan seolah ada yang belum diisi. */}
                                                 {guruHadir && (
-                                                    adaJurnal ? (
+                                                    item.isi_jurnal === false ? (
+                                                        <span className="inline-flex items-center gap-1 text-xs font-medium px-2.5 py-1.5 rounded-lg bg-gray-100 text-gray-500 border border-gray-200 dark:bg-gray-800 dark:text-gray-400 dark:border-gray-700">
+                                                            <Info className="h-3 w-3 shrink-0" /> Tidak Perlu Jurnal
+                                                        </span>
+                                                    ) : adaJurnal ? (
                                                         <span className="inline-flex items-center gap-1 text-xs font-medium px-2.5 py-1.5 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-900/20 dark:text-emerald-300 dark:border-emerald-700">
                                                             <CheckCircle className="h-3 w-3 shrink-0" /> Jurnal Terisi
                                                         </span>

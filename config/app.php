@@ -15,6 +15,10 @@ return [
 
     'name' => env('APP_NAME', 'Laravel'),
 
+    // Ditampilkan di sidebar & halaman login — naikkan manual tiap rilis berarti
+    // (belum ada tag git di repo ini jadi tidak bisa diturunkan otomatis dari situ).
+    'version' => env('APP_VERSION', '1.2.4'),
+
     /*
     |--------------------------------------------------------------------------
     | Application Environment

@@ -3,6 +3,8 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Models\DokumenJenis;
+use App\Models\DokumenSiswa;
 use App\Models\Rombel;
 use App\Models\Siswa;
 use App\Models\TahunAjaran;
@@ -47,6 +49,20 @@ class SiswaController extends Controller
                     ->get()
                 : [],
             'filters' => $request->only('search', 'rombel_id', 'status', 'per_page'),
+        ]);
+    }
+
+    public function show(Siswa $siswa)
+    {
+        $siswa->load(['user', 'rombel.kelas', 'rombel.jurusanList', 'jurusan', 'tahunAjaran', 'orangTua.user']);
+
+        $jenisList = DokumenJenis::where('is_aktif', true)->orderBy('urutan')->orderBy('nama')->get();
+        $dokumen   = DokumenSiswa::where('siswa_id', $siswa->id)->get()->keyBy('dokumen_jenis_id');
+
+        return Inertia::render('Admin/Siswa/Show', [
+            'siswa'     => $siswa,
+            'jenisList' => $jenisList,
+            'dokumen'   => $dokumen,
         ]);
     }
 

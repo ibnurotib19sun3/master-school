@@ -6,7 +6,7 @@ import {
     Clock, PieChart, ShieldCheck, Settings, BookCheck, BookText,
     UserCog, Megaphone, MailOpen, Send, FolderUp, Layers, History, CalendarX, Tag,
     ChevronDown, Lock, NotebookPen, Database, Inbox, Crown, Trophy,
-    FolderOpen, Briefcase, ChevronRight, KeyRound, BadgeCheck,
+    FolderOpen, Briefcase, ChevronRight, KeyRound, BadgeCheck, FileStack,
 } from 'lucide-react';
 import { useState, useRef, useEffect } from 'react';
 import { clsx } from 'clsx';
@@ -53,6 +53,7 @@ const GROUP_META = {
     'Tata Usaha':         { icon: UserCog,          ck: 'cyan'   },
     'Masukan & Laporan':  { icon: MessageSquare,    ck: 'slate'  },
     'Portal Siswa':       { icon: BookOpen,         ck: 'emerald'},
+    'Siswa':              { icon: Users,            ck: 'emerald'},
 };
 
 /* Active item — tinted bg + bright colored text (not solid pill) */
@@ -159,8 +160,6 @@ const menuGroups = [
             { label: 'Mata Pelajaran',     href: '/admin/mata-pelajaran',     icon: BookMarked,    roles: ['super_admin'] },
             { label: 'Guru',               href: '/admin/guru',               icon: GraduationCap, roles: ['super_admin', 'wakasek_kurikulum', 'kepala_tatausaha', 'tatausaha'] },
             { label: 'Tata Usaha',         href: '/admin/tatausaha',          icon: UserCog,       roles: ['super_admin', 'kepala_tatausaha', 'tatausaha'] },
-            { label: 'Siswa',              href: '/admin/siswa',              icon: Users,         roles: ['super_admin', 'wakasek_kesiswaan', 'kepala_tatausaha', 'tatausaha'] },
-            { label: 'Cetak Kartu Siswa',  href: '/admin/kartu-siswa',        icon: BadgeCheck,    roles: ['super_admin', 'wakasek_kesiswaan', 'kepala_tatausaha', 'tatausaha'] },
             { label: 'Pembelajaran',       href: '/admin/pembelajaran',       icon: BookOpen,      roles: ['super_admin', 'wakasek_kurikulum'] },
             { label: 'Jadwal Pelajaran',   href: '/admin/jadwal',             icon: Clock,         roles: ['super_admin', 'wakasek_kurikulum', 'kepala_sekolah'] },
             { label: 'Jam Literasi',       href: '/admin/jadwal-literasi',    icon: BookOpen,      roles: ['super_admin', 'wakasek_kurikulum'] },
@@ -168,6 +167,16 @@ const menuGroups = [
             { label: 'Pengumpulan',        href: '/admin/pengumpulan',        icon: FolderUp,      roles: ['super_admin', 'wakasek_kurikulum'] },
             { label: 'Pengaturan Sekolah', href: '/admin/pengaturan-sekolah', icon: Settings,      roles: ['super_admin'] },
             { label: 'Pengaturan Surat',   href: '/admin/pengaturan-surat',   icon: FileText,      roles: ['super_admin'] },
+        ],
+    },
+    {
+        label: 'Siswa',
+        roles: ['super_admin', 'wakasek_kesiswaan', 'kepala_tatausaha', 'tatausaha'],
+        items: [
+            { label: 'Data Siswa',                href: '/admin/siswa',                 icon: Users,          roles: ['super_admin', 'wakasek_kesiswaan', 'kepala_tatausaha', 'tatausaha'] },
+            { label: 'Cetak Kartu',     href: '/admin/kartu-siswa',           icon: BadgeCheck,     roles: ['super_admin'] },
+            { label: 'Jenis Dokumen',   href: '/admin/dokumen-jenis',         icon: FileStack,      roles: ['super_admin', 'kepala_tatausaha', 'wakasek_kesiswaan'] },
+            { label: 'Laporan Dokumen', href: '/admin/dokumen-jenis/laporan', icon: ClipboardCheck, roles: ['super_admin', 'kepala_tatausaha', 'wakasek_kesiswaan'] },
         ],
     },
     {
@@ -232,8 +241,10 @@ const menuGroups = [
         label: 'Portal Siswa',
         roles: ['siswa'],
         roleSection: 'siswa',
+        collapsible: true,
         items: [
             { label: 'LMS', href: '/siswa/lms', icon: Layers, roles: ['siswa'] },
+            { label: 'Dokumen Saya', href: '/siswa/dokumen', icon: FileStack, roles: ['siswa'] },
         ],
     },
     {
@@ -317,6 +328,9 @@ const menuGroups = [
             { label: 'Surat Keluar',     href: '/tatausaha/surat-keluar',   icon: Send,        roles: ['tatausaha', 'kepala_tatausaha'], tuSuratOnly: true },
             { label: 'TTE Surat',        href: '/tatausaha/tte',            icon: ShieldCheck, roles: ['tatausaha', 'kepala_tatausaha', 'kepala_sekolah', 'super_admin'], tuSuratOnly: true },
             { label: 'Catatan Kepsek',   href: '/tatausaha/catatan-kepsek', icon: MessageSquare, roles: ['tatausaha'] },
+            // tuSuratOnly mengecek jabatan === 'Tatausaha' — dipakai ulang di sini
+            // karena syarat unggah dokumen siswa sama persis dengan syarat Buat Surat dkk.
+            { label: 'Dokumen Siswa',    href: '/tatausaha/dokumen-siswa',  icon: FileStack,   roles: ['tatausaha'], tuSuratOnly: true },
         ],
     },
     {
@@ -499,6 +513,7 @@ export default function Sidebar({ open, onClose }) {
     const menuBadges   = props.menu_badges ?? {};
     const onlineCount  = props.online_count ?? 0;
     const masukanCount = props.notifikasi?.masukan ?? 0;
+    const appVersion   = props.app_version;
 
     const [collapsedGroups, setCollapsedGroups] = useState({});
     const toggleGroup = (label) => setCollapsedGroups(p => ({ ...p, [label]: !p[label] }));
@@ -641,6 +656,11 @@ export default function Sidebar({ open, onClose }) {
                         </div>
                         <ChevronRight className="h-3.5 w-3.5 shrink-0 text-gray-300 dark:text-gray-700 group-hover:text-gray-400 transition-colors" />
                     </Link>
+                    {appVersion && (
+                        <p className="text-center text-[10px] text-gray-300 dark:text-gray-700 mt-1.5 tracking-wide">
+                            APIKMAS DJurnal v{appVersion}
+                        </p>
+                    )}
                 </div>
             </aside>
         </>

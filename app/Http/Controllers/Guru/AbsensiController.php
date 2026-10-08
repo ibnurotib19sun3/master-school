@@ -50,6 +50,10 @@ class AbsensiController extends Controller
         ->where('hari', $hariIni)
         ->where('is_aktif', true)
         ->when(!$isAdmin && $guruId, fn ($q) => $q->whereHas('pembelajaran', fn ($p) => $p->where('guru_id', $guruId)))
+        // Jam Literasi dengan toggle "isi jurnal" nonaktif sengaja tidak pernah
+        // punya jurnal — kalau tidak dikecualikan di sini, dia nongol selamanya di
+        // "jadwal yang belum ada jurnalnya" padahal memang tidak perlu diisi.
+        ->whereHas('pembelajaran', fn ($p) => $p->where('isi_jurnal', true))
         ->orderBy('jam_mulai')
         ->get();
 

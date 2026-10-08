@@ -418,42 +418,51 @@ function Toast() {
 
     const cfg = {
         success: {
+            chip: 'bg-emerald-100 dark:bg-emerald-500/15 text-emerald-600 dark:text-emerald-400',
             bar:  'bg-emerald-500',
-            icon: <CheckCircle className="h-5 w-5 text-emerald-500 shrink-0" />,
-            text: 'text-emerald-700 dark:text-emerald-300',
+            glow: 'shadow-emerald-500/10',
+            icon: CheckCircle,
         },
         error: {
+            chip: 'bg-red-100 dark:bg-red-500/15 text-red-600 dark:text-red-400',
             bar:  'bg-red-500',
-            icon: <XCircle className="h-5 w-5 text-red-500 shrink-0" />,
-            text: 'text-red-700 dark:text-red-300',
+            glow: 'shadow-red-500/10',
+            icon: XCircle,
         },
         info: {
+            chip: 'bg-sky-100 dark:bg-sky-500/15 text-sky-600 dark:text-sky-400',
             bar:  'bg-sky-500',
-            icon: <Info className="h-5 w-5 text-sky-500 shrink-0" />,
-            text: 'text-sky-700 dark:text-sky-300',
+            glow: 'shadow-sky-500/10',
+            icon: Info,
         },
     }[type];
+    const Icon = cfg.icon;
 
     return (
         <div
-            className={`fixed bottom-6 right-6 z-9999 max-w-sm w-full pointer-events-auto
-                transition-all duration-300
-                ${leaving ? 'opacity-0 translate-y-2' : 'opacity-100 translate-y-0'}`}
+            className={`fixed z-9999 pointer-events-auto
+                inset-x-4 bottom-4 sm:inset-x-auto sm:bottom-6 sm:right-6 sm:w-full sm:max-w-sm
+                transition-all duration-300 ease-out
+                ${leaving ? 'opacity-0 scale-95 translate-y-1' : 'opacity-100 scale-100 translate-y-0'}`}
         >
-            <div className="relative overflow-hidden rounded-xl bg-white dark:bg-gray-800 shadow-2xl border border-gray-200 dark:border-gray-700">
-                <div className={`absolute left-0 top-0 bottom-0 w-1 ${cfg.bar}`} />
-                <div className="flex items-start gap-3 pl-4 pr-3 py-3.5">
-                    {cfg.icon}
-                    <p className={`flex-1 text-sm font-medium ${cfg.text}`}>{msg}</p>
+            <div className={`relative overflow-hidden rounded-2xl bg-white/95 dark:bg-gray-900/95 backdrop-blur-md
+                shadow-xl ${cfg.glow} ring-1 ring-black/5 dark:ring-white/10`}>
+                <div className="flex items-start gap-3 pl-3.5 pr-3 py-3.5">
+                    <div className={`shrink-0 h-9 w-9 rounded-full flex items-center justify-center ${cfg.chip}`}>
+                        <Icon className="h-4.5 w-4.5" />
+                    </div>
+                    <p className="flex-1 text-sm font-medium text-gray-700 dark:text-gray-200 leading-snug pt-1.5">{msg}</p>
                     <button
                         onClick={dismiss}
-                        className="shrink-0 p-0.5 rounded text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors"
+                        className="shrink-0 p-1 mt-0.5 rounded-lg text-gray-400 dark:text-gray-500 hover:bg-gray-100 dark:hover:bg-white/10 hover:text-gray-600 dark:hover:text-gray-200 transition-colors"
                     >
-                        <X className="h-4 w-4" />
+                        <X className="h-3.5 w-3.5" />
                     </button>
                 </div>
-                <div className={`h-0.5 ${cfg.bar} opacity-30`}
-                    style={{ animation: 'shrink 4.5s linear forwards' }} />
+                <div className="h-[3px] bg-gray-100 dark:bg-white/5">
+                    <div className={`h-full ${cfg.bar} rounded-r-full`}
+                        style={{ animation: 'shrink 4.5s linear forwards' }} />
+                </div>
             </div>
 
             <style>{`

@@ -18,27 +18,23 @@ export default function Login() {
     };
 
     const inputCls = [
-        'block w-full rounded-xl border pl-10 pr-4 py-3 text-sm transition-colors focus:outline-none',
-        // Light
-        'border-gray-300 bg-white text-gray-900 placeholder-gray-400',
-        'focus:border-sky-500 focus:ring-1 focus:ring-sky-500',
-        // Dark
-        'dark:border-white/15 dark:bg-white/10 dark:backdrop-blur-sm dark:text-white dark:placeholder-white/30',
-        'dark:focus:border-sky-300/60 dark:focus:ring-1 dark:focus:ring-sky-300/40',
+        'block w-full rounded-xl border pl-10 pr-4 py-3 text-sm text-white placeholder-white/30 transition-all duration-150 focus:outline-none',
+        'border-white/15 bg-white/[0.06] backdrop-blur-sm',
+        'focus:border-sky-300/50 focus:bg-white/[0.1] focus:ring-[3px] focus:ring-sky-300/15',
     ].join(' ');
 
     return (
         <GuestLayout>
             <Head title="Masuk" />
             <div>
-                <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-1">Selamat Datang</h2>
-                <p className="text-sm text-gray-500 dark:text-white/40 mb-6">Masuk ke akun APIKMAS DJurnal Anda</p>
+                <h2 className="text-2xl font-bold text-white mb-1.5 tracking-tight">Selamat Datang</h2>
+                <p className="text-sm text-white/40 mb-7">Masuk ke akun APIKMAS DJurnal Anda</p>
 
                 {/* Pesan redirect dari halaman yang dilindungi */}
                 {flash.redirect_message && (
-                    <div className="mb-6 flex items-start gap-3 rounded-xl border border-sky-200 bg-sky-50 px-4 py-3 dark:border-sky-500/30 dark:bg-sky-500/10">
-                        <Info className="mt-0.5 h-4 w-4 shrink-0 text-sky-500" />
-                        <p className="text-sm text-sky-700 dark:text-sky-300">{flash.redirect_message}</p>
+                    <div className="mb-6 flex items-start gap-3 rounded-xl border border-sky-300/25 bg-sky-400/10 px-4 py-3">
+                        <Info className="mt-0.5 h-4 w-4 shrink-0 text-sky-200" />
+                        <p className="text-sm text-sky-100">{flash.redirect_message}</p>
                     </div>
                 )}
 
@@ -46,11 +42,11 @@ export default function Login() {
 
                     {/* Email */}
                     <div>
-                        <label className="block text-sm font-medium text-gray-700 dark:text-white/70 mb-1.5">
+                        <label className="block text-[13px] font-medium text-white/60 mb-1.5">
                             Email
                         </label>
                         <div className="relative">
-                            <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 dark:text-white/30" />
+                            <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-white/30" />
                             <input
                                 type="email"
                                 value={data.email}
@@ -61,17 +57,17 @@ export default function Login() {
                             />
                         </div>
                         {errors.email && (
-                            <p className="mt-1.5 text-xs text-red-500 dark:text-red-300">{errors.email}</p>
+                            <p className="mt-1.5 text-xs text-red-300">{errors.email}</p>
                         )}
                     </div>
 
                     {/* Password */}
                     <div>
-                        <label className="block text-sm font-medium text-gray-700 dark:text-white/70 mb-1.5">
+                        <label className="block text-[13px] font-medium text-white/60 mb-1.5">
                             Password
                         </label>
                         <div className="relative">
-                            <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 dark:text-white/30" />
+                            <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-white/30" />
                             <input
                                 type={showPass ? 'text' : 'password'}
                                 value={data.password}
@@ -82,12 +78,13 @@ export default function Login() {
                             <button
                                 type="button"
                                 onClick={() => setShowPass(!showPass)}
-                                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-white/30 hover:text-gray-600 dark:hover:text-white/60 transition-colors">
+                                tabIndex={-1}
+                                className="absolute right-3.5 top-1/2 -translate-y-1/2 text-white/30 hover:text-white/60 transition-colors">
                                 {showPass ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                             </button>
                         </div>
                         {errors.password && (
-                            <p className="mt-1.5 text-xs text-red-500 dark:text-red-300">{errors.password}</p>
+                            <p className="mt-1.5 text-xs text-red-300">{errors.password}</p>
                         )}
                     </div>
 
@@ -98,9 +95,9 @@ export default function Login() {
                             id="remember"
                             checked={data.remember}
                             onChange={(e) => setData('remember', e.target.checked)}
-                            className="h-4 w-4 rounded border-gray-300 dark:border-white/20 bg-white dark:bg-white/10 text-sky-600 focus:ring-sky-500 dark:focus:ring-sky-400/40"
+                            className="h-4 w-4 rounded border-white/20 bg-white/5 text-sky-500 focus:ring-sky-300/30 focus:ring-offset-0"
                         />
-                        <label htmlFor="remember" className="text-sm text-gray-600 dark:text-white/50 select-none cursor-pointer">
+                        <label htmlFor="remember" className="text-sm text-white/50 select-none cursor-pointer">
                             Ingat saya
                         </label>
                     </div>
@@ -109,9 +106,10 @@ export default function Login() {
                     <button
                         type="submit"
                         disabled={processing}
-                        className="w-full flex items-center justify-center gap-2 py-3 px-6 rounded-xl font-bold text-sm transition-all disabled:opacity-60 disabled:cursor-not-allowed
-                            bg-sky-600 hover:bg-sky-700 text-white
-                            dark:bg-white dark:hover:bg-sky-50 dark:text-sky-700"
+                        className="w-full flex items-center justify-center gap-2 py-3 px-6 rounded-xl font-semibold text-sm transition-all duration-150
+                            bg-white hover:bg-sky-50 active:scale-[0.99] text-sky-700
+                            shadow-lg shadow-black/10 hover:shadow-xl hover:shadow-black/15
+                            disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:shadow-lg disabled:active:scale-100"
                     >
                         {processing ? (
                             <>
@@ -130,7 +128,7 @@ export default function Login() {
                     <Link
                         href="/"
                         className="flex items-center justify-center gap-1.5 w-full py-2.5 rounded-xl text-sm font-medium transition-colors
-                            text-gray-500 hover:text-sky-600 dark:text-white/40 dark:hover:text-white/70"
+                            text-white/35 hover:text-white/70"
                     >
                         <ArrowLeft className="h-3.5 w-3.5" />
                         Kembali ke Beranda

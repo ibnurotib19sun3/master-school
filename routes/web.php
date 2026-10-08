@@ -215,18 +215,33 @@ Route::middleware('auth')->group(function () {
         Route::get('siswa', [SiswaController::class, 'index'])->name('siswa.index');
         Route::get('siswa/export', [SiswaController::class, 'export'])->name('siswa.export');
         Route::get('siswa/template', [SiswaController::class, 'template'])->name('siswa.template');
+        // Harus di bawah 'siswa/export' & 'siswa/template' — kalau tidak, keduanya
+        // akan ketangkap sebagai nilai route-model-binding {siswa} dan jadi 404.
+        Route::get('siswa/{siswa}', [SiswaController::class, 'show'])->name('siswa.show');
         Route::post('siswa', [SiswaController::class, 'store'])->name('siswa.store')->middleware('role:super_admin|wakasek_kesiswaan|kepala_tatausaha|tatausaha');
         Route::put('siswa/{siswa}', [SiswaController::class, 'update'])->name('siswa.update')->middleware('role:super_admin|wakasek_kesiswaan|kepala_tatausaha|tatausaha');
         Route::delete('siswa/{siswa}', [SiswaController::class, 'destroy'])->name('siswa.destroy')->middleware('role:super_admin|wakasek_kesiswaan|kepala_tatausaha|tatausaha');
         Route::post('siswa/bulk-delete', [SiswaController::class, 'destroyBulk'])->name('siswa.bulk-delete')->middleware('role:super_admin|wakasek_kesiswaan|kepala_tatausaha|tatausaha');
         Route::post('siswa/import', [SiswaController::class, 'import'])->name('siswa.import')->middleware('role:super_admin|wakasek_kesiswaan|kepala_tatausaha|tatausaha');
 
+        // Jenis Dokumen Siswa — pengaturan jenis & tipe file yang diizinkan
+        Route::middleware('role:super_admin|kepala_tatausaha|wakasek_kesiswaan')->group(function () {
+            Route::get('dokumen-jenis', [\App\Http\Controllers\Admin\DokumenJenisController::class, 'index'])->name('dokumen-jenis.index');
+            Route::get('dokumen-jenis/laporan', [\App\Http\Controllers\Admin\DokumenJenisController::class, 'laporan'])->name('dokumen-jenis.laporan');
+            Route::post('dokumen-jenis', [\App\Http\Controllers\Admin\DokumenJenisController::class, 'store'])->name('dokumen-jenis.store');
+            Route::put('dokumen-jenis/{dokumenJenis}', [\App\Http\Controllers\Admin\DokumenJenisController::class, 'update'])->name('dokumen-jenis.update');
+            Route::post('dokumen-jenis/{dokumenJenis}/toggle-aktif', [\App\Http\Controllers\Admin\DokumenJenisController::class, 'toggleAktif'])->name('dokumen-jenis.toggle-aktif');
+            Route::delete('dokumen-jenis/{dokumenJenis}', [\App\Http\Controllers\Admin\DokumenJenisController::class, 'destroy'])->name('dokumen-jenis.destroy');
+        });
+
         // Kartu Tanda Siswa
-        Route::get('kartu-siswa', [\App\Http\Controllers\Admin\KartuSiswaController::class, 'index'])->name('kartu-siswa.index');
-        Route::post('kartu-siswa/template', [\App\Http\Controllers\Admin\KartuSiswaController::class, 'storeTemplate'])->name('kartu-siswa.template.store');
-        Route::post('kartu-siswa/template/{template}', [\App\Http\Controllers\Admin\KartuSiswaController::class, 'updateTemplate'])->name('kartu-siswa.template.update');
-        Route::delete('kartu-siswa/template/{template}', [\App\Http\Controllers\Admin\KartuSiswaController::class, 'destroyTemplate'])->name('kartu-siswa.template.destroy');
-        Route::post('kartu-siswa/cetak', [\App\Http\Controllers\Admin\KartuSiswaController::class, 'cetak'])->name('kartu-siswa.cetak');
+        Route::middleware('role:super_admin')->group(function () {
+            Route::get('kartu-siswa', [\App\Http\Controllers\Admin\KartuSiswaController::class, 'index'])->name('kartu-siswa.index');
+            Route::post('kartu-siswa/template', [\App\Http\Controllers\Admin\KartuSiswaController::class, 'storeTemplate'])->name('kartu-siswa.template.store');
+            Route::post('kartu-siswa/template/{template}', [\App\Http\Controllers\Admin\KartuSiswaController::class, 'updateTemplate'])->name('kartu-siswa.template.update');
+            Route::delete('kartu-siswa/template/{template}', [\App\Http\Controllers\Admin\KartuSiswaController::class, 'destroyTemplate'])->name('kartu-siswa.template.destroy');
+            Route::post('kartu-siswa/cetak', [\App\Http\Controllers\Admin\KartuSiswaController::class, 'cetak'])->name('kartu-siswa.cetak');
+        });
 
         // Mata Pelajaran
         Route::get('mata-pelajaran', function (\Illuminate\Http\Request $request) {
@@ -1056,9 +1071,20 @@ Route::middleware('auth')->group(function () {
         Route::get('jurnal/print',   [TUJurnalController::class, 'print'])->name('jurnal.print');
         Route::get('jurnal/riwayat', [TUJurnalController::class, 'riwayat'])->name('jurnal.riwayat');
 
+        // Dokumen Siswa — upload khusus jabatan Tatausaha (dicek lagi di controller)
+        Route::get('dokumen-siswa', [\App\Http\Controllers\TataUsaha\DokumenSiswaController::class, 'index'])->name('dokumen-siswa.index');
+        Route::get('dokumen-siswa/{siswa}', [\App\Http\Controllers\TataUsaha\DokumenSiswaController::class, 'show'])->name('dokumen-siswa.show');
+        Route::post('dokumen-siswa/{siswa}', [\App\Http\Controllers\TataUsaha\DokumenSiswaController::class, 'store'])->name('dokumen-siswa.store');
+        Route::delete('dokumen-siswa/item/{dokumenSiswa}', [\App\Http\Controllers\TataUsaha\DokumenSiswaController::class, 'destroy'])->name('dokumen-siswa.destroy');
+
         // Buat Surat (Generator)
-        Route::get('buat-surat',           [\App\Http\Controllers\TataUsaha\BuatSuratController::class, 'index'])->name('buat-surat.index');
-        Route::post('buat-surat/simpan',   [\App\Http\Controllers\TataUsaha\BuatSuratController::class, 'simpan'])->name('buat-surat.simpan');
+        Route::get('buat-surat',             [\App\Http\Controllers\TataUsaha\BuatSuratController::class, 'index'])->name('buat-surat.index');
+        Route::get('buat-surat/cari-orang',  [\App\Http\Controllers\TataUsaha\BuatSuratController::class, 'cariOrang'])->name('buat-surat.cari-orang');
+        Route::post('buat-surat/simpan',     [\App\Http\Controllers\TataUsaha\BuatSuratController::class, 'simpan'])->name('buat-surat.simpan');
+        // Harus di bawah rute statis di atas — kalau tidak, "cari-orang"/"simpan" akan
+        // ketangkap sebagai nilai route-model-binding {suratKeluar} dan jadi 404.
+        Route::get('buat-surat/{suratKeluar}/edit', [\App\Http\Controllers\TataUsaha\BuatSuratController::class, 'edit'])->name('buat-surat.edit');
+        Route::put('buat-surat/{suratKeluar}',      [\App\Http\Controllers\TataUsaha\BuatSuratController::class, 'update'])->name('buat-surat.update');
 
         // Surat Masuk
         Route::get('surat-masuk',                   [\App\Http\Controllers\TataUsaha\SuratMasukController::class, 'index'])->name('surat-masuk.index');
@@ -1105,5 +1131,6 @@ Route::middleware('auth')->group(function () {
         Route::get('lms', [\App\Http\Controllers\Siswa\LmsController::class, 'index'])->name('lms.index');
         Route::get('lms/{pembelajaran}', [\App\Http\Controllers\Siswa\LmsController::class, 'show'])->name('lms.show');
         Route::get('lms/materi/{materi}/akses', [\App\Http\Controllers\Siswa\LmsController::class, 'akses'])->name('lms.akses');
+        Route::get('dokumen', [\App\Http\Controllers\Siswa\DokumenController::class, 'index'])->name('dokumen.index');
     });
 });

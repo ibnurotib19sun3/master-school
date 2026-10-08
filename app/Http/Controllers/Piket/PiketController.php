@@ -73,6 +73,9 @@ class PiketController extends Controller
             $arr['guru_nama']     = $j->pembelajaran?->guru?->user?->name;
             $arr['rombel_nama']   = $j->pembelajaran?->rombel?->nama;
             $arr['mapel_nama']    = $j->pembelajaran?->mataPelajaran?->nama;
+            // Dipakai frontend supaya JP yang memang tidak wajib isi jurnal (mis. Jam
+            // Literasi saat togglenya nonaktif) tidak terus "diingatkan" isi jurnal.
+            $arr['isi_jurnal']    = $j->pembelajaran?->isi_jurnal ?? true;
             return $arr;
         });
 

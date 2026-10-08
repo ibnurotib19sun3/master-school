@@ -12,6 +12,7 @@ class SuratKeluar extends Model
         'tgl_surat', 'tgl_keluar', 'kategori', 'status',
         'keterangan', 'file_surat',
         'kode_tte', 'tte_at', 'tte_oleh',
+        'isi_surat', 'penerima_tipe', 'penerima_id', 'template_kode',
     ];
 
     protected function casts(): array

@@ -65,4 +65,9 @@ class Siswa extends Model
     {
         return $this->hasMany(PengumpulanTugas::class);
     }
+
+    public function dokumenSiswa()
+    {
+        return $this->hasMany(DokumenSiswa::class);
+    }
 }
