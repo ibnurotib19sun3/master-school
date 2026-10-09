@@ -173,10 +173,13 @@ const menuGroups = [
         label: 'Siswa',
         roles: ['super_admin', 'wakasek_kesiswaan', 'kepala_tatausaha', 'tatausaha'],
         items: [
-            { label: 'Data Siswa',                href: '/admin/siswa',                 icon: Users,          roles: ['super_admin', 'wakasek_kesiswaan', 'kepala_tatausaha', 'tatausaha'] },
+            { label: 'Data Siswa',                href: '/admin/siswa',                 icon: Users,          roles: ['super_admin', 'wakasek_kesiswaan', 'kepala_tatausaha', 'tatausaha'], tuSuratExclude: true },
             { label: 'Cetak Kartu',     href: '/admin/kartu-siswa',           icon: BadgeCheck,     roles: ['super_admin'] },
-            { label: 'Jenis Dokumen',   href: '/admin/dokumen-jenis',         icon: FileStack,      roles: ['super_admin', 'kepala_tatausaha', 'wakasek_kesiswaan'] },
-            { label: 'Laporan Dokumen', href: '/admin/dokumen-jenis/laporan', icon: ClipboardCheck, roles: ['super_admin', 'kepala_tatausaha', 'wakasek_kesiswaan'] },
+            { label: 'Jenis Dokumen',   href: '/admin/dokumen-jenis',         icon: FileStack,      roles: ['super_admin', 'kepala_tatausaha', 'wakasek_kesiswaan'], tuSuratExclude: true },
+            { label: 'Laporan Dokumen', href: '/admin/dokumen-jenis/laporan', icon: ClipboardCheck, roles: ['super_admin', 'kepala_tatausaha', 'wakasek_kesiswaan'], tuSuratExclude: true },
+            // Staf TU dengan jabatan 'Tatausaha' hanya perlu ini di label Siswa —
+            // dipindah dari grup Tata Usaha supaya sesuai konteks labelnya.
+            { label: 'Dokumen Siswa',  href: '/tatausaha/dokumen-siswa',     icon: FileStack,      roles: ['tatausaha'], tuSuratOnly: true },
         ],
     },
     {
@@ -328,9 +331,6 @@ const menuGroups = [
             { label: 'Surat Keluar',     href: '/tatausaha/surat-keluar',   icon: Send,        roles: ['tatausaha', 'kepala_tatausaha'], tuSuratOnly: true },
             { label: 'TTE Surat',        href: '/tatausaha/tte',            icon: ShieldCheck, roles: ['tatausaha', 'kepala_tatausaha', 'kepala_sekolah', 'super_admin'], tuSuratOnly: true },
             { label: 'Catatan Kepsek',   href: '/tatausaha/catatan-kepsek', icon: MessageSquare, roles: ['tatausaha'] },
-            // tuSuratOnly mengecek jabatan === 'Tatausaha' — dipakai ulang di sini
-            // karena syarat unggah dokumen siswa sama persis dengan syarat Buat Surat dkk.
-            { label: 'Dokumen Siswa',    href: '/tatausaha/dokumen-siswa',  icon: FileStack,   roles: ['tatausaha'], tuSuratOnly: true },
         ],
     },
     {
@@ -526,12 +526,16 @@ export default function Sidebar({ open, onClose }) {
 
     const isActive = (href) => url.split('?')[0] === href;
 
-    const hasAccess = (itemRoles, excludeRoles, guruBkOnly, tuSuratOnly) => {
+    const hasAccess = (itemRoles, excludeRoles, guruBkOnly, tuSuratOnly, tuSuratExclude) => {
         if (excludeRoles && roles.some(r => excludeRoles.includes(r))) return false;
         if (guruBkOnly && roles.includes('guru') && !isGuruBk && !isWaliKelas &&
             !roles.some(r => ['super_admin', 'kepala_sekolah', 'wakasek_kesiswaan'].includes(r))) return false;
         if (tuSuratOnly && roles.includes('tatausaha') && !isTuSurat &&
             !roles.some(r => ['super_admin', 'kepala_sekolah', 'kepala_tatausaha'].includes(r))) return false;
+        // tuSuratExclude: kebalikan tuSuratOnly — staf TU dengan jabatan 'Tatausaha' hanya
+        // butuh Dokumen Siswa di label Siswa ini, sisanya (Data Siswa dkk) sudah kepala TU.
+        if (tuSuratExclude && roles.includes('tatausaha') && isTuSurat &&
+            !roles.some(r => ['super_admin', 'kepala_sekolah', 'kepala_tatausaha', 'wakasek_kesiswaan'].includes(r))) return false;
         return !itemRoles || roles.some(r => itemRoles.includes(r));
     };
 
@@ -549,7 +553,7 @@ export default function Sidebar({ open, onClose }) {
         let prevLabel = null;
         return menuGroups.map(group => {
             if (group.roles && !hasAccess(group.roles)) return null;
-            const visibleItems = group.items.filter(i => hasAccess(i.roles, i.excludeRoles, i.guruBkOnly, i.tuSuratOnly));
+            const visibleItems = group.items.filter(i => hasAccess(i.roles, i.excludeRoles, i.guruBkOnly, i.tuSuratOnly, i.tuSuratExclude));
             if (visibleItems.length === 0) return null;
             const divLabel    = getSectionLabel(group.roleSection);
             const showDivider = divLabel !== null && divLabel !== prevLabel;
