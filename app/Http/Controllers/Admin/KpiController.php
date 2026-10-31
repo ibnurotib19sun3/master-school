@@ -26,14 +26,37 @@ class KpiController extends Controller
         'kepala_tatausaha', 'bendahara_sekolah', 'tim_penjamin_mutu',
     ];
 
+    public static function isGuruDikecualikan(?Guru $guru, ?array $excludedIds = null): bool
+    {
+        if (!$guru) return false;
+        // 1. Kepala Sekolah otomatis dikecualikan dari KPI & Ranking
+        if ($guru->user && $guru->user->hasRole('kepala_sekolah')) {
+            return true;
+        }
+        // 2. Guru dalam daftar pengecualian khusus KPI
+        $excluded = $excludedIds ?? KpiPengaturan::getExcludedGuruIds();
+        return in_array((int)$guru->id, $excluded, true);
+    }
+
+    public static function getAllExcludedGuruIds(): array
+    {
+        $customExcluded = KpiPengaturan::getExcludedGuruIds();
+        $ksIds = Guru::whereHas('user', fn ($q) => $q->whereHas('roles', fn ($r) => $r->where('name', 'kepala_sekolah')))->pluck('id')->all();
+        return array_values(array_unique(array_merge($customExcluded, $ksIds)));
+    }
+
     public function index(Request $request)
     {
         $this->ensureIndikator();
 
+        $excludedIds    = KpiPengaturan::getExcludedGuruIds();
+        $allExcludedIds = self::getAllExcludedGuruIds();
+
         // Ambil semua guru aktif lalu pisahkan per tipe
         $allGuru    = Guru::with('user.roles')->where('is_aktif', true)->orderBy('id')->get();
-        $guruBiasa  = $allGuru->filter(fn ($g) => !$this->isManajemen($g))->values();
-        $guruMgmt   = $allGuru->filter(fn ($g) => $this->isManajemen($g))->values();
+        $eligible   = $allGuru->filter(fn ($g) => !self::isGuruDikecualikan($g, $excludedIds))->values();
+        $guruBiasa  = $eligible->filter(fn ($g) => !$this->isManajemen($g))->values();
+        $guruMgmt   = $eligible->filter(fn ($g) => $this->isManajemen($g))->values();
 
         $tahunAjaran = TahunAjaran::all();
         $pengaturan  = KpiPengaturan::map();
@@ -42,6 +65,7 @@ class KpiController extends Controller
         $tipe = $request->tipe ?? 'biasa';
         $rekap = KpiGuru::with(['guru.user', 'indikator'])
             ->where('tipe_guru', $tipe)
+            ->when(!empty($allExcludedIds), fn ($q) => $q->whereNotIn('guru_id', $allExcludedIds))
             ->when($request->bulan,   fn ($q) => $q->where('bulan', $request->bulan))
             ->when($request->guru_id, fn ($q) => $q->where('guru_id', $request->guru_id))
             ->latest()
@@ -49,12 +73,14 @@ class KpiController extends Controller
             ->withQueryString();
 
         return Inertia::render('Admin/KPI/Index', [
-            'guruBiasa'   => $guruBiasa,
-            'guruMgmt'    => $guruMgmt,
-            'tahunAjaran' => $tahunAjaran,
-            'pengaturan'  => $pengaturan,
-            'rekap'       => $rekap,
-            'filters'     => $request->only('bulan', 'guru_id', 'tipe'),
+            'guruBiasa'           => $guruBiasa,
+            'guruMgmt'            => $guruMgmt,
+            'allGuru'             => $allGuru,
+            'guruDikecualikanIds' => $excludedIds,
+            'tahunAjaran'         => $tahunAjaran,
+            'pengaturan'          => $pengaturan,
+            'rekap'               => $rekap,
+            'filters'             => $request->only('bulan', 'guru_id', 'tipe'),
         ]);
     }
 
@@ -66,7 +92,13 @@ class KpiController extends Controller
             'bulan'   => 'required|date_format:Y-m',
         ]);
 
-        $guruId = (int) $request->guru_id;
+        $guruId    = (int) $request->guru_id;
+        $guruModel = Guru::with('user.roles')->find($guruId);
+        if (self::isGuruDikecualikan($guruModel)) {
+            return response()->json([
+                'error' => 'Guru ini masuk dalam daftar pengecualian dan tidak dihitung KPI.',
+            ], 422);
+        }
         [$tahun, $bln] = explode('-', $request->bulan);
         $start = Carbon::createFromDate($tahun, $bln, 1)->startOfMonth();
         $end   = Carbon::createFromDate($tahun, $bln, 1)->endOfMonth();
@@ -95,6 +127,7 @@ class KpiController extends Controller
             ->whereIn('absensi_piket.status_guru', ['Hadir', 'Tugas_Sekolah'])
             ->where('pembelajaran.guru_id', $guruId)
             ->where('pembelajaran.is_aktif', true)
+            ->where('pembelajaran.isi_jurnal', true)
             ->select('absensi_piket.jadwal_id', 'absensi_piket.tanggal', 'jadwal.pembelajaran_id')
             ->get();
 
@@ -268,10 +301,12 @@ class KpiController extends Controller
             'force_update'    => 'boolean',
         ]);
 
-        $allGuru    = Guru::with('user.roles')->where('is_aktif', true)->get();
-        $guruList   = $data['tipe'] === 'manajemen'
-            ? $allGuru->filter(fn ($g) => $this->isManajemen($g))
-            : $allGuru->filter(fn ($g) => !$this->isManajemen($g));
+        $excludedIds  = KpiPengaturan::getExcludedGuruIds();
+        $allGuru      = Guru::with('user.roles')->where('is_aktif', true)->get();
+        $eligibleGuru = $allGuru->filter(fn ($g) => !self::isGuruDikecualikan($g, $excludedIds));
+        $guruList     = $data['tipe'] === 'manajemen'
+            ? $eligibleGuru->filter(fn ($g) => $this->isManajemen($g))
+            : $eligibleGuru->filter(fn ($g) => !$this->isManajemen($g));
 
         [$tahun, $bln] = explode('-', $data['bulan']);
         $start = Carbon::createFromDate($tahun, $bln, 1)->startOfMonth();
@@ -407,15 +442,31 @@ class KpiController extends Controller
         return back()->with('success', 'Bobot KPI berhasil diperbarui.');
     }
 
+    // ── Update Pengecualian Guru KPI ───────────────────────────────────────────
+    public function updatePengecualian(Request $request)
+    {
+        $data = $request->validate([
+            'guru_ids'   => 'nullable|array',
+            'guru_ids.*' => 'integer|exists:guru,id',
+        ]);
+
+        KpiPengaturan::setExcludedGuruIds($data['guru_ids'] ?? []);
+
+        return back()->with('success', 'Daftar pengecualian guru berhasil disimpan.');
+    }
+
     // ── Ranking ────────────────────────────────────────────────────────────────
     public function ranking(Request $request)
     {
         $bulan       = $request->bulan ?? now()->format('Y-m');
         $tahunAjaran = TahunAjaran::all();
+        $allExcluded = self::getAllExcludedGuruIds();
+        $ksTuIds     = Tatausaha::whereHas('user', fn ($q) => $q->whereHas('roles', fn ($r) => $r->where('name', 'kepala_sekolah')))->pluck('id')->all();
 
-        // Ranking guru: group by guru, sum nilai, sort desc
+        // Ranking guru: group by guru, sum nilai, sort desc (kecualikan KS & guru yang dikecualikan)
         $rankingGuru = KpiGuru::with(['guru.user'])
             ->where('bulan', $bulan)
+            ->when(!empty($allExcluded), fn ($q) => $q->whereNotIn('guru_id', $allExcluded))
             ->get()
             ->groupBy('guru_id')
             ->map(function ($items, $guruId) {
@@ -439,9 +490,10 @@ class KpiController extends Controller
             ->values()
             ->map(fn ($r, $idx) => array_merge($r, ['rank' => $idx + 1]));
 
-        // Ranking tatausaha
+        // Ranking tatausaha (kecualikan KS bila ada akun TU)
         $rankingTu = KpiTatausaha::with(['tatausaha.user'])
             ->where('bulan', $bulan)
+            ->when(!empty($ksTuIds), fn ($q) => $q->whereNotIn('tatausaha_id', $ksTuIds))
             ->get()
             ->groupBy('tatausaha_id')
             ->map(function ($items, $tuId) {
@@ -466,7 +518,9 @@ class KpiController extends Controller
         $bulanList = KpiGuru::select('bulan')->distinct()->orderByDesc('bulan')->pluck('bulan');
 
         // ── Ranking Akhir (rata-rata semua bulan) ──────────────────────────
-        $allGuruKpi = KpiGuru::with(['guru.user'])->get()
+        $allGuruKpi = KpiGuru::with(['guru.user'])
+            ->when(!empty($allExcluded), fn ($q) => $q->whereNotIn('guru_id', $allExcluded))
+            ->get()
             ->groupBy('guru_id')
             ->map(function ($rows, $guruId) {
                 $guru  = $rows->first()?->guru;
@@ -488,7 +542,9 @@ class KpiController extends Controller
             ->values()
             ->map(fn ($r, $idx) => array_merge($r, ['rank' => $idx + 1]));
 
-        $allTuKpi = KpiTatausaha::with(['tatausaha.user'])->get()
+        $allTuKpi = KpiTatausaha::with(['tatausaha.user'])
+            ->when(!empty($ksTuIds), fn ($q) => $q->whereNotIn('tatausaha_id', $ksTuIds))
+            ->get()
             ->groupBy('tatausaha_id')
             ->map(function ($rows, $tuId) {
                 $tu      = $rows->first()?->tatausaha;
@@ -580,6 +636,7 @@ class KpiController extends Controller
             ->whereIn('absensi_piket.status_guru', ['Hadir', 'Tugas_Sekolah'])
             ->where('pembelajaran.guru_id', $guruId)
             ->where('pembelajaran.is_aktif', true)
+            ->where('pembelajaran.isi_jurnal', true)
             ->select('absensi_piket.jadwal_id', 'absensi_piket.tanggal', 'jadwal.pembelajaran_id')
             ->get();
 

@@ -1,25 +1,59 @@
-import { Sun, Moon } from 'lucide-react';
+import { Sun, Moon, Monitor } from 'lucide-react';
 import { useTheme } from '@/contexts/ThemeContext';
 
-export default function ThemeToggle({ className = '', glass = false }) {
-    const { theme, toggle } = useTheme();
-    const isDark = theme === 'dark';
+export default function ThemeToggle({ className = '' }) {
+    const { mode, setMode } = useTheme();
 
     return (
-        <button
-            onClick={toggle}
-            aria-label={isDark ? 'Mode terang' : 'Mode gelap'}
-            title={isDark ? 'Mode terang' : 'Mode gelap'}
-            className={`h-9 w-9 rounded-xl flex items-center justify-center transition-colors focus:outline-none focus:ring-2 focus:ring-sky-500/60 ${
-                glass
-                    ? 'bg-white/15 hover:bg-white/25'
-                    : 'bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700'
-            } ${className}`}
+        <div
+            className={`inline-flex items-center gap-0.5 rounded-full p-1 bg-gray-100 dark:bg-gray-800/90 border border-gray-200/80 dark:border-gray-700/80 ${className}`}
+            role="group"
+            aria-label="Pilih Mode Tema"
         >
-            {isDark
-                ? <Sun className={`h-4 w-4 ${glass ? 'text-amber-200' : 'text-amber-400'}`} />
-                : <Moon className={`h-4 w-4 ${glass ? 'text-white/80' : 'text-gray-500'}`} />
-            }
-        </button>
+            {/* Light */}
+            <button
+                type="button"
+                onClick={() => setMode('light')}
+                title="Mode Terang"
+                aria-label="Mode Terang"
+                className={`p-1.5 rounded-full transition-all duration-150 ${
+                    mode === 'light'
+                        ? 'bg-white text-sky-600 shadow-xs'
+                        : 'text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300'
+                }`}
+            >
+                <Sun className="h-3.5 w-3.5" strokeWidth={1.75} />
+            </button>
+
+            {/* Dark */}
+            <button
+                type="button"
+                onClick={() => setMode('dark')}
+                title="Mode Gelap"
+                aria-label="Mode Gelap"
+                className={`p-1.5 rounded-full transition-all duration-150 ${
+                    mode === 'dark'
+                        ? 'bg-white dark:bg-gray-700 text-sky-600 dark:text-sky-400 shadow-xs'
+                        : 'text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300'
+                }`}
+            >
+                <Moon className="h-3.5 w-3.5" strokeWidth={1.75} />
+            </button>
+
+            {/* System */}
+            <button
+                type="button"
+                onClick={() => setMode('system')}
+                title="Mengikuti Sistem"
+                aria-label="Mengikuti Sistem"
+                className={`p-1.5 rounded-full transition-all duration-150 ${
+                    mode === 'system'
+                        ? 'bg-white dark:bg-gray-700 text-sky-600 dark:text-sky-400 shadow-xs'
+                        : 'text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300'
+                }`}
+            >
+                <Monitor className="h-3.5 w-3.5" strokeWidth={1.75} />
+            </button>
+        </div>
     );
 }

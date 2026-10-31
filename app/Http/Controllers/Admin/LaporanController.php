@@ -214,9 +214,9 @@ class LaporanController extends Controller
         $rekap = $this->buildRekapGuru($guruList, $absensiData, $piketData, $hariMap, $kemunculanHari, $piketPengganti);
 
         // Jika tidak ada filter guru spesifik, hilangkan guru yang tidak punya
-        // jam terjadwal di bulan ini (jadwal ada tapi harinya tidak terjadi bulan ini)
+        // jam terjadwal maupun JP pengganti di bulan ini
         if (!$guruId) {
-            $rekap = $rekap->filter(fn ($r) => $r['jam_terjadwal'] > 0)->values();
+            $rekap = $rekap->filter(fn ($r) => $r['jam_terjadwal'] > 0 || $r['jp_pengganti'] > 0)->values();
         }
 
         return Inertia::render('Admin/Laporan/KehadiranGuru', array_merge([
@@ -247,7 +247,11 @@ class LaporanController extends Controller
         $rows = AbsensiPiket::whereBetween('absensi_piket.tanggal', [$tanggalMulai, $tanggalSelesai])
             ->join('jadwal', 'absensi_piket.jadwal_id', '=', 'jadwal.id')
             ->join('pembelajaran', 'jadwal.pembelajaran_id', '=', 'pembelajaran.id')
-            ->where('pembelajaran.guru_id', $guruId)
+            ->join('mata_pelajaran', 'pembelajaran.mata_pelajaran_id', '=', 'mata_pelajaran.id')
+            ->where(function ($q) use ($guruId) {
+                $q->where('pembelajaran.guru_id', $guruId)
+                  ->orWhere('absensi_piket.guru_pengganti_id', $guruId);
+            })
             ->where('pembelajaran.is_aktif', true)
             ->where('jadwal.is_aktif', true)
             ->whereRaw("DAYOFWEEK(absensi_piket.tanggal) = FIELD(jadwal.hari, 'Ahad','Senin','Selasa','Rabu','Kamis','Jumat','Sabtu')")
@@ -255,13 +259,23 @@ class LaporanController extends Controller
                 'absensi_piket.tanggal,
                  absensi_piket.status_guru,
                  absensi_piket.keterangan,
+                 absensi_piket.guru_pengganti_id,
+                 pembelajaran.guru_id as guru_asli_id,
                  jadwal.jam_ke,
                  jadwal.jam_mulai,
-                 jadwal.jam_selesai'
+                 jadwal.jam_selesai,
+                 mata_pelajaran.nama as nama_mapel'
             )
             ->orderBy('absensi_piket.tanggal')
             ->orderBy('jadwal.jam_ke')
             ->get()
+            ->map(function ($r) use ($guruId) {
+                if ((int) $r->guru_pengganti_id === (int) $guruId) {
+                    $r->status_guru = 'Hadir';
+                    $r->keterangan  = trim(($r->keterangan ? $r->keterangan . ' ' : '') . "(Menggantikan Guru - {$r->nama_mapel})");
+                }
+                return $r;
+            })
             ->groupBy('tanggal')
             ->map(fn ($slots) => $slots->values())
             ->sortKeys();
@@ -363,15 +377,21 @@ class LaporanController extends Controller
             $alpha = $alpha + $tidakHadir;
             $total = $hadir + $sakit + $izin + $alpha;
 
-            // JP dari piket per status
+            // JP dari piket per status untuk jadwal sendiri
             $piket          = $piketData->get($guru->id, collect());
-            $jpHadir        = (int) $piket->where('status_guru', 'Hadir')->sum('jumlah');
+            $jpHadirSendiri = (int) $piket->where('status_guru', 'Hadir')->sum('jumlah');
             $jpTugasSekolah = (int) $piket->where('status_guru', 'Tugas_Sekolah')->sum('jumlah');
             $jpSakit        = (int) $piket->where('status_guru', 'Sakit')->sum('jumlah');
             $jpIzin         = (int) $piket->where('status_guru', 'Izin')->sum('jumlah');
             $jpAlpha        = (int) $piket->where('status_guru', 'Alpha')->sum('jumlah');
 
+            // JP Pengganti: slot mengajar yang diisi oleh guru ini untuk menggantikan guru lain
+            $jpPengganti = $piketPengganti
+                ? (int)($piketPengganti->get($guru->id)?->jumlah ?? 0)
+                : 0;
+
             // Jam terjadwal: jumlah JP dari jadwal aktif × kemunculan hari dalam bulan
+            // (tetap sesuai jadwal sebelum menggantikan, tidak ditambah JP pengganti)
             $jamTerjadwal = 0;
             foreach ($guru->pembelajaran as $p) {
                 foreach ($p->jadwal as $jadwal) {
@@ -385,13 +405,11 @@ class LaporanController extends Controller
             // JP efektif: TS tidak dihitung mengajar maupun tidak hadir
             $jpEfektif = max(0, $jamTerjadwal - $jpTugasSekolah);
 
-            // JP tidak hadir = komplemen dari jp_hadir (bukan jumlah S+I+A dari piket,
-            // karena piket mungkin tidak merekam semua absensi — komplemen lebih akurat)
-            $jpTidakHadir = max(0, $jpEfektif - $jpHadir);
+            // JP tidak hadir = komplemen dari jp hadir jadwal sendiri
+            $jpTidakHadir = max(0, $jpEfektif - $jpHadirSendiri);
 
-            $jpPengganti = $piketPengganti
-                ? (int)($piketPengganti->get($guru->id)?->jumlah ?? 0)
-                : 0;
+            // Total JP hadir guru mengajar: kehadiran jadwal sendiri + kehadiran saat menggantikan guru lain
+            $jpHadir = $jpHadirSendiri + $jpPengganti;
 
             return [
                 'id'                 => $guru->id,
@@ -412,7 +430,7 @@ class LaporanController extends Controller
                 'jp_sakit'           => $jpSakit,
                 'jp_izin'            => $jpIzin,
                 'jp_alpha'           => $jpAlpha,
-                'persen_mengajar'    => $jpEfektif > 0 ? min(100, round(($jpHadir / $jpEfektif) * 100, 1)) : 0,
+                'persen_mengajar'    => $jpEfektif > 0 ? min(100, round(($jpHadir / $jpEfektif) * 100, 1)) : ($jpHadir > 0 ? 100 : 0),
                 'persen_tidak_hadir' => $jpEfektif > 0 ? round(($jpTidakHadir / $jpEfektif) * 100, 1) : 0,
             ];
         })->values();
@@ -497,7 +515,21 @@ class LaporanController extends Controller
             $kemunculanHari[$d->dayOfWeek] = ($kemunculanHari[$d->dayOfWeek] ?? 0) + 1;
         }
 
-        $rekap = $this->buildRekapGuru($guruList, $absensiData, $piketData, $hariMap, $kemunculanHari);
+        $piketPengganti = AbsensiPiket::whereBetween('absensi_piket.tanggal', [$tanggalMulai, $tanggalSelesai])
+            ->join('jadwal', 'absensi_piket.jadwal_id', '=', 'jadwal.id')
+            ->whereNotNull('absensi_piket.guru_pengganti_id')
+            ->when($guruId,
+                fn ($q) => $q->where('absensi_piket.guru_pengganti_id', $guruId),
+                fn ($q) => $q->whereIn('absensi_piket.guru_pengganti_id', $guruIds)
+            )
+            ->where('jadwal.is_aktif', true)
+            ->whereRaw("DAYOFWEEK(absensi_piket.tanggal) = FIELD(jadwal.hari, 'Ahad','Senin','Selasa','Rabu','Kamis','Jumat','Sabtu')")
+            ->selectRaw('absensi_piket.guru_pengganti_id as guru_id, COUNT(*) as jumlah')
+            ->groupBy('absensi_piket.guru_pengganti_id')
+            ->get()
+            ->keyBy('guru_id');
+
+        $rekap = $this->buildRekapGuru($guruList, $absensiData, $piketData, $hariMap, $kemunculanHari, $piketPengganti);
 
         return Inertia::render('Admin/Laporan/KehadiranGuruSemester', array_merge([
             'rekap'          => $rekap,
@@ -581,7 +613,21 @@ class LaporanController extends Controller
             $kemunculanHari[$d->dayOfWeek] = ($kemunculanHari[$d->dayOfWeek] ?? 0) + 1;
         }
 
-        $rekap = $this->buildRekapGuru($guruList, $absensiData, $piketData, $hariMap, $kemunculanHari);
+        $piketPengganti = AbsensiPiket::whereBetween('absensi_piket.tanggal', [$tanggalMulai, $tanggalSelesai])
+            ->join('jadwal', 'absensi_piket.jadwal_id', '=', 'jadwal.id')
+            ->whereNotNull('absensi_piket.guru_pengganti_id')
+            ->when($guruId,
+                fn ($q) => $q->where('absensi_piket.guru_pengganti_id', $guruId),
+                fn ($q) => $q->whereIn('absensi_piket.guru_pengganti_id', $guruIds)
+            )
+            ->where('jadwal.is_aktif', true)
+            ->whereRaw("DAYOFWEEK(absensi_piket.tanggal) = FIELD(jadwal.hari, 'Ahad','Senin','Selasa','Rabu','Kamis','Jumat','Sabtu')")
+            ->selectRaw('absensi_piket.guru_pengganti_id as guru_id, COUNT(*) as jumlah')
+            ->groupBy('absensi_piket.guru_pengganti_id')
+            ->get()
+            ->keyBy('guru_id');
+
+        $rekap = $this->buildRekapGuru($guruList, $absensiData, $piketData, $hariMap, $kemunculanHari, $piketPengganti);
         $label = "Smt{$tahunAjaran->semester} {$tahunAjaran->nama}";
         $fname = 'kehadiran-guru-' . preg_replace('/[^a-z0-9]+/', '-', strtolower($label)) . '.xlsx';
 
@@ -708,6 +754,8 @@ class LaporanController extends Controller
             ->join('pembelajaran', 'jadwal.pembelajaran_id', '=', 'pembelajaran.id')
             ->whereBetween('absensi_piket.tanggal', [$from->toDateString(), $effectiveTo->toDateString()])
             ->whereIn('absensi_piket.status_guru', ['Hadir'])
+            // Jam literasi (isi_jurnal=false) tidak wajib diisi jurnalnya — jangan ikut dihitung
+            ->where('pembelajaran.isi_jurnal', true)
             ->select(
                 'absensi_piket.jadwal_id',
                 'absensi_piket.tanggal',
@@ -789,6 +837,7 @@ class LaporanController extends Controller
             ->whereBetween('absensi_piket.tanggal', [$from->toDateString(), $effectiveTo->toDateString()])
             ->where('pembelajaran.guru_id', $guru->id)
             ->whereIn('absensi_piket.status_guru', ['Hadir'])
+            ->where('pembelajaran.isi_jurnal', true)
             ->select(
                 'absensi_piket.tanggal',
                 'absensi_piket.jadwal_id',

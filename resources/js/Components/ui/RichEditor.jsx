@@ -1,12 +1,130 @@
 import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Underline from '@tiptap/extension-underline';
+import { Extension, Node } from '@tiptap/core';
 import { useEffect } from 'react';
 import {
     Bold, Italic, UnderlineIcon, Strikethrough,
     Heading2, Heading3, List, ListOrdered,
     Quote, Minus, RotateCcw, RotateCw, Code,
+    AlignLeft, AlignCenter, AlignRight, AlignJustify,
 } from 'lucide-react';
+
+/* ── Custom Text Alignment Extension ── */
+export const CustomTextAlign = Extension.create({
+    name: 'customTextAlign',
+    addOptions() {
+        return {
+            types: ['heading', 'paragraph'],
+            alignments: ['left', 'center', 'right', 'justify'],
+            defaultAlignment: 'left',
+        };
+    },
+    addGlobalAttributes() {
+        return [
+            {
+                types: this.options.types,
+                attributes: {
+                    textAlign: {
+                        default: this.options.defaultAlignment,
+                        parseHTML: element => element.style.textAlign || this.options.defaultAlignment,
+                        renderHTML: attributes => {
+                            if (!attributes.textAlign || attributes.textAlign === this.options.defaultAlignment) {
+                                return {};
+                            }
+                            return { style: `text-align: ${attributes.textAlign}` };
+                        },
+                    },
+                },
+            },
+        ];
+    },
+    addCommands() {
+        return {
+            setTextAlign: (alignment) => ({ commands }) => {
+                if (!this.options.alignments.includes(alignment)) return false;
+                return this.options.types.every(type => commands.updateAttributes(type, { textAlign: alignment }));
+            },
+            unsetTextAlign: () => ({ commands }) => {
+                return this.options.types.every(type => commands.resetAttributes(type, 'textAlign'));
+            },
+        };
+    },
+});
+
+/* ── Custom Table Nodes (agar Tiptap tidak membuang format tabel biodata) ── */
+export const CustomTable = Node.create({
+    name: 'table',
+    group: 'block',
+    content: 'tableRow+',
+    isolating: true,
+    addAttributes() {
+        return {
+            style: {
+                default: null,
+                parseHTML: el => el.getAttribute('style'),
+                renderHTML: attr => attr.style ? { style: attr.style } : {},
+            },
+            class: {
+                default: null,
+                parseHTML: el => el.getAttribute('class'),
+                renderHTML: attr => attr.class ? { class: attr.class } : {},
+            },
+        };
+    },
+    parseHTML() { return [{ tag: 'table' }]; },
+    renderHTML({ HTMLAttributes }) { return ['table', HTMLAttributes, 0]; },
+});
+
+export const CustomTableRow = Node.create({
+    name: 'tableRow',
+    content: '(tableCell | tableHeader)+',
+    addAttributes() {
+        return {
+            style: {
+                default: null,
+                parseHTML: el => el.getAttribute('style'),
+                renderHTML: attr => attr.style ? { style: attr.style } : {},
+            },
+        };
+    },
+    parseHTML() { return [{ tag: 'tr' }]; },
+    renderHTML({ HTMLAttributes }) { return ['tr', HTMLAttributes, 0]; },
+});
+
+export const CustomTableCell = Node.create({
+    name: 'tableCell',
+    content: 'block+',
+    isolating: true,
+    addAttributes() {
+        return {
+            style: {
+                default: null,
+                parseHTML: el => el.getAttribute('style'),
+                renderHTML: attr => attr.style ? { style: attr.style } : {},
+            },
+        };
+    },
+    parseHTML() { return [{ tag: 'td' }]; },
+    renderHTML({ HTMLAttributes }) { return ['td', HTMLAttributes, 0]; },
+});
+
+export const CustomTableHeader = Node.create({
+    name: 'tableHeader',
+    content: 'block+',
+    isolating: true,
+    addAttributes() {
+        return {
+            style: {
+                default: null,
+                parseHTML: el => el.getAttribute('style'),
+                renderHTML: attr => attr.style ? { style: attr.style } : {},
+            },
+        };
+    },
+    parseHTML() { return [{ tag: 'th' }]; },
+    renderHTML({ HTMLAttributes }) { return ['th', HTMLAttributes, 0]; },
+});
 
 // Toolbar button
 function ToolBtn({ onClick, active, title, children }) {
@@ -28,7 +146,15 @@ function Divider() {
 
 export default function RichEditor({ label, value = '', onChange, error, placeholder = 'Tulis di sini...' }) {
     const editor = useEditor({
-        extensions: [StarterKit, Underline],
+        extensions: [
+            StarterKit,
+            Underline,
+            CustomTextAlign,
+            CustomTable,
+            CustomTableRow,
+            CustomTableCell,
+            CustomTableHeader,
+        ],
         content: value || '',
         editorProps: {
             attributes: {
@@ -82,6 +208,22 @@ export default function RichEditor({ label, value = '', onChange, error, placeho
                     </ToolBtn>
                     <ToolBtn onClick={() => e.chain().focus().toggleStrike().run()} active={e.isActive('strike')} title="Strikethrough">
                         <Strikethrough className="h-3.5 w-3.5" />
+                    </ToolBtn>
+
+                    <Divider />
+
+                    {/* Alignment Buttons */}
+                    <ToolBtn onClick={() => e.chain().focus().setTextAlign('left').run()} active={e.isActive({ textAlign: 'left' })} title="Rata Kiri">
+                        <AlignLeft className="h-3.5 w-3.5" />
+                    </ToolBtn>
+                    <ToolBtn onClick={() => e.chain().focus().setTextAlign('center').run()} active={e.isActive({ textAlign: 'center' })} title="Rata Tengah">
+                        <AlignCenter className="h-3.5 w-3.5" />
+                    </ToolBtn>
+                    <ToolBtn onClick={() => e.chain().focus().setTextAlign('right').run()} active={e.isActive({ textAlign: 'right' })} title="Rata Kanan">
+                        <AlignRight className="h-3.5 w-3.5" />
+                    </ToolBtn>
+                    <ToolBtn onClick={() => e.chain().focus().setTextAlign('justify').run()} active={e.isActive({ textAlign: 'justify' })} title="Rata Kanan-Kiri (Justify)">
+                        <AlignJustify className="h-3.5 w-3.5" />
                     </ToolBtn>
 
                     <Divider />

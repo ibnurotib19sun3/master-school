@@ -6,7 +6,7 @@ import Badge from '@/Components/ui/Badge';
 import { Select, Textarea } from '@/Components/ui/Input';
 import {
     Calculator, Save, TrendingUp, CheckCircle2, AlertCircle,
-    UserCheck, BookOpen, RefreshCw, Crown, Search, X, ChevronDown,
+    UserCheck, UserX, BookOpen, RefreshCw, Crown, Search, X, ChevronDown,
     Play, BarChart2, ShieldCheck, AlertTriangle, Trash2,
 } from 'lucide-react';
 import { useState, useEffect, useRef, useCallback } from 'react';
@@ -353,6 +353,164 @@ function BobotPanel({ tipe, pengaturan, tahunAjaran }) {
                 loading={batchLoad}
             />
         </>
+    );
+}
+
+// ── Pengecualian Panel ────────────────────────────────────────────────────────
+
+function PengecualianPanel({ allGuru = [], guruDikecualikanIds = [] }) {
+    const [selectedIds, setSelectedIds]   = useState(guruDikecualikanIds);
+    const [saving, setSaving]             = useState(false);
+    const [searchQuery, setSearchQuery]   = useState('');
+    const [dropdownOpen, setDropdownOpen] = useState(false);
+    const dropdownRef                     = useRef(null);
+
+    useEffect(() => {
+        setSelectedIds(guruDikecualikanIds);
+    }, [guruDikecualikanIds]);
+
+    useEffect(() => {
+        if (!dropdownOpen) return;
+        const h = (e) => {
+            if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
+                setDropdownOpen(false);
+            }
+        };
+        document.addEventListener('mousedown', h);
+        return () => document.removeEventListener('mousedown', h);
+    }, [dropdownOpen]);
+
+    const nonKsGuru         = allGuru.filter((g) => !g.user?.roles?.some((r) => r.name === 'kepala_sekolah'));
+    const kepalaSekolahGuru = allGuru.filter((g) => g.user?.roles?.some((r) => r.name === 'kepala_sekolah'));
+
+    const filteredGuru = nonKsGuru.filter((g) => {
+        const name = (g.user?.name ?? '').toLowerCase();
+        const nip  = (g.nip ?? '').toLowerCase();
+        const q    = searchQuery.toLowerCase();
+        return (name.includes(q) || nip.includes(q)) && !selectedIds.includes(g.id);
+    });
+
+    const addGuru = (id) => {
+        if (!selectedIds.includes(id)) {
+            setSelectedIds([...selectedIds, id]);
+        }
+        setSearchQuery('');
+        setDropdownOpen(false);
+    };
+
+    const removeGuru = (id) => {
+        setSelectedIds(selectedIds.filter((item) => item !== id));
+    };
+
+    const simpan = () => {
+        setSaving(true);
+        router.post('/admin/kpi/pengecualian', { guru_ids: selectedIds }, {
+            preserveScroll: true,
+            onFinish: () => setSaving(false),
+        });
+    };
+
+    const hasChanges = JSON.stringify([...selectedIds].sort()) !== JSON.stringify([...guruDikecualikanIds].sort());
+
+    return (
+        <Card>
+            <CardHeader>
+                <div className="flex items-center gap-2">
+                    <UserX className="h-4 w-4 text-rose-500" />
+                    <CardTitle>Pengecualian Guru</CardTitle>
+                </div>
+            </CardHeader>
+            <CardBody className="space-y-3">
+                <div className="rounded-lg bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 p-3 text-xs text-amber-800 dark:text-amber-300">
+                    <p className="font-semibold flex items-center gap-1.5 mb-1">
+                        <Crown className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400" />
+                        Otomatis Dikecualikan:
+                    </p>
+                    <p className="text-[11px] text-amber-700 dark:text-amber-400 leading-relaxed">
+                        Kepala Sekolah {kepalaSekolahGuru.length > 0 ? `(${kepalaSekolahGuru.map(g => g.user?.name).join(', ')})` : ''} otomatis tidak dihitung pada KPI maupun Ranking.
+                    </p>
+                </div>
+
+                <div>
+                    <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+                        Kecualikan Guru Tambahan:
+                    </label>
+                    <div ref={dropdownRef} className="relative">
+                        <input
+                            type="text"
+                            value={searchQuery}
+                            onFocus={() => setDropdownOpen(true)}
+                            onChange={(e) => { setSearchQuery(e.target.value); setDropdownOpen(true); }}
+                            placeholder="Cari nama guru untuk dikecualikan..."
+                            className="w-full text-xs rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 px-3 py-2 focus:outline-none focus:ring-1 focus:ring-sky-500"
+                        />
+                        {dropdownOpen && (
+                            <div className="absolute z-50 mt-1 w-full rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-lg max-h-48 overflow-y-auto py-1">
+                                {filteredGuru.length === 0 ? (
+                                    <p className="text-xs text-gray-400 text-center py-3">Tidak ada guru ditemukan</p>
+                                ) : (
+                                    filteredGuru.map((g) => (
+                                        <button
+                                            key={g.id}
+                                            type="button"
+                                            onClick={() => addGuru(g.id)}
+                                            className="w-full text-left px-3 py-2 text-xs hover:bg-gray-50 dark:hover:bg-gray-700/50 flex items-center justify-between transition-colors"
+                                        >
+                                            <span className="font-medium text-gray-800 dark:text-gray-200">{g.user?.name ?? '-'}</span>
+                                            <span className="text-[10px] text-gray-400 font-mono">{g.nip ?? ''}</span>
+                                        </button>
+                                    ))
+                                )}
+                            </div>
+                        )}
+                    </div>
+                </div>
+
+                {/* List Chips Guru yang Dikecualikan */}
+                <div className="space-y-1.5">
+                    <p className="text-[11px] text-gray-500 dark:text-gray-400 font-medium">
+                        Daftar Guru Dikecualikan ({selectedIds.length}):
+                    </p>
+                    {selectedIds.length === 0 ? (
+                        <p className="text-xs text-gray-400 italic bg-gray-50 dark:bg-gray-800/40 rounded-lg p-2 text-center">
+                            Tidak ada guru tambahan yang dikecualikan
+                        </p>
+                    ) : (
+                        <div className="flex flex-wrap gap-1.5 max-h-36 overflow-y-auto p-1">
+                            {selectedIds.map((id) => {
+                                const g = allGuru.find((item) => item.id === id);
+                                return (
+                                    <span
+                                        key={id}
+                                        className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded-lg bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-800"
+                                    >
+                                        <span className="max-w-[140px] truncate">{g?.user?.name ?? `ID: ${id}`}</span>
+                                        <button
+                                            type="button"
+                                            onClick={() => removeGuru(id)}
+                                            className="text-rose-400 hover:text-rose-600 dark:hover:text-rose-200 rounded-full"
+                                        >
+                                            <X className="h-3 w-3" />
+                                        </button>
+                                    </span>
+                                );
+                            })}
+                        </div>
+                    )}
+                </div>
+
+                <Button
+                    type="button"
+                    icon={Save}
+                    className="w-full !text-xs !py-2"
+                    disabled={!hasChanges}
+                    loading={saving}
+                    onClick={simpan}
+                >
+                    Simpan Pengecualian
+                </Button>
+            </CardBody>
+        </Card>
     );
 }
 
@@ -725,7 +883,16 @@ function RekapTable({ rekap, tipe, guruList, filters }) {
 
 // ── Main Page ─────────────────────────────────────────────────────────────────
 
-export default function KPIIndex({ guruBiasa = [], guruMgmt = [], tahunAjaran = [], pengaturan = {}, rekap, filters = {} }) {
+export default function KPIIndex({
+    guruBiasa = [],
+    guruMgmt = [],
+    allGuru = [],
+    guruDikecualikanIds = [],
+    tahunAjaran = [],
+    pengaturan = {},
+    rekap,
+    filters = {},
+}) {
     const initTab   = filters.tipe ?? 'biasa';
     const [tab, setTab] = useState(initTab);
 
@@ -768,9 +935,10 @@ export default function KPIIndex({ guruBiasa = [], guruMgmt = [], tahunAjaran = 
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                {/* Left: Bobot + Batch */}
+                {/* Left: Bobot + Batch + Pengecualian */}
                 <div className="lg:col-span-1 space-y-4">
                     <BobotPanel tipe={tab} pengaturan={pengaturan} tahunAjaran={tahunAjaran} />
+                    <PengecualianPanel allGuru={allGuru} guruDikecualikanIds={guruDikecualikanIds} />
                 </div>
 
                 {/* Right: Hitung + Rekap */}

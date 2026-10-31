@@ -52,13 +52,20 @@ class HitungKpiBulanan extends Command
         $kpiCtrl    = new KpiController();
 
         // ── Guru ──────────────────────────────────────────────────────────
-        $allGuru   = Guru::with('user.roles')->where('is_aktif', true)->get();
-        $indGuru   = KpiIndikator::where('kode', 'KEAKTIFAN_GURU')->first();
-        $indJurnal = KpiIndikator::where('kode', 'KEAKTIFAN_JURNAL')->first();
-        $indMgmt   = KpiIndikator::where('kode', 'KEAKTIFAN_MANAJEMEN_GURU')->first();
+        $allGuru     = Guru::with('user.roles')->where('is_aktif', true)->get();
+        $excludedIds = KpiPengaturan::getExcludedGuruIds();
+        $indGuru     = KpiIndikator::where('kode', 'KEAKTIFAN_GURU')->first();
+        $indJurnal   = KpiIndikator::where('kode', 'KEAKTIFAN_JURNAL')->first();
+        $indMgmt     = KpiIndikator::where('kode', 'KEAKTIFAN_MANAJEMEN_GURU')->first();
 
         $guruSaved = 0; $guruSkipped = 0;
         foreach ($allGuru as $guru) {
+            // Lewati guru yang dikecualikan (Kepala Sekolah atau masuk daftar pengecualian)
+            if (KpiController::isGuruDikecualikan($guru, $excludedIds)) {
+                $guruSkipped++;
+                continue;
+            }
+
             $sudahAda = KpiGuru::where('guru_id', $guru->id)->where('bulan', $bulan)->exists();
             if ($sudahAda && !$force) { $guruSkipped++; continue; }
 
@@ -84,6 +91,7 @@ class HitungKpiBulanan extends Command
                 ->whereIn('absensi_piket.status_guru', ['Hadir', 'Tugas_Sekolah'])
                 ->where('pembelajaran.guru_id', $guru->id)
                 ->where('pembelajaran.is_aktif', true)
+                ->where('pembelajaran.isi_jurnal', true)
                 ->select('absensi_piket.jadwal_id', 'absensi_piket.tanggal', 'jadwal.pembelajaran_id')
                 ->get();
 

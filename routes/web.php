@@ -565,6 +565,7 @@ Route::middleware('auth')->group(function () {
         Route::get('kpi/ranking',            [KpiController::class, 'ranking'])->name('kpi.ranking');
         Route::post('kpi',                   [KpiController::class, 'store'])->name('kpi.store');
         Route::post('kpi/bobot',             [KpiController::class, 'updateBobot'])->name('kpi.bobot');
+        Route::post('kpi/pengecualian',       [KpiController::class, 'updatePengecualian'])->name('kpi.pengecualian');
         Route::post('kpi/hitung-batch',      [KpiController::class, 'hitungBatch'])->name('kpi.hitung-batch');
         Route::delete('kpi/hapus-bulan',     [KpiController::class, 'destroyByBulan'])->name('kpi.hapus-bulan')->middleware('role:super_admin');
 
@@ -1078,9 +1079,10 @@ Route::middleware('auth')->group(function () {
         Route::delete('dokumen-siswa/item/{dokumenSiswa}', [\App\Http\Controllers\TataUsaha\DokumenSiswaController::class, 'destroy'])->name('dokumen-siswa.destroy');
 
         // Buat Surat (Generator)
-        Route::get('buat-surat',             [\App\Http\Controllers\TataUsaha\BuatSuratController::class, 'index'])->name('buat-surat.index');
-        Route::get('buat-surat/cari-orang',  [\App\Http\Controllers\TataUsaha\BuatSuratController::class, 'cariOrang'])->name('buat-surat.cari-orang');
-        Route::post('buat-surat/simpan',     [\App\Http\Controllers\TataUsaha\BuatSuratController::class, 'simpan'])->name('buat-surat.simpan');
+        Route::get('buat-surat',                   [\App\Http\Controllers\TataUsaha\BuatSuratController::class, 'index'])->name('buat-surat.index');
+        Route::get('buat-surat/cari-orang',        [\App\Http\Controllers\TataUsaha\BuatSuratController::class, 'cariOrang'])->name('buat-surat.cari-orang');
+        Route::get('buat-surat/cari-surat-keluar', [\App\Http\Controllers\TataUsaha\BuatSuratController::class, 'cariSuratKeluar'])->name('buat-surat.cari-surat-keluar');
+        Route::post('buat-surat/simpan',           [\App\Http\Controllers\TataUsaha\BuatSuratController::class, 'simpan'])->name('buat-surat.simpan');
         // Harus di bawah rute statis di atas — kalau tidak, "cari-orang"/"simpan" akan
         // ketangkap sebagai nilai route-model-binding {suratKeluar} dan jadi 404.
         Route::get('buat-surat/{suratKeluar}/edit', [\App\Http\Controllers\TataUsaha\BuatSuratController::class, 'edit'])->name('buat-surat.edit');

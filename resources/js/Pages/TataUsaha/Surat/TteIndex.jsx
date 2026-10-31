@@ -22,9 +22,11 @@ const STATUS_COLOR = { Draft: 'yellow', Terkirim: 'green' };
 const tahunList    = Array.from({ length: 6 }, (_, i) => new Date().getFullYear() - i);
 
 /* ── QR Placer Modal ─────────────────────────────────────────────── */
-// A4 paper: 210×297mm. Preview width fixed at PAPER_W px.
-const PAPER_W = 380;
-const PAPER_H = Math.round(PAPER_W * 297 / 210); // ~537px
+// Preview width fixed at PAPER_W px. Height dihitung dari rasio halaman PDF
+// yang sebenarnya (lihat pageMeta) — fallback A4 dipakai sebelum metadata termuat.
+const PAPER_W    = 380;
+const A4_RATIO   = 297 / 210;
+const MM_PER_PT  = 25.4 / 72;
 
 const PRESETS = [
     { label: 'Kanan Bawah', x: 78, y: 88 },
@@ -35,6 +37,9 @@ const PRESETS = [
 
 function QrPlacerModal({ item, onClose, initialConfigs = {} }) {
     const qrSvgRef = useRef(null);
+    // SVG tersembunyi & selalu ter-mount — dipakai qrToPngBytes() supaya tetap tersedia
+    // walau QR draggable di preview sedang disembunyikan (halaman ditandai "tanpa TTE").
+    const qrGenRef = useRef(null);
     const paperRef = useRef(null);
     const dragging   = useRef(false);
     const dragOffset = useRef({ dx: 0, dy: 0 });
@@ -65,7 +70,25 @@ function QrPlacerModal({ item, onClose, initialConfigs = {} }) {
     const paperWrapRef = useRef(null);
     const dispWRef     = useRef(PAPER_W);
     const [dispW, setDispW] = useState(PAPER_W);
-    const dispH = Math.round(dispW * 297 / 210);
+
+    // pdf-lib Document (ref — besar & bukan serializable, tidak perlu re-render) +
+    // metadata ukuran/rotasi tiap halaman (points, dari page.getSize()/getRotation()).
+    // Dipakai supaya preview & posisi QR mengikuti rasio halaman ASLI (bukan asumsi A4),
+    // dan supaya konversi ke PDF saat unduh sadar rotasi halaman (/Rotate 90/180/270).
+    const pdfDocRef = useRef(null);
+    const [pageMeta, setPageMeta] = useState({});
+    const activeMeta = activePage !== null ? pageMeta[activePage] : null;
+    const rawW  = activeMeta?.w ?? 595.28;
+    const rawH  = activeMeta?.h ?? 841.89;
+    const rotA  = activeMeta?.rotate ?? 0;
+    const visW  = (rotA === 90 || rotA === 270) ? rawH : rawW;
+    const visH  = (rotA === 90 || rotA === 270) ? rawW : rawH;
+    const visRatio = activeMeta ? (visH / visW) : A4_RATIO;
+    const dispH = Math.round(dispW * visRatio);
+
+    // Rasio terbaru untuk dipakai di dalam startDrag/moveDrag (closure stabil via useCallback)
+    const aspectRef = useRef(visRatio);
+    useEffect(() => { aspectRef.current = visRatio; }, [visRatio]);
 
     useEffect(() => {
         const wrap = paperWrapRef.current;
@@ -80,25 +103,65 @@ function QrPlacerModal({ item, onClose, initialConfigs = {} }) {
         return () => ro.disconnect();
     }, []);
 
-    // Load PDF page count
+    // Load PDF — simpan dokumen + metadata ukuran/rotasi tiap halaman
     useEffect(() => {
         if (!isPdf || !item.file_url) return;
         fetch(item.file_url)
             .then((r) => r.arrayBuffer())
             .then((bytes) => PDFDocument.load(bytes, { ignoreEncryption: true }))
-            .then((doc) => setPageCount(doc.getPages().length))
+            .then((doc) => {
+                pdfDocRef.current = doc;
+                setPageCount(doc.getPages().length);
+                const meta = {};
+                doc.getPages().forEach((p, i) => {
+                    const { width, height } = p.getSize();
+                    const angle = ((p.getRotation().angle % 360) + 360) % 360;
+                    meta[i + 1] = { w: width, h: height, rotate: angle };
+                });
+                setPageMeta(meta);
+            })
             .catch(() => setPageCount(1));
     }, [item.file_url, isPdf]);
 
-    // Switch to a page: auto-save current then load target
+    // Render halaman aktif sebagai PDF SATU-HALAMAN tersendiri (blob terpisah) —
+    // sebelumnya <embed> menunjuk file lengkap + "#page=N" yang kadang mendarat tidak
+    // pas (muncul sedikit halaman sebelum/sesudahnya). Dengan PDF 1 halaman, tidak ada
+    // konten tetangga yang bisa "bocor" ke tampilan.
+    const [activePageUrl, setActivePageUrl] = useState(null);
+    const activePageUrlRef = useRef(null);
+    useEffect(() => {
+        if (!isPdf || activePage === null || !pdfDocRef.current) { setActivePageUrl(null); return; }
+        let cancelled = false;
+        (async () => {
+            try {
+                const sub = await PDFDocument.create();
+                const [copied] = await sub.copyPages(pdfDocRef.current, [activePage - 1]);
+                sub.addPage(copied);
+                const bytes = await sub.save();
+                const url = URL.createObjectURL(new Blob([bytes], { type: 'application/pdf' }));
+                if (cancelled) { URL.revokeObjectURL(url); return; }
+                if (activePageUrlRef.current) URL.revokeObjectURL(activePageUrlRef.current);
+                activePageUrlRef.current = url;
+                setActivePageUrl(url);
+            } catch {
+                if (!cancelled) setActivePageUrl(null);
+            }
+        })();
+        return () => { cancelled = true; };
+    }, [isPdf, activePage, pageCount]);
+
+    useEffect(() => () => { if (activePageUrlRef.current) URL.revokeObjectURL(activePageUrlRef.current); }, []);
+
+    // Switch to a page: auto-save current only if already configured & not skipped, then load target
     const openPage = (n) => {
-        // auto-save current page before switching
-        if (activePage !== null) {
-            setPageConfigs((prev) => ({ ...prev, [activePage]: { x: pos.x, y: pos.y, qrSize } }));
+        if (activePage !== null && pageConfigs[activePage] && !pageConfigs[activePage].skip) {
+            const next = { ...pageConfigs, [activePage]: { x: pos.x, y: pos.y, qrSize } };
+            setPageConfigs(next);
+            try { localStorage.setItem(`tte_config_${item.id}`, JSON.stringify(next)); } catch {}
         }
         setActivePage(n);
         const saved = pageConfigs[n];
-        setPos(saved ? { x: saved.x, y: saved.y } : { x: 75, y: 85 });
+        setPos(saved && !saved.skip ? { x: saved.x, y: saved.y } : { x: 75, y: 85 });
         setQrSize(saved?.qrSize ?? 36);
     };
 
@@ -123,7 +186,18 @@ function QrPlacerModal({ item, onClose, initialConfigs = {} }) {
         if (activePage === n) setActivePage(null);
     };
 
-    const savedPageNums = Object.keys(pageConfigs).map(Number).sort((a, b) => a - b);
+    // Tandai halaman ini tidak perlu dibubuhi QR sama sekali (mis. halaman lampiran kosong)
+    const markNoTte = () => {
+        if (activePage === null) return;
+        const next = { ...pageConfigs, [activePage]: { skip: true } };
+        setPageConfigs(next);
+        try { localStorage.setItem(`tte_config_${item.id}`, JSON.stringify(next)); } catch {}
+    };
+
+    const savedPageNums   = Object.keys(pageConfigs).map(Number).sort((a, b) => a - b);
+    const qrPageNums      = savedPageNums.filter((n) => !pageConfigs[n].skip);
+    const skippedPageNums = savedPageNums.filter((n) => pageConfigs[n].skip);
+    const isSkipped        = activePage !== null && pageConfigs[activePage]?.skip === true;
 
     // ── drag ──────────────────────────────────────────────────────
     const startDrag = useCallback((clientX, clientY) => {
@@ -131,7 +205,7 @@ function QrPlacerModal({ item, onClose, initialConfigs = {} }) {
         if (!paper) return;
         const rect = paper.getBoundingClientRect();
         const dW = dispWRef.current;
-        const dH = Math.round(dW * 297 / 210);
+        const dH = Math.round(dW * aspectRef.current);
         dragging.current   = true;
         setIsDragging(true);
         dragOffset.current = {
@@ -146,7 +220,7 @@ function QrPlacerModal({ item, onClose, initialConfigs = {} }) {
         if (!paper) return;
         const rect = paper.getBoundingClientRect();
         const dW   = dispWRef.current;
-        const dH   = Math.round(dW * 297 / 210);
+        const dH   = Math.round(dW * aspectRef.current);
         const dQr  = Math.round(qrSize * (dW / PAPER_W));
         const rawX = clientX - rect.left - dragOffset.current.dx;
         const rawY = clientY - rect.top  - dragOffset.current.dy;
@@ -188,7 +262,7 @@ function QrPlacerModal({ item, onClose, initialConfigs = {} }) {
 
     // ── render QR SVG → PNG bytes (canvas) ───────────────────────
     const qrToPngBytes = () => new Promise((resolve, reject) => {
-        const svgEl = qrSvgRef.current?.querySelector('svg');
+        const svgEl = qrGenRef.current?.querySelector('svg');
         if (!svgEl) return reject(new Error('SVG not found'));
 
         const SIZE   = 400;
@@ -219,12 +293,16 @@ function QrPlacerModal({ item, onClose, initialConfigs = {} }) {
         if (!item.file_url) return;
 
         // Build final configs: include unsaved active page changes too
-        const finalConfigs = activePage !== null
+        // Jangan timpa halaman aktif kalau sudah ditandai "tanpa TTE" (markNoTte) —
+        // kalau tidak, flag skip-nya akan tertimpa balik oleh pos/qrSize lama yang
+        // masih tersisa di state saat halaman tersebut langsung diunduh tanpa pindah dulu.
+        const finalConfigs = (activePage !== null && !pageConfigs[activePage]?.skip)
             ? { ...pageConfigs, [activePage]: { x: pos.x, y: pos.y, qrSize } }
             : { ...pageConfigs };
 
         const configuredPages = Object.keys(finalConfigs).map(Number).sort((a, b) => a - b);
-        if (configuredPages.length === 0) {
+        const hasAnyQr = configuredPages.some((n) => !finalConfigs[n].skip);
+        if (!hasAnyQr) {
             alert('Belum ada halaman yang dikonfigurasi. Pilih halaman dan atur posisi QR terlebih dahulu.');
             return;
         }
@@ -245,14 +323,34 @@ function QrPlacerModal({ item, onClose, initialConfigs = {} }) {
                     const page = pages[pageNum - 1];
                     if (!page) continue;
                     const cfg = finalConfigs[pageNum];
+                    if (cfg.skip) continue; // halaman ditandai tidak perlu TTE
+
                     const { width, height } = page.getSize();
-                    const qrPts = cfg.qrSize * (width / PAPER_W);
-                    page.drawImage(qrImage, {
-                        x:      (cfg.x / 100) * width,
-                        y:      height - (cfg.y / 100) * height - qrPts,
-                        width:  qrPts,
-                        height: qrPts,
-                    });
+                    // /Rotate mempengaruhi tampilan visual tapi BUKAN koordinat konten
+                    // (drawImage selalu memakai ruang halaman mentah/unrotated) — tanpa
+                    // koreksi ini posisi QR akan geser pada halaman yang punya rotasi.
+                    const rotAngle  = ((page.getRotation().angle % 360) + 360) % 360;
+                    const visualW   = (rotAngle === 90 || rotAngle === 270) ? height : width;
+                    const qrPts     = cfg.qrSize * (visualW / PAPER_W);
+                    const xPct      = cfg.x / 100;
+                    const yPct      = cfg.y / 100;
+
+                    let x, y;
+                    if (rotAngle === 90) {
+                        x = yPct * width;
+                        y = xPct * height;
+                    } else if (rotAngle === 180) {
+                        x = width  - xPct * width  - qrPts;
+                        y = yPct * height;
+                    } else if (rotAngle === 270) {
+                        x = width  - yPct * width  - qrPts;
+                        y = height - xPct * height - qrPts;
+                    } else {
+                        x = xPct * width;
+                        y = height - yPct * height - qrPts;
+                    }
+
+                    page.drawImage(qrImage, { x, y, width: qrPts, height: qrPts });
                 }
             } else if (isImage) {
                 const cfg  = finalConfigs[1] ?? { x: pos.x, y: pos.y, qrSize };
@@ -260,9 +358,28 @@ function QrPlacerModal({ item, onClose, initialConfigs = {} }) {
                 pdfDoc = await PDFDocument.create();
                 const page     = pdfDoc.addPage([A4_W, A4_H]);
                 const imgBytes = await fetch(item.file_url).then((r) => r.arrayBuffer());
-                const docImage = item.file_url.toLowerCase().endsWith('.png')
-                    ? await pdfDoc.embedPng(imgBytes)
-                    : await pdfDoc.embedJpg(imgBytes);
+                let docImage;
+                if (item.file_url.toLowerCase().endsWith('.png')) {
+                    docImage = await pdfDoc.embedPng(imgBytes);
+                } else if (/\.(jpe?g)$/i.test(item.file_url)) {
+                    docImage = await pdfDoc.embedJpg(imgBytes);
+                } else {
+                    const pngBytes = await new Promise((resolve, reject) => {
+                        const img = new Image();
+                        img.crossOrigin = 'anonymous';
+                        img.onload = () => {
+                            const c = document.createElement('canvas');
+                            c.width = img.naturalWidth || img.width;
+                            c.height = img.naturalHeight || img.height;
+                            const ctx = c.getContext('2d');
+                            ctx.drawImage(img, 0, 0);
+                            c.toBlob((b) => b ? b.arrayBuffer().then(resolve).catch(reject) : reject(new Error('Canvas blob gagal')), 'image/png');
+                        };
+                        img.onerror = () => reject(new Error('Gagal memuat gambar'));
+                        img.src = item.file_url;
+                    });
+                    docImage = await pdfDoc.embedPng(pngBytes);
+                }
                 const { width: iw, height: ih } = docImage.scale(1);
                 const scale = Math.min(A4_W / iw, A4_H / ih);
                 page.drawImage(docImage, { x: (A4_W - iw * scale) / 2, y: (A4_H - ih * scale) / 2, width: iw * scale, height: ih * scale });
@@ -293,7 +410,9 @@ function QrPlacerModal({ item, onClose, initialConfigs = {} }) {
     const qrPxLeft   = (pos.x / 100) * dispW;
     const qrPxTop    = (pos.y / 100) * dispH;
     const dispQrSize = Math.round(qrSize * (dispW / PAPER_W));
-    const isSaved  = activePage !== null && !!pageConfigs[activePage] &&
+    // mm nyata dari lebar halaman asli (bukan asumsi A4) — relevan untuk dokumen non-A4
+    const qrSizeMm   = Math.round(qrSize * (visW * MM_PER_PT) / PAPER_W);
+    const isSaved  = activePage !== null && !pageConfigs[activePage]?.skip && !!pageConfigs[activePage] &&
         pageConfigs[activePage].x === pos.x &&
         pageConfigs[activePage].y === pos.y &&
         pageConfigs[activePage].qrSize === qrSize;
@@ -301,6 +420,12 @@ function QrPlacerModal({ item, onClose, initialConfigs = {} }) {
     return (
         <Modal show onClose={onClose} title="Tempatkan QR pada Surat" size="xl">
             <div className="flex flex-col gap-4">
+
+                {/* QR sumber untuk qrToPngBytes() — selalu ter-mount, tidak ikut sembunyi
+                    saat halaman aktif ditandai "tanpa TTE" */}
+                <div ref={qrGenRef} className="absolute w-0 h-0 overflow-hidden" aria-hidden="true">
+                    <QRCodeSVG value={item.verifikasi_url} size={400} level="M" fgColor="#000000" includeMargin={false} />
+                </div>
 
                 {/* Info surat */}
                 <div className="rounded-xl bg-sky-50 dark:bg-sky-900/20 border border-sky-200 dark:border-sky-800 px-4 py-2.5 flex flex-wrap items-center gap-3">
@@ -347,15 +472,22 @@ function QrPlacerModal({ item, onClose, initialConfigs = {} }) {
                                     className="relative bg-white border border-gray-300 shadow-md select-none overflow-hidden"
                                     style={{ width: dispW, height: dispH, cursor: isDragging ? 'grabbing' : 'default' }}
                                 >
-                                    {/* Actual file preview */}
+                                    {/* Actual file preview — PDF 1 halaman tersendiri (bukan file penuh + #page=N)
+                                        supaya tidak ada konten halaman tetangga yang ikut terlihat/bocor */}
                                     {isPdf && item.file_url && (
-                                        <embed
-                                            key={`pdf-p${activePage}`}
-                                            src={`${item.file_url}#page=${activePage}&toolbar=0&navpanes=0&scrollbar=0&zoom=page-fit`}
-                                            type="application/pdf"
-                                            className="absolute inset-0 w-full h-full border-0"
-                                            style={{ pointerEvents: 'none' }}
-                                        />
+                                        activePageUrl ? (
+                                            <embed
+                                                key={`pdf-p${activePage}`}
+                                                src={`${activePageUrl}#toolbar=0&navpanes=0&scrollbar=0&zoom=page-fit`}
+                                                type="application/pdf"
+                                                className="absolute inset-0 w-full h-full border-0"
+                                                style={{ pointerEvents: 'none' }}
+                                            />
+                                        ) : (
+                                            <div className="absolute inset-0 flex items-center justify-center text-xs text-gray-300">
+                                                Memuat halaman…
+                                            </div>
+                                        )
                                     )}
                                     {isImage && item.file_url && (
                                         <img
@@ -390,7 +522,7 @@ function QrPlacerModal({ item, onClose, initialConfigs = {} }) {
 
                                     {/* Saved positions of OTHER pages (faint) */}
                                     {Object.entries(pageConfigs)
-                                        .filter(([n]) => Number(n) !== activePage)
+                                        .filter(([n, cfg]) => Number(n) !== activePage && !cfg.skip)
                                         .map(([n, cfg]) => {
                                             const gSz = Math.round(cfg.qrSize * (dispW / PAPER_W));
                                             return (
@@ -408,53 +540,77 @@ function QrPlacerModal({ item, onClose, initialConfigs = {} }) {
                                         })
                                     }
 
-                                    {/* Draggable QR */}
-                                    <div
-                                        ref={qrSvgRef}
-                                        className="absolute z-20"
-                                        style={{
-                                            left: qrPxLeft, top: qrPxTop, width: dispQrSize,
-                                            cursor: isDragging ? 'grabbing' : 'grab',
-                                            userSelect: 'none', touchAction: 'none',
-                                        }}
-                                        onMouseDown={(e) => { e.preventDefault(); startDrag(e.clientX, e.clientY); }}
-                                        onTouchStart={(e) => startDrag(e.touches[0].clientX, e.touches[0].clientY)}
-                                    >
-                                        <div className="absolute inset-0 border border-dashed border-sky-500/70 rounded pointer-events-none z-30" />
-                                        <QRCodeSVG
-                                            value={item.verifikasi_url}
-                                            size={dispQrSize}
-                                            level="M"
-                                            fgColor="#000000"
-                                            includeMargin={false}
-                                            style={{ display: 'block' }}
-                                        />
-                                    </div>
+                                    {/* Draggable QR — disembunyikan kalau halaman ditandai tanpa TTE */}
+                                    {!isSkipped && (
+                                        <>
+                                            <div
+                                                ref={qrSvgRef}
+                                                className="absolute z-20"
+                                                style={{
+                                                    left: qrPxLeft, top: qrPxTop, width: dispQrSize,
+                                                    cursor: isDragging ? 'grabbing' : 'grab',
+                                                    userSelect: 'none', touchAction: 'none',
+                                                }}
+                                                onMouseDown={(e) => { e.preventDefault(); startDrag(e.clientX, e.clientY); }}
+                                                onTouchStart={(e) => startDrag(e.touches[0].clientX, e.touches[0].clientY)}
+                                            >
+                                                <div className="absolute inset-0 border border-dashed border-sky-500/70 rounded pointer-events-none z-30" />
+                                                <QRCodeSVG
+                                                    value={item.verifikasi_url}
+                                                    size={dispQrSize}
+                                                    level="M"
+                                                    fgColor="#000000"
+                                                    includeMargin={false}
+                                                    style={{ display: 'block' }}
+                                                />
+                                            </div>
 
-                                    {!isDragging && (
-                                        <div className="absolute bottom-2 right-2 flex items-center gap-1 text-gray-300 pointer-events-none z-20">
-                                            <Move className="h-3 w-3" />
-                                            <span style={{ fontSize: 8 }}>Seret QR</span>
+                                            {!isDragging && (
+                                                <div className="absolute bottom-2 right-2 flex items-center gap-1 text-gray-300 pointer-events-none z-20">
+                                                    <Move className="h-3 w-3" />
+                                                    <span style={{ fontSize: 8 }}>Seret QR</span>
+                                                </div>
+                                            )}
+                                        </>
+                                    )}
+
+                                    {isSkipped && (
+                                        <div className="absolute inset-0 z-20 flex items-center justify-center bg-white/60 dark:bg-gray-900/60 pointer-events-none">
+                                            <span className="text-xs font-semibold text-gray-500 dark:text-gray-400 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-full px-3 py-1.5 shadow-sm">
+                                                Tanpa TTE
+                                            </span>
                                         </div>
                                     )}
                                 </div>
 
-                                {/* Simpan posisi */}
-                                <div className="flex items-center gap-2 w-full">
-                                    <p className="text-[10px] text-gray-400 flex-1">
-                                        {Math.round(pos.x)}% kiri · {Math.round(pos.y)}% atas · ≈{Math.round(qrSize * 210 / PAPER_W)}mm
-                                    </p>
-                                    <button
-                                        onClick={savePage}
-                                        className={`flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors ${
-                                            isSaved
-                                                ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400'
-                                                : 'bg-sky-600 text-white hover:bg-sky-700'
-                                        }`}>
-                                        <CheckCircle className="h-3.5 w-3.5" />
-                                        {isSaved ? 'Sudah Disimpan' : `Simpan Hal. ${activePage}`}
-                                    </button>
-                                </div>
+                                {/* Simpan posisi / status halaman */}
+                                {isSkipped ? (
+                                    <div className="flex items-center justify-between w-full gap-2 rounded-lg bg-gray-100 dark:bg-gray-800 px-3 py-2">
+                                        <p className="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-1.5">
+                                            <XCircle className="h-3.5 w-3.5" /> Halaman ini tidak akan diberi QR
+                                        </p>
+                                        <button onClick={() => removePage(activePage)}
+                                            className="text-xs font-semibold text-sky-600 hover:text-sky-700 dark:text-sky-400 shrink-0">
+                                            Butuh TTE di sini
+                                        </button>
+                                    </div>
+                                ) : (
+                                    <div className="flex items-center gap-2 w-full">
+                                        <p className="text-[10px] text-gray-400 flex-1">
+                                            {Math.round(pos.x)}% kiri · {Math.round(pos.y)}% atas · ≈{qrSizeMm}mm
+                                        </p>
+                                        <button
+                                            onClick={savePage}
+                                            className={`flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors ${
+                                                isSaved
+                                                    ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400'
+                                                    : 'bg-sky-600 text-white hover:bg-sky-700'
+                                            }`}>
+                                            <CheckCircle className="h-3.5 w-3.5" />
+                                            {isSaved ? 'Sudah Disimpan' : `Simpan Hal. ${activePage}`}
+                                        </button>
+                                    </div>
+                                )}
                             </>
                         ) : (
                             <div className="flex flex-col items-center justify-center border border-dashed border-gray-300 dark:border-gray-700 rounded-xl bg-gray-50 dark:bg-gray-900/30 w-full"
@@ -480,17 +636,21 @@ function QrPlacerModal({ item, onClose, initialConfigs = {} }) {
                                 </p>
                                 <div className="flex flex-wrap gap-1.5">
                                     {pageCount > 0 && Array.from({ length: pageCount }, (_, i) => i + 1).map((n) => {
-                                        const saved  = !!pageConfigs[n];
-                                        const active = activePage === n;
+                                        const cfg     = pageConfigs[n];
+                                        const saved   = !!cfg && !cfg.skip;
+                                        const skipped = !!cfg && cfg.skip;
+                                        const active  = activePage === n;
                                         return (
                                             <button key={n} onClick={() => openPage(n)}
-                                                title={saved ? `Halaman ${n} — sudah dikonfigurasi` : `Halaman ${n}`}
+                                                title={saved ? `Halaman ${n} — sudah dikonfigurasi` : skipped ? `Halaman ${n} — tanpa TTE` : `Halaman ${n}`}
                                                 className={`relative text-xs w-8 h-8 rounded-lg border font-semibold transition-colors ${
                                                     active
                                                         ? 'bg-sky-600 text-white border-sky-600 ring-2 ring-sky-300 dark:ring-sky-700'
                                                         : saved
                                                             ? 'bg-emerald-50 text-emerald-700 border-emerald-400 dark:bg-emerald-900/30 dark:text-emerald-400 dark:border-emerald-700'
-                                                            : 'border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800'
+                                                            : skipped
+                                                                ? 'bg-gray-100 text-gray-400 border-gray-300 dark:bg-gray-800 dark:text-gray-500 dark:border-gray-600'
+                                                                : 'border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800'
                                                 }`}>
                                                 {n}
                                                 {saved && !active && (
@@ -498,20 +658,34 @@ function QrPlacerModal({ item, onClose, initialConfigs = {} }) {
                                                         <CheckCircle className="h-2 w-2 text-white" />
                                                     </span>
                                                 )}
+                                                {skipped && !active && (
+                                                    <span className="absolute -top-1 -right-1 w-3 h-3 bg-gray-400 rounded-full flex items-center justify-center">
+                                                        <XCircle className="h-2 w-2 text-white" />
+                                                    </span>
+                                                )}
                                             </button>
                                         );
                                     })}
                                 </div>
-                                {savedPageNums.length > 0 && (
-                                    <p className="text-[10px] text-emerald-600 dark:text-emerald-400 mt-1.5">
-                                        {savedPageNums.length} halaman dikonfigurasi: {savedPageNums.join(', ')}
+                                {(qrPageNums.length > 0 || skippedPageNums.length > 0) && (
+                                    <p className="text-[10px] mt-1.5 space-x-2">
+                                        {qrPageNums.length > 0 && (
+                                            <span className="text-emerald-600 dark:text-emerald-400">
+                                                {qrPageNums.length} berQR: {qrPageNums.join(', ')}
+                                            </span>
+                                        )}
+                                        {skippedPageNums.length > 0 && (
+                                            <span className="text-gray-400">
+                                                {skippedPageNums.length} tanpa TTE: {skippedPageNums.join(', ')}
+                                            </span>
+                                        )}
                                     </p>
                                 )}
                             </div>
                         )}
 
-                        {/* Controls — only when a page is active */}
-                        {activePage !== null && (
+                        {/* Controls — only when a page is active and not marked "tanpa TTE" */}
+                        {activePage !== null && !isSkipped && (
                             <>
                                 {/* Preset positions */}
                                 <div>
@@ -535,7 +709,7 @@ function QrPlacerModal({ item, onClose, initialConfigs = {} }) {
                                 <div>
                                     <div className="flex items-center justify-between mb-1.5">
                                         <p className="text-xs font-semibold text-gray-600 dark:text-gray-400">Ukuran QR</p>
-                                        <span className="text-xs text-gray-400 font-mono">≈ {Math.round(qrSize * 210 / PAPER_W)} mm</span>
+                                        <span className="text-xs text-gray-400 font-mono">≈ {qrSizeMm} mm</span>
                                     </div>
                                     <div className="flex items-center gap-2">
                                         <button onClick={() => setQrSize((s) => Math.max(16, s - 4))}
@@ -581,26 +755,47 @@ function QrPlacerModal({ item, onClose, initialConfigs = {} }) {
                                         Hapus QR dari Halaman {activePage}
                                     </button>
                                 )}
+
+                                {/* Tandai halaman ini tidak perlu TTE sama sekali */}
+                                <button onClick={markNoTte}
+                                    className="w-full text-xs text-gray-500 dark:text-gray-400 border border-gray-200 dark:border-gray-700 rounded-lg py-1.5 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
+                                    Halaman ini tidak perlu TTE
+                                </button>
                             </>
                         )}
 
+                        {/* Status khusus halaman yang ditandai tanpa TTE */}
+                        {activePage !== null && isSkipped && (
+                            <button onClick={() => removePage(activePage)}
+                                className="w-full text-xs font-semibold text-sky-600 hover:text-sky-700 dark:text-sky-400 border border-sky-200 dark:border-sky-800 rounded-lg py-1.5 hover:bg-sky-50 dark:hover:bg-sky-900/20 transition-colors">
+                                Batalkan — halaman ini butuh TTE
+                            </button>
+                        )}
+
                         {/* Download */}
-                        {item.file_url ? (
-                            <>
-                                <button
-                                    onClick={handleDownload}
-                                    disabled={downloading || savedPageNums.length === 0 && activePage === null}
-                                    className="w-full flex items-center justify-center gap-2 text-sm font-semibold px-4 py-2.5 rounded-xl bg-sky-600 text-white hover:bg-sky-700 disabled:opacity-50 transition-colors">
-                                    <Download className="h-4 w-4" />
-                                    {downloading ? 'Memproses PDF...' : 'Unduh PDF dengan TTE'}
-                                </button>
-                                <p className="text-[10px] text-gray-400 text-center -mt-2">
-                                    {savedPageNums.length > 0
-                                        ? `QR akan disisipkan di halaman: ${savedPageNums.join(', ')}${activePage && !pageConfigs[activePage] ? ` + ${activePage}` : ''}`
-                                        : 'Konfigurasi posisi lalu simpan minimal satu halaman'}
-                                </p>
-                            </>
-                        ) : (
+                        {item.file_url ? (() => {
+                            // Halaman aktif yang belum ditekan "Simpan" tetap ikut terkirim saat unduh
+                            // (lihat finalConfigs di handleDownload) — kecuali ditandai "tanpa TTE".
+                            const pendingActiveIsQr = activePage !== null && !pageConfigs[activePage] && !isSkipped;
+                            const willHaveQr = qrPageNums.length > 0 || pendingActiveIsQr;
+                            const qrPagesLabel = [...qrPageNums, ...(pendingActiveIsQr ? [activePage] : [])].join(', ');
+                            return (
+                                <>
+                                    <button
+                                        onClick={handleDownload}
+                                        disabled={downloading || !willHaveQr}
+                                        className="w-full flex items-center justify-center gap-2 text-sm font-semibold px-4 py-2.5 rounded-xl bg-sky-600 text-white hover:bg-sky-700 disabled:opacity-50 transition-colors">
+                                        <Download className="h-4 w-4" />
+                                        {downloading ? 'Memproses PDF...' : 'Unduh PDF dengan TTE'}
+                                    </button>
+                                    <p className="text-[10px] text-gray-400 text-center -mt-2">
+                                        {willHaveQr
+                                            ? `QR akan disisipkan di halaman: ${qrPagesLabel}`
+                                            : 'Konfigurasi posisi lalu simpan minimal satu halaman'}
+                                    </p>
+                                </>
+                            );
+                        })() : (
                             <p className="text-xs text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 rounded-lg px-3 py-2 text-center">
                                 Surat ini belum memiliki file lampiran
                             </p>

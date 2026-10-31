@@ -139,9 +139,9 @@ class KehadiranGuruRekapService
         $rekap = $this->buildRekapGuru($guruList, $absensiData, $piketData, self::HARI_MAP, $kemunculanHari, $piketPengganti);
 
         // Jika tidak ada filter guru spesifik, hilangkan guru yang tidak punya
-        // jam terjadwal di bulan ini (jadwal ada tapi harinya tidak terjadi bulan ini)
+        // jam terjadwal maupun JP pengganti di bulan ini
         if (!$guruId) {
-            $rekap = $rekap->filter(fn ($r) => $r['jam_terjadwal'] > 0)->values();
+            $rekap = $rekap->filter(fn ($r) => $r['jam_terjadwal'] > 0 || $r['jp_pengganti'] > 0)->values();
         }
 
         return $rekap;
@@ -163,15 +163,21 @@ class KehadiranGuruRekapService
             $alpha = $alpha + $tidakHadir;
             $total = $hadir + $sakit + $izin + $alpha;
 
-            // JP dari piket per status
+            // JP dari piket per status untuk jadwal sendiri
             $piket          = $piketData->get($guru->id, collect());
-            $jpHadir        = (int) $piket->where('status_guru', 'Hadir')->sum('jumlah');
+            $jpHadirSendiri = (int) $piket->where('status_guru', 'Hadir')->sum('jumlah');
             $jpTugasSekolah = (int) $piket->where('status_guru', 'Tugas_Sekolah')->sum('jumlah');
             $jpSakit        = (int) $piket->where('status_guru', 'Sakit')->sum('jumlah');
             $jpIzin         = (int) $piket->where('status_guru', 'Izin')->sum('jumlah');
             $jpAlpha        = (int) $piket->where('status_guru', 'Alpha')->sum('jumlah');
 
+            // JP Pengganti: slot mengajar yang diisi oleh guru ini untuk menggantikan guru lain
+            $jpPengganti = $piketPengganti
+                ? (int)($piketPengganti->get($guru->id)?->jumlah ?? 0)
+                : 0;
+
             // Jam terjadwal: jumlah JP dari jadwal aktif × kemunculan hari dalam bulan
+            // (tetap sesuai jadwal sebelum menggantikan, tidak ditambah JP pengganti)
             $jamTerjadwal = 0;
             foreach ($guru->pembelajaran as $p) {
                 foreach ($p->jadwal as $jadwal) {
@@ -185,13 +191,11 @@ class KehadiranGuruRekapService
             // JP efektif: TS tidak dihitung mengajar maupun tidak hadir
             $jpEfektif = max(0, $jamTerjadwal - $jpTugasSekolah);
 
-            // JP tidak hadir = komplemen dari jp_hadir (bukan jumlah S+I+A dari piket,
-            // karena piket mungkin tidak merekam semua absensi — komplemen lebih akurat)
-            $jpTidakHadir = max(0, $jpEfektif - $jpHadir);
+            // JP tidak hadir = komplemen dari jp hadir jadwal sendiri
+            $jpTidakHadir = max(0, $jpEfektif - $jpHadirSendiri);
 
-            $jpPengganti = $piketPengganti
-                ? (int)($piketPengganti->get($guru->id)?->jumlah ?? 0)
-                : 0;
+            // Total JP hadir guru mengajar: kehadiran jadwal sendiri + kehadiran saat menggantikan guru lain
+            $jpHadir = $jpHadirSendiri + $jpPengganti;
 
             return [
                 'id'                 => $guru->id,
@@ -212,7 +216,7 @@ class KehadiranGuruRekapService
                 'jp_sakit'           => $jpSakit,
                 'jp_izin'            => $jpIzin,
                 'jp_alpha'           => $jpAlpha,
-                'persen_mengajar'    => $jpEfektif > 0 ? min(100, round(($jpHadir / $jpEfektif) * 100, 1)) : 0,
+                'persen_mengajar'    => $jpEfektif > 0 ? min(100, round(($jpHadir / $jpEfektif) * 100, 1)) : ($jpHadir > 0 ? 100 : 0),
                 'persen_tidak_hadir' => $jpEfektif > 0 ? round(($jpTidakHadir / $jpEfektif) * 100, 1) : 0,
             ];
         })->values();

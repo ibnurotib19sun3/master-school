@@ -19,14 +19,32 @@ class BuatSuratController extends Controller
     private function sekolahData(): array
     {
         $sekolah = PengaturanSekolah::current();
+        $ps = PengaturanSurat::current();
 
-        return array_merge(
-            $sekolah->only([
-                'nama_sekolah', 'yayasan_dinas', 'npsn', 'alamat', 'kecamatan', 'kota',
-                'telepon', 'email_sekolah', 'website', 'kepala_sekolah_nama', 'nip_kepala',
-            ]),
-            ['logo_url' => $sekolah->logo_url]
-        );
+        $alamatKop = $ps->alamat_kop ?: ([
+            $sekolah->alamat,
+            $sekolah->kecamatan ? 'Kec. ' . $sekolah->kecamatan : null,
+            $sekolah->kota,
+        ]);
+        if (is_array($alamatKop)) {
+            $alamatKop = implode(', ', array_filter($alamatKop));
+        }
+
+        return [
+            'nama_sekolah'        => $ps->nama_instansi ?: ($sekolah->nama_sekolah ?: 'SMK'),
+            'sub_nama'            => $ps->sub_nama ?: null,
+            'yayasan_dinas'       => $ps->yayasan_dinas ?: $sekolah->yayasan_dinas,
+            'npsn'                => $ps->npsn_kop ?: $sekolah->npsn,
+            'alamat'              => $alamatKop,
+            'kecamatan'           => $sekolah->kecamatan,
+            'kota'                => $sekolah->kota,
+            'telepon'             => $ps->telepon_kop ?: $sekolah->telepon,
+            'email_sekolah'       => $ps->email_kop ?: $sekolah->email_sekolah,
+            'website'             => $ps->website_kop ?: $sekolah->website,
+            'kepala_sekolah_nama' => $sekolah->kepala_sekolah_nama,
+            'nip_kepala'          => $sekolah->nip_kepala,
+            'logo_url'            => $sekolah->logo_url,
+        ];
     }
 
     /**
@@ -52,10 +70,30 @@ class BuatSuratController extends Controller
 
     public function index()
     {
+        $suratKeluarDrafts = SuratKeluar::query()
+            ->where(function ($q) {
+                $q->whereNull('isi_surat')->orWhere('status', 'Draft');
+            })
+            ->latest('tgl_keluar')
+            ->limit(15)
+            ->get()
+            ->map(fn ($s) => [
+                'id'            => $s->id,
+                'nomor_surat'   => $s->nomor_surat,
+                'perihal'       => $s->perihal ?: '-',
+                'tujuan'        => $s->tujuan ?: '-',
+                'tgl_surat'     => $s->tgl_surat?->format('Y-m-d'),
+                'tgl_keluar'    => $s->tgl_keluar?->format('Y-m-d'),
+                'kategori'      => $s->kategori,
+                'status'        => $s->status,
+                'has_isi'       => !empty($s->isi_surat),
+            ]);
+
         return Inertia::render('TataUsaha/Surat/BuatSurat', array_merge([
-            'sekolah' => $this->sekolahData(),
-            'today'   => now()->toDateString(),
-            'editing' => null,
+            'sekolah'             => $this->sekolahData(),
+            'today'               => now()->toDateString(),
+            'editing'             => null,
+            'surat_keluar_drafts' => $suratKeluarDrafts,
         ], $this->nomorConfig()));
     }
 
@@ -145,6 +183,46 @@ class BuatSuratController extends Controller
         return response()->json($results->values());
     }
 
+    /**
+     * Cari daftar surat keluar dari arsip / agenda untuk dihubungkan ke generator surat.
+     * Sangat fleksibel: staf TU bisa memilih nomor surat yang sudah dibooking/draft di Surat Keluar.
+     */
+    public function cariSuratKeluar(Request $request)
+    {
+        $q = trim($request->input('q', ''));
+        $hanyaDraft = $request->boolean('draft_only', false);
+
+        $results = SuratKeluar::query()
+            ->when($hanyaDraft, fn ($query) => $query->where(function ($sub) {
+                $sub->whereNull('isi_surat')->orWhere('status', 'Draft');
+            }))
+            ->when($q !== '', fn ($query) => $query->where(function ($sub) use ($q) {
+                $sub->where('nomor_surat', 'like', "%{$q}%")
+                    ->orWhere('perihal', 'like', "%{$q}%")
+                    ->orWhere('tujuan', 'like', "%{$q}%");
+            }))
+            ->latest('tgl_keluar')
+            ->limit(20)
+            ->get()
+            ->map(fn ($s) => [
+                'id'            => $s->id,
+                'nomor_surat'   => $s->nomor_surat,
+                'perihal'       => $s->perihal ?: '-',
+                'tujuan'        => $s->tujuan ?: '-',
+                'tgl_surat'     => $s->tgl_surat?->format('Y-m-d'),
+                'tgl_keluar'    => $s->tgl_keluar?->format('Y-m-d'),
+                'kategori'      => $s->kategori,
+                'status'        => $s->status,
+                'keterangan'    => $s->keterangan,
+                'has_isi'       => !empty($s->isi_surat),
+                'template_kode' => $s->template_kode,
+                'penerima_tipe' => $s->penerima_tipe,
+                'penerima_id'   => $s->penerima_id,
+            ]);
+
+        return response()->json($results->values());
+    }
+
     private function mergeFields(string $tipe, $person): array
     {
         $user = $person->user;
@@ -199,6 +277,15 @@ class BuatSuratController extends Controller
     public function simpan(Request $request)
     {
         $data = $this->validated($request);
+
+        // Jika staf TU memilih nomor dari Surat Keluar yang sudah ada di arsip
+        if ($request->filled('surat_keluar_id')) {
+            $existing = SuratKeluar::find($request->input('surat_keluar_id'));
+            if ($existing) {
+                $existing->update($data);
+                return redirect('/tatausaha/surat-keluar')->with('success', 'Surat keluar ' . $existing->nomor_surat . ' berhasil diperbarui dengan isi surat.');
+            }
+        }
 
         SuratKeluar::create([...$data, 'dibuat_oleh' => auth()->id()]);
 

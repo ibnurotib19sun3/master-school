@@ -1,209 +1,343 @@
+import { useState, useEffect } from 'react';
 import ThemeToggle from '@/Components/ThemeToggle';
-import { BookText, CheckCircle2, ShieldCheck, MailOpen, Lock, Zap } from 'lucide-react';
+import {
+    ChevronLeft, ChevronRight, ShieldCheck, BookText,
+    FileSpreadsheet, Sparkles, LayoutGrid, CheckCircle2,
+    CalendarCheck, Award
+} from 'lucide-react';
 
-const statTiles = [
-    { icon: BookText, label: 'Jurnal Hari Ini', value: '42' },
-    { icon: CheckCircle2, label: 'Kehadiran', value: '98%' },
-    { icon: MailOpen, label: 'Surat Masuk', value: '7' },
+/* ─── Fitur Utama APIKMAS DJurnal ────────────────────────────────── */
+const slides = [
+    {
+        tag: 'Jurnal & Presensi',
+        title: 'Jurnal Mengajar & Presensi Digital',
+        subtitle: 'Pencatatan agenda mengajar harian, ketercapaian materi, dan absensi guru maupun siswa secara real-time dan terstruktur.',
+    },
+    {
+        tag: 'Tata Usaha & Persuratan',
+        title: 'Manajemen Surat & TTE Resmi',
+        subtitle: 'Penyusunan naskah dinas resmi, penomoran agenda otomatis, disposisi cepat, serta verifikasi tanda tangan elektronik (TTE) berbasis QR Code.',
+    },
+    {
+        tag: 'Perangkat & Media Ajar',
+        title: 'Modul Ajar & Media Pembelajaran',
+        subtitle: 'Pengarsipan modul ajar, jobsheet praktikum, asesmen kuis, dan materi ajar guru yang terorganisir untuk mendukung proses KBM.',
+    },
+    {
+        tag: 'Laporan & Kinerja',
+        title: 'Rekapitulasi Kinerja & Pelaporan',
+        subtitle: 'Statistik kehadiran guru dan siswa, rekapitulasi semester otomatis, serta monitoring pimpinan sekolah dalam satu dasbor terpadu.',
+    },
 ];
 
-const barHeights = [38, 62, 48, 80, 54, 70, 44];
-
-const AnimatedMeshBg = () => (
-    <>
-        <div className="absolute -top-28 -left-24 h-96 w-96 rounded-full opacity-25 pointer-events-none"
-            style={{ background: 'radial-gradient(circle, #38bdf8, transparent 70%)', animation: 'driftA 16s ease-in-out infinite' }} />
-        <div className="absolute bottom-0 right-0 h-80 w-80 rounded-full opacity-20 pointer-events-none"
-            style={{ background: 'radial-gradient(circle, #7dd3fc, transparent 70%)', animation: 'driftB 20s ease-in-out infinite' }} />
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 h-[30rem] w-[30rem] rounded-full opacity-[0.08] pointer-events-none"
-            style={{ background: 'radial-gradient(circle, #e0f2fe, transparent 60%)' }} />
-        <div className="absolute inset-0 opacity-[0.05] pointer-events-none"
-            style={{ backgroundImage: 'radial-gradient(circle, white 1px, transparent 1px)', backgroundSize: '28px 28px' }} />
-        <div className="absolute inset-0 opacity-[0.03] pointer-events-none"
-            style={{ backgroundImage: 'repeating-linear-gradient(45deg, white 0px, white 1px, transparent 1px, transparent 40px)' }} />
-    </>
-);
-
-/* Visual centerpiece — a "live product" illustration (mock dashboard glass card +
-   two floating accent chips) instead of a plain feature list, to give the left
-   panel real product presence rather than just marketing text. */
-const HeroMockup = () => (
-    <div className="relative mt-9 mb-3 select-none">
-        <div className="relative rounded-2xl bg-white/[0.06] backdrop-blur-xl border border-white/10 shadow-2xl shadow-black/20 p-5"
-            style={{ animation: 'floatSlow 7s ease-in-out infinite' }}>
-            <div className="flex items-center gap-1.5 mb-4">
-                <span className="h-2 w-2 rounded-full bg-red-400/60" />
-                <span className="h-2 w-2 rounded-full bg-amber-400/60" />
-                <span className="h-2 w-2 rounded-full bg-emerald-400/60" />
-                <span className="ml-2 text-[10px] text-white/25 font-mono tracking-tight">djurnal.apikmas.sch.id</span>
-            </div>
-
-            <div className="grid grid-cols-3 gap-2.5 mb-4">
-                {statTiles.map(({ icon: Icon, label, value }) => (
-                    <div key={label} className="rounded-xl bg-white/[0.05] border border-white/10 px-2.5 py-2.5">
-                        <Icon className="h-3.5 w-3.5 text-sky-300 mb-1.5" />
-                        <p className="text-white font-bold text-[15px] leading-none">{value}</p>
-                        <p className="text-sky-100/35 text-[9.5px] mt-1 leading-none">{label}</p>
-                    </div>
-                ))}
-            </div>
-
-            <div className="flex items-end gap-1.5 h-14">
-                {barHeights.map((h, i) => (
-                    <div key={i} className="flex-1 rounded-t-sm bg-gradient-to-t from-sky-400/60 to-sky-200/20" style={{ height: `${h}%` }} />
-                ))}
-            </div>
-        </div>
-
-        {/* Floating accent chip — top right */}
-        <div className="absolute -top-5 -right-7 rounded-xl bg-white/10 backdrop-blur-xl border border-white/15 pl-2.5 pr-3.5 py-2.5 shadow-xl flex items-center gap-2"
-            style={{ animation: 'floatSlow 5.5s ease-in-out infinite', animationDelay: '0.3s' }}>
-            <div className="h-7 w-7 rounded-lg bg-emerald-400/20 flex items-center justify-center shrink-0">
-                <CheckCircle2 className="h-3.5 w-3.5 text-emerald-300" />
-            </div>
-            <div>
-                <p className="text-[11px] font-semibold text-white leading-none whitespace-nowrap">Jurnal Tersimpan</p>
-                <p className="text-[9px] text-white/35 mt-1">Baru saja</p>
-            </div>
-        </div>
-
-        {/* Floating accent chip — bottom left */}
-        <div className="absolute -bottom-4 -left-7 rounded-xl bg-white/10 backdrop-blur-xl border border-white/15 pl-2.5 pr-3.5 py-2.5 shadow-xl flex items-center gap-2"
-            style={{ animation: 'floatSlow 6.5s ease-in-out infinite', animationDelay: '0.8s' }}>
-            <div className="h-7 w-7 rounded-lg bg-sky-400/20 flex items-center justify-center shrink-0">
-                <ShieldCheck className="h-3.5 w-3.5 text-sky-300" />
-            </div>
-            <div>
-                <p className="text-[11px] font-semibold text-white leading-none whitespace-nowrap">TTE Terverifikasi</p>
-                <p className="text-[9px] text-white/35 mt-1">QR Code aktif</p>
-            </div>
-        </div>
-    </div>
-);
-
-export default function GuestLayout({ children }) {
-    const gradient = 'linear-gradient(160deg, #051f33 0%, #06304f 22%, #0b4870 44%, #0c5a87 64%, #0284c7 84%, #0ea5e9 100%)';
-
+/* ─── Pure SVG & CSS Geometric Ornament (NO images/photos) ───────── */
+function GeometricOrnament() {
     return (
-        <div className="min-h-screen flex" style={{ background: gradient }}>
+        <div className="absolute inset-0 pointer-events-none overflow-hidden select-none">
+            {/* Ambient glowing radial gradients */}
+            <div
+                className="absolute -top-32 -left-32 w-[34rem] h-[34rem] rounded-full opacity-35 blur-3xl"
+                style={{
+                    background: 'radial-gradient(circle, #38bdf8 0%, #0284c7 40%, transparent 70%)',
+                    animation: 'ornamentFloat 18s ease-in-out infinite alternate',
+                }}
+            />
+            <div
+                className="absolute bottom-10 right-0 w-[30rem] h-[30rem] rounded-full opacity-25 blur-3xl"
+                style={{
+                    background: 'radial-gradient(circle, #0ea5e9 0%, #0369a1 45%, transparent 70%)',
+                    animation: 'ornamentFloat 14s ease-in-out infinite alternate-reverse',
+                }}
+            />
+            <div
+                className="absolute top-1/2 left-1/3 -translate-y-1/2 w-80 h-80 rounded-full opacity-20 blur-2xl"
+                style={{
+                    background: 'radial-gradient(circle, #38bdf8 0%, #0284c7 35%, transparent 65%)',
+                }}
+            />
 
-            {/* ── Left panel: branding ── */}
-            <div className="hidden lg:flex lg:w-[50%] relative flex-col items-center justify-center p-12 overflow-hidden">
-                <AnimatedMeshBg />
+            {/* Matrix Dot Grid */}
+            <div
+                className="absolute inset-0 opacity-[0.08]"
+                style={{
+                    backgroundImage: 'radial-gradient(circle, #ffffff 1.2px, transparent 1.2px)',
+                    backgroundSize: '28px 28px',
+                }}
+            />
 
-                <div className="relative z-10 max-w-sm w-full">
-                    {/* Logo */}
-                    <div className="flex items-center gap-3 mb-8">
-                        <div className="h-12 w-12 rounded-2xl bg-white/10 backdrop-blur-sm border border-white/15 flex items-center justify-center shadow-lg shadow-black/10">
-                            <img src="/logodjurnal.svg" alt="DJurnal" className="h-7 w-7 object-contain" />
+            {/* Subtle Diagonal Tech Hatching */}
+            <div
+                className="absolute inset-0 opacity-[0.035]"
+                style={{
+                    backgroundImage: 'repeating-linear-gradient(45deg, #ffffff 0px, #ffffff 1px, transparent 1px, transparent 36px)',
+                }}
+            />
+
+            {/* Concentric Modern Wave Lines (SVG) */}
+            <svg
+                className="absolute inset-0 w-full h-full opacity-20"
+                viewBox="0 0 800 800"
+                fill="none"
+                xmlns="http://www.w3.org/2000/svg"
+            >
+                <circle cx="400" cy="400" r="160" stroke="#38bdf8" strokeWidth="1" strokeDasharray="4 6" opacity="0.4" />
+                <circle cx="400" cy="400" r="230" stroke="#7dd3fc" strokeWidth="1.2" opacity="0.3" />
+                <circle cx="400" cy="400" r="300" stroke="#38bdf8" strokeWidth="0.8" strokeDasharray="8 8" opacity="0.25" />
+                <circle cx="400" cy="400" r="370" stroke="#bae6fd" strokeWidth="1" opacity="0.15" />
+
+                {/* Dynamic intersecting curves */}
+                <path
+                    d="M-50,220 C200,140 320,480 620,380 C760,330 820,240 850,220"
+                    stroke="url(#lineGrad1)"
+                    strokeWidth="2"
+                    opacity="0.5"
+                />
+                <path
+                    d="M-50,560 C220,640 400,320 660,460 C780,520 830,580 870,620"
+                    stroke="url(#lineGrad2)"
+                    strokeWidth="1.5"
+                    strokeDasharray="6 6"
+                    opacity="0.45"
+                />
+                <path
+                    d="M100,780 C280,500 520,620 720,280"
+                    stroke="#38bdf8"
+                    strokeWidth="1"
+                    opacity="0.3"
+                />
+
+                <defs>
+                    <linearGradient id="lineGrad1" x1="0" y1="0" x2="800" y2="400" gradientUnits="userSpaceOnUse">
+                        <stop stopColor="#38bdf8" />
+                        <stop offset="0.5" stopColor="#7dd3fc" stopOpacity="0.8" />
+                        <stop offset="1" stopColor="#0284c7" />
+                    </linearGradient>
+                    <linearGradient id="lineGrad2" x1="0" y1="600" x2="800" y2="400" gradientUnits="userSpaceOnUse">
+                        <stop stopColor="#bae6fd" />
+                        <stop offset="0.5" stopColor="#38bdf8" />
+                        <stop offset="1" stopColor="#0284c7" />
+                    </linearGradient>
+                </defs>
+            </svg>
+
+            {/* Floating Glassmorphic Centerpiece Nodes (Fitur Aplikasi) */}
+            <div className="absolute inset-0 flex items-center justify-center p-8">
+                <div className="relative w-80 h-80 max-w-full">
+                    {/* Central Core: APIKMAS DJurnal */}
+                    <div
+                        className="absolute inset-0 m-auto w-44 h-44 rounded-3xl bg-white/[0.05] backdrop-blur-xl border border-white/15 shadow-2xl flex flex-col items-center justify-center p-5 text-center transform -rotate-3 hover:rotate-0 transition-transform duration-500"
+                        style={{ animation: 'floatCenter 8s ease-in-out infinite' }}
+                    >
+                        <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-sky-400/30 to-sky-200/20 border border-white/20 flex items-center justify-center mb-2.5 shadow-inner">
+                            <LayoutGrid className="w-6 h-6 text-sky-200" />
+                        </div>
+                        <p className="text-[11.5px] font-bold text-white tracking-wide uppercase">APIKMAS DJurnal</p>
+                        <p className="text-[9.5px] text-sky-200/70 mt-0.5">Sistem Informasi Sekolah</p>
+                        <div className="mt-2.5 flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-emerald-400/15 border border-emerald-400/30">
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                            <span className="text-[9px] font-semibold text-emerald-300">Sistem Aktif &amp; Siap</span>
+                        </div>
+                    </div>
+
+                    {/* Floating Node 1: Jurnal & Presensi (Top-Right) */}
+                    <div
+                        className="absolute -top-4 -right-2 rounded-2xl bg-white/[0.08] backdrop-blur-md border border-white/15 px-3 py-2 shadow-xl flex items-center gap-2.5"
+                        style={{ animation: 'floatSlowA 6s ease-in-out infinite' }}
+                    >
+                        <div className="w-7 h-7 rounded-lg bg-sky-400/20 border border-sky-400/30 flex items-center justify-center shrink-0">
+                            <BookText className="w-4 h-4 text-sky-300" />
                         </div>
                         <div>
-                            <p className="text-white font-extrabold text-lg leading-none tracking-tight">APIKMAS DJurnal</p>
-                            <p className="text-sky-200/50 text-xs mt-1">Sistem Informasi Sekolah</p>
+                            <p className="text-[11px] font-semibold text-white leading-tight">Jurnal &amp; Presensi</p>
+                            <p className="text-[9px] text-white/50 mt-0.5">Agenda Harian Guru</p>
                         </div>
                     </div>
 
-                    {/* Heading */}
-                    <h1 className="text-white font-extrabold text-[2rem] leading-[1.15] mb-3 tracking-tight">
-                        Satu Platform,<br />
-                        <span className="bg-gradient-to-r from-sky-200 to-sky-300 bg-clip-text text-transparent">Semua Administrasi.</span>
-                    </h1>
-                    <p className="text-sky-100/50 text-[14.5px] leading-relaxed">
-                        Jurnal, persuratan, kehadiran, dan evaluasi kinerja — terintegrasi dalam satu portal untuk seluruh civitas sekolah.
-                    </p>
-
-                    <HeroMockup />
-
-                    {/* Bottom badge */}
-                    <div className="mt-6 flex items-center gap-3 bg-white/[0.06] border border-white/10 rounded-2xl px-4 py-3.5">
-                        <div className="flex -space-x-1.5 shrink-0">
-                            {['#0284c7', '#0369a1', '#0891b2', '#059669'].map((c, i) => (
-                                <div key={i} className="h-6 w-6 rounded-full border-2 border-[#06304f] flex items-center justify-center text-[9px] font-bold text-white"
-                                    style={{ background: c }}>
-                                    {['G', 'K', 'T', 'W'][i]}
-                                </div>
-                            ))}
+                    {/* Floating Node 2: Tata Usaha & TTE (Bottom-Left) */}
+                    <div
+                        className="absolute -bottom-4 -left-2 rounded-2xl bg-white/[0.08] backdrop-blur-md border border-white/15 px-3 py-2 shadow-xl flex items-center gap-2.5"
+                        style={{ animation: 'floatSlowB 7s ease-in-out infinite' }}
+                    >
+                        <div className="w-7 h-7 rounded-lg bg-sky-400/20 border border-sky-400/30 flex items-center justify-center shrink-0">
+                            <ShieldCheck className="w-4 h-4 text-sky-300" />
                         </div>
-                        <p className="text-sky-100/40 text-xs leading-snug">Guru · Kepala Sekolah · Tata Usaha · Wakasek</p>
-                    </div>
-                </div>
-
-                <p className="absolute bottom-6 text-sky-200/25 text-xs tracking-wide">
-                    &copy; {new Date().getFullYear()} APIKMAS DJurnal
-                </p>
-            </div>
-
-            {/* ── Right panel: form — same gradient as the left, glass card on top ── */}
-            <div className="flex-1 relative flex items-center justify-center p-5 sm:p-8 overflow-hidden">
-                <AnimatedMeshBg />
-
-                <div className="absolute top-4 right-4 sm:top-6 sm:right-6 z-20">
-                    <ThemeToggle glass />
-                </div>
-
-                <div className="relative z-10 w-full max-w-[380px]" style={{ animation: 'fadeIn 0.5s ease-out' }}>
-
-                    {/* Mobile logo (small screens only — left panel is hidden) */}
-                    <div className="flex flex-col items-center mb-7 lg:hidden">
-                        <div className="h-14 w-14 rounded-2xl bg-white/10 backdrop-blur-sm border border-white/20 flex items-center justify-center mb-4 shadow-xl">
-                            <img src="/logodjurnal.svg" alt="DJurnal" className="h-8 w-8 object-contain" />
-                        </div>
-                        <p className="text-white font-bold text-lg tracking-tight text-center">APIKMAS DJurnal</p>
-                        <p className="text-sky-200/50 text-xs mt-0.5 text-center">Sistem Informasi Sekolah</p>
-                    </div>
-
-                    <div className="relative">
-                        {/* Floating accent chip — top left of card, mirrors the left panel's chips */}
-                        <div className="hidden sm:flex absolute -top-5 -left-6 z-20 rounded-xl bg-white/10 backdrop-blur-xl border border-white/15 pl-2.5 pr-3.5 py-2.5 shadow-xl items-center gap-2"
-                            style={{ animation: 'floatSlow 6s ease-in-out infinite' }}>
-                            <div className="h-7 w-7 rounded-lg bg-sky-400/20 flex items-center justify-center shrink-0">
-                                <Lock className="h-3.5 w-3.5 text-sky-200" />
-                            </div>
-                            <div>
-                                <p className="text-[11px] font-semibold text-white leading-none whitespace-nowrap">Aman &amp; Terenkripsi</p>
-                            </div>
-                        </div>
-
-                        {/* Floating accent chip — bottom right of card */}
-                        <div className="hidden sm:flex absolute -bottom-4 -right-6 z-20 rounded-xl bg-white/10 backdrop-blur-xl border border-white/15 pl-2.5 pr-3.5 py-2.5 shadow-xl items-center gap-2"
-                            style={{ animation: 'floatSlow 5s ease-in-out infinite', animationDelay: '0.5s' }}>
-                            <div className="h-7 w-7 rounded-lg bg-amber-400/20 flex items-center justify-center shrink-0">
-                                <Zap className="h-3.5 w-3.5 text-amber-200" />
-                            </div>
-                            <div>
-                                <p className="text-[11px] font-semibold text-white leading-none whitespace-nowrap">Akses Cepat</p>
-                            </div>
-                        </div>
-
-                        {/* Form card — glass, matches the left panel's colored backdrop */}
-                        <div className="relative bg-white/[0.08] backdrop-blur-2xl rounded-3xl shadow-2xl shadow-black/20 border border-white/15 px-7 py-8 sm:px-9 sm:py-10 overflow-hidden">
-                            <div className="absolute top-0 left-0 right-0 h-[3px] bg-gradient-to-r from-sky-300/80 via-white/60 to-sky-300/80" />
-                            {children}
+                        <div>
+                            <p className="text-[11px] font-semibold text-white leading-tight">Persuratan &amp; TTE</p>
+                            <p className="text-[9px] text-white/50 mt-0.5">Validasi QR Code</p>
                         </div>
                     </div>
 
-                    <p className="mt-7 text-center text-xs text-sky-100/30">
-                        &copy; {new Date().getFullYear()} APIKMAS DJurnal &middot; Semua hak dilindungi
-                    </p>
+                    {/* Floating Node 3: Rekap Laporan (Top-Left) */}
+                    <div
+                        className="absolute top-16 -left-8 rounded-xl bg-white/[0.06] backdrop-blur-sm border border-white/10 px-2.5 py-1.5 shadow-lg flex items-center gap-1.5"
+                        style={{ animation: 'floatSlowA 5.5s ease-in-out infinite reverse' }}
+                    >
+                        <CalendarCheck className="w-3.5 h-3.5 text-sky-300" />
+                        <span className="text-[9.5px] font-medium text-sky-100/80">Rekap Otomatis</span>
+                    </div>
+
+                    {/* Floating Node 4: Civitas Sekolah (Bottom-Right) */}
+                    <div
+                        className="absolute bottom-16 -right-6 rounded-xl bg-white/[0.06] backdrop-blur-sm border border-white/10 px-2.5 py-1.5 shadow-lg flex items-center gap-1.5"
+                        style={{ animation: 'floatSlowB 6.5s ease-in-out infinite reverse' }}
+                    >
+                        <Sparkles className="w-3.5 h-3.5 text-amber-300" />
+                        <span className="text-[9.5px] font-medium text-amber-100/80">Guru &middot; TU &middot; Siswa</span>
+                    </div>
                 </div>
             </div>
+        </div>
+    );
+}
 
+export default function GuestLayout({ children }) {
+    const [currentSlide, setCurrentSlide] = useState(0);
+
+    /* Auto rotate slider every 6 seconds */
+    useEffect(() => {
+        const timer = setInterval(() => {
+            setCurrentSlide((prev) => (prev + 1) % slides.length);
+        }, 6000);
+        return () => clearInterval(timer);
+    }, []);
+
+    const prevSlide = () => {
+        setCurrentSlide((prev) => (prev === 0 ? slides.length - 1 : prev - 1));
+    };
+
+    const nextSlide = () => {
+        setCurrentSlide((prev) => (prev + 1) % slides.length);
+    };
+
+    return (
+        <div className="min-h-screen w-full flex flex-col lg:flex-row bg-white dark:bg-gray-950 font-sans selection:bg-sky-500 selection:text-white">
+
+            {/* ═══════════════════════════════════════════════════════════════════
+                LEFT PANEL: Pure Geometric Ornament & Feature Carousel
+                (Visible on desktop lg:w-1/2, NO photo/image of books)
+               ═══════════════════════════════════════════════════════════════════ */}
+            <div className="hidden lg:flex lg:w-1/2 relative flex-col justify-between p-10 xl:p-14 overflow-hidden bg-gradient-to-br from-[#051726] via-[#082742] to-[#025686] text-white select-none">
+                {/* Background vector ornament layer */}
+                <GeometricOrnament />
+
+                {/* Left Panel Top: School / App Pill */}
+                <div className="relative z-10 flex items-center justify-between">
+                    <div className="inline-flex items-center gap-2.5 px-3.5 py-1.5 rounded-full bg-white/[0.08] backdrop-blur-md border border-white/15 text-xs text-sky-100/90 shadow-sm">
+                        <span className="w-2 h-2 rounded-full bg-sky-400" />
+                        <span className="font-semibold tracking-wide">APIKMAS DJurnal</span>
+                        <span className="text-white/30">&middot;</span>
+                        <span className="text-white/70 text-[11px]">Sistem Informasi Sekolah</span>
+                    </div>
+
+                    <div className="text-[11px] font-mono text-white/40">
+                        v1.0.10
+                    </div>
+                </div>
+
+                {/* Navigation Arrow Left (translucent floating circular button) */}
+                <button
+                    type="button"
+                    onClick={prevSlide}
+                    aria-label="Slide Sebelumnya"
+                    className="absolute left-6 top-1/2 -translate-y-1/2 z-20 w-11 h-11 rounded-full bg-white/10 hover:bg-white/20 active:scale-95 backdrop-blur-md border border-white/20 flex items-center justify-center text-white/80 hover:text-white transition-all shadow-lg"
+                >
+                    <ChevronLeft className="w-5 h-5" />
+                </button>
+
+                {/* Navigation Arrow Right (translucent floating circular button) */}
+                <button
+                    type="button"
+                    onClick={nextSlide}
+                    aria-label="Slide Selanjutnya"
+                    className="absolute right-6 top-1/2 -translate-y-1/2 z-20 w-11 h-11 rounded-full bg-white/10 hover:bg-white/20 active:scale-95 backdrop-blur-md border border-white/20 flex items-center justify-center text-white/80 hover:text-white transition-all shadow-lg"
+                >
+                    <ChevronRight className="w-5 h-5" />
+                </button>
+
+                {/* Left Panel Bottom: Carousel Text & Pagination Dots */}
+                <div className="relative z-10 max-w-lg">
+                    {/* Animated slide content */}
+                    <div key={currentSlide} className="transition-all duration-500 ease-out animate-fadeIn">
+                        <span className="inline-block px-2.5 py-0.5 rounded-md bg-sky-400/20 border border-sky-300/30 text-[11px] font-semibold text-sky-200 uppercase tracking-wider mb-2.5">
+                            {slides[currentSlide].tag}
+                        </span>
+                        <h2 className="text-3xl xl:text-4xl font-extrabold tracking-tight text-white leading-tight">
+                            {slides[currentSlide].title}
+                        </h2>
+                        <p className="mt-3 text-sm xl:text-base text-sky-100/75 leading-relaxed font-normal">
+                            {slides[currentSlide].subtitle}
+                        </p>
+                    </div>
+
+                    {/* Pagination Indicators (active elongated pill, round inactive dots) */}
+                    <div className="mt-6 flex items-center gap-2">
+                        {slides.map((_, idx) => (
+                            <button
+                                key={idx}
+                                type="button"
+                                onClick={() => setCurrentSlide(idx)}
+                                aria-label={`Pilih slide ${idx + 1}`}
+                                className={`transition-all duration-300 rounded-full ${
+                                    idx === currentSlide
+                                        ? 'w-8 h-2 bg-white shadow-sm'
+                                        : 'w-2 h-2 bg-white/35 hover:bg-white/60'
+                                }`}
+                            />
+                        ))}
+                    </div>
+                </div>
+            </div>
+
+            {/* ═══════════════════════════════════════════════════════════════════
+                RIGHT PANEL: Clean Login Card
+                (Full width on mobile, 50% on desktop)
+               ═══════════════════════════════════════════════════════════════════ */}
+            <div className="flex-1 min-h-screen flex flex-col justify-between bg-white dark:bg-gray-900 px-6 sm:px-12 lg:px-14 xl:px-20 py-8 relative transition-colors duration-200 overflow-y-auto">
+
+                {/* Top Bar with Segmented ThemeToggle in top-right corner */}
+                <div className="w-full flex justify-end items-center mb-4">
+                    <ThemeToggle />
+                </div>
+
+                {/* Centered Login Form Container */}
+                <div className="flex-1 flex items-center justify-center py-6">
+                    <div className="w-full max-w-[400px] transition-all">
+                        {children}
+                    </div>
+                </div>
+
+                {/* Clean School Footer */}
+                <div className="text-center pt-6 pb-2 border-t border-gray-100 dark:border-gray-800/80">
+                    <p className="text-[11px] font-mono font-medium text-gray-400 dark:text-gray-500">
+                        APIKMAS DJurnal v1.2.5
+                    </p>
+                    <p className="text-[11px] text-gray-400 dark:text-gray-500 mt-1 leading-snug">
+                        &copy; {new Date().getFullYear()} APIKMAS DJurnal &middot; Mafatih Inovasi Teknologi
+                    </p>
+                </div>
+            </div>
+
+            {/* ── Keyframes animation styling ── */}
             <style>{`
                 @keyframes fadeIn {
                     from { opacity: 0; transform: translateY(6px); }
                     to   { opacity: 1; transform: translateY(0); }
                 }
-                @keyframes floatSlow {
+                @keyframes floatCenter {
+                    0%, 100% { transform: translateY(0) rotate(-3deg); }
+                    50%      { transform: translateY(-10px) rotate(-1deg); }
+                }
+                @keyframes floatSlowA {
                     0%, 100% { transform: translateY(0); }
                     50%      { transform: translateY(-8px); }
                 }
-                @keyframes driftA {
-                    0%, 100% { transform: translate(0, 0); }
-                    50%      { transform: translate(30px, 20px); }
+                @keyframes floatSlowB {
+                    0%, 100% { transform: translateY(0); }
+                    50%      { transform: translateY(-6px); }
                 }
-                @keyframes driftB {
-                    0%, 100% { transform: translate(0, 0); }
-                    50%      { transform: translate(-25px, -15px); }
+                @keyframes ornamentFloat {
+                    0%   { transform: translate(0, 0) scale(1); }
+                    100% { transform: translate(25px, 20px) scale(1.08); }
                 }
             `}</style>
         </div>

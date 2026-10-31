@@ -26,7 +26,9 @@ class HandleInertiaRequests extends Middleware
     {
         return [
             ...parent::share($request),
+            'app_name'    => config('app.name', 'APIKMAS DJurnal'),
             'app_version' => config('app.version'),
+            'sekolah'     => fn () => \App\Models\PengaturanSekolah::current(),
             'auth' => [
                 'user' => $request->user() ? [
                     'id'           => $request->user()->id,

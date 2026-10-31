@@ -1,9 +1,9 @@
 import { useState, useEffect, useRef } from 'react';
-import { usePage, router, Head } from '@inertiajs/react';
+import { usePage, router, Head, Link } from '@inertiajs/react';
 import Sidebar from '@/Components/Sidebar';
 import Navbar from '@/Components/Navbar';
 import FloatingMasukan from '@/Components/FloatingMasukan';
-import { CheckCircle, XCircle, Info, X, Clock, AlertTriangle, Megaphone } from 'lucide-react';
+import { CheckCircle, XCircle, Info, X, Clock, AlertTriangle, Megaphone, Home, ChevronRight } from 'lucide-react';
 
 function getGreeting() {
     const h = new Date().getHours();
@@ -546,6 +546,24 @@ function GlobalNavigationLoader() {
 
 export default function AppLayout({ children, title }) {
     const [sidebarOpen, setSidebarOpen] = useState(false);
+    const [isCollapsed, setIsCollapsed] = useState(() => {
+        if (typeof window !== 'undefined') {
+            return localStorage.getItem('sidebar_collapsed') === 'true';
+        }
+        return false;
+    });
+
+    const toggleSidebar = () => {
+        if (typeof window !== 'undefined' && window.innerWidth < 1024) {
+            setSidebarOpen(prev => !prev);
+        } else {
+            setIsCollapsed(prev => {
+                const next = !prev;
+                localStorage.setItem('sidebar_collapsed', String(next));
+                return next;
+            });
+        }
+    };
 
     useEffect(() => {
         const handlePageShow = (e) => {
@@ -560,7 +578,12 @@ export default function AppLayout({ children, title }) {
     return (
         <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
             {title && <Head title={title} />}
-            <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
+            <Sidebar
+                open={sidebarOpen}
+                onClose={() => setSidebarOpen(false)}
+                isCollapsed={isCollapsed}
+                onToggleCollapse={toggleSidebar}
+            />
 
             <GlobalNavigationLoader />
             <AutoLogout />
@@ -568,8 +591,27 @@ export default function AppLayout({ children, title }) {
             <AnnouncementPopup />
             <Toast />
             <FloatingMasukan />
-            <div className="lg:pl-64 flex flex-col min-h-screen">
-                <Navbar onMenuClick={() => setSidebarOpen(true)} />
+            <div className={`flex flex-col min-h-screen transition-all duration-300 ${isCollapsed ? 'lg:pl-20' : 'lg:pl-72'}`}>
+                <Navbar onToggleSidebar={toggleSidebar} />
+
+                {/* Breadcrumb Bar matching screenshot */}
+                <div className="border-b border-gray-200/80 dark:border-gray-800/80 bg-white/70 dark:bg-gray-900/60 backdrop-blur-xs px-4 sm:px-6 py-2.5 flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
+                    <Link href="/dashboard" className="flex items-center gap-1.5 hover:text-sky-600 dark:hover:text-sky-400 transition-colors">
+                        <Home className="h-3.5 w-3.5" strokeWidth={1.75} />
+                        <span>Dashboard</span>
+                    </Link>
+                    {title && title !== 'Dashboard' ? (
+                        <>
+                            <ChevronRight className="h-3 w-3 text-gray-300 dark:text-gray-600 shrink-0" strokeWidth={1.75} />
+                            <span className="font-medium text-gray-800 dark:text-gray-200 truncate">{title}</span>
+                        </>
+                    ) : (
+                        <>
+                            <ChevronRight className="h-3 w-3 text-gray-300 dark:text-gray-600 shrink-0" strokeWidth={1.75} />
+                            <span className="font-medium text-gray-800 dark:text-gray-200">Dashboard</span>
+                        </>
+                    )}
+                </div>
 
                 <main className="flex-1 px-4 sm:px-6 lg:px-8 py-6">
                     {title && (

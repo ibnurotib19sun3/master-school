@@ -1,12 +1,12 @@
 import { Link, usePage } from '@inertiajs/react';
 import {
-    LayoutDashboard, Users, BookOpen, GraduationCap, School, Calendar,
+    LayoutGrid, Users, BookOpen, GraduationCap, School, Landmark, Calendar,
     ClipboardList, ClipboardCheck, FileText, BarChart3, Video, Presentation, HelpCircle,
     BookMarked, Star, MessageSquare, X,
     Clock, PieChart, ShieldCheck, Settings, BookCheck, BookText,
     UserCog, Megaphone, MailOpen, Send, FolderUp, Layers, History, CalendarX, Tag,
-    ChevronDown, Lock, NotebookPen, Database, Inbox, Crown, Trophy,
-    FolderOpen, Briefcase, ChevronRight, KeyRound, BadgeCheck, FileStack,
+    ChevronDown, ChevronRight, Lock, NotebookPen, Database, Inbox, Crown, Trophy,
+    BadgeCheck, FileStack, PanelLeftClose, PanelLeftOpen, UserPen, UserCheck, KeyRound,
 } from 'lucide-react';
 import { useState, useRef, useEffect } from 'react';
 import { clsx } from 'clsx';
@@ -36,109 +36,24 @@ const ROLE_LABELS = {
     siswa:                       'Siswa',
 };
 
-/* ─── Per-group: icon + color key ────────────────────────────────── */
+/* ─── Per-group: icon ────────────────────────────────────────────── */
 const GROUP_META = {
-    'Utama':              { icon: LayoutDashboard, ck: 'sky'    },
-    'Akademik':           { icon: School,          ck: 'violet' },
-    'Laporan':            { icon: BarChart3,        ck: 'emerald'},
-    'Rekap Jurnal':       { icon: FolderOpen,       ck: 'amber'  },
-    'Piket':              { icon: ClipboardList,    ck: 'rose'   },
-    'Administrasi Guru':  { icon: GraduationCap,   ck: 'sky'    },
-    'Media Pembelajaran': { icon: Video,            ck: 'pink'   },
-    'Asesmen & Kuis':     { icon: HelpCircle,       ck: 'orange' },
-    'Jurnal Pimpinan':    { icon: Briefcase,        ck: 'indigo' },
-    'Evaluasi':           { icon: Star,             ck: 'yellow' },
-    'Broadcast & Sistem': { icon: Megaphone,        ck: 'red'    },
-    'Pokja':              { icon: Layers,           ck: 'teal'   },
-    'Tata Usaha':         { icon: UserCog,          ck: 'cyan'   },
-    'Masukan & Laporan':  { icon: MessageSquare,    ck: 'slate'  },
-    'Portal Siswa':       { icon: BookOpen,         ck: 'emerald'},
-    'Siswa':              { icon: Users,            ck: 'emerald'},
-};
-
-/* Active item — tinted bg + bright colored text (not solid pill) */
-const ACTIVE_CLS = {
-    sky:     'bg-sky-50     text-sky-700     font-semibold dark:bg-sky-500/[0.12]   dark:text-sky-400',
-    violet:  'bg-violet-50  text-violet-700  font-semibold dark:bg-violet-500/[0.12] dark:text-violet-400',
-    emerald: 'bg-emerald-50 text-emerald-700 font-semibold dark:bg-emerald-500/[0.12] dark:text-emerald-400',
-    amber:   'bg-amber-50   text-amber-700   font-semibold dark:bg-amber-500/[0.12]  dark:text-amber-400',
-    rose:    'bg-rose-50    text-rose-700    font-semibold dark:bg-rose-500/[0.12]   dark:text-rose-400',
-    pink:    'bg-pink-50    text-pink-700    font-semibold dark:bg-pink-500/[0.12]   dark:text-pink-400',
-    orange:  'bg-orange-50  text-orange-700  font-semibold dark:bg-orange-500/[0.12] dark:text-orange-400',
-    indigo:  'bg-indigo-50  text-indigo-700  font-semibold dark:bg-indigo-500/[0.12] dark:text-indigo-400',
-    yellow:  'bg-yellow-50  text-yellow-700  font-semibold dark:bg-yellow-500/[0.12] dark:text-yellow-400',
-    red:     'bg-red-50     text-red-700     font-semibold dark:bg-red-500/[0.12]    dark:text-red-400',
-    teal:    'bg-teal-50    text-teal-700    font-semibold dark:bg-teal-500/[0.12]   dark:text-teal-400',
-    cyan:    'bg-cyan-50    text-cyan-700    font-semibold dark:bg-cyan-500/[0.12]   dark:text-cyan-400',
-    slate:   'bg-slate-100  text-slate-700   font-semibold dark:bg-slate-500/[0.12]  dark:text-slate-400',
-};
-
-/* Active icon chip bg per color key */
-const ACTIVE_CHIP = {
-    sky:     'bg-sky-100     dark:bg-sky-500/20',
-    violet:  'bg-violet-100  dark:bg-violet-500/20',
-    emerald: 'bg-emerald-100 dark:bg-emerald-500/20',
-    amber:   'bg-amber-100   dark:bg-amber-500/20',
-    rose:    'bg-rose-100    dark:bg-rose-500/20',
-    pink:    'bg-pink-100    dark:bg-pink-500/20',
-    orange:  'bg-orange-100  dark:bg-orange-500/20',
-    indigo:  'bg-indigo-100  dark:bg-indigo-500/20',
-    yellow:  'bg-yellow-100  dark:bg-yellow-500/20',
-    red:     'bg-red-100     dark:bg-red-500/20',
-    teal:    'bg-teal-100    dark:bg-teal-500/20',
-    cyan:    'bg-cyan-100    dark:bg-cyan-500/20',
-    slate:   'bg-slate-200   dark:bg-slate-500/20',
-};
-
-/* Active icon color per color key */
-const ACTIVE_ICON_COLOR = {
-    sky:     'text-sky-600     dark:text-sky-400',
-    violet:  'text-violet-600  dark:text-violet-400',
-    emerald: 'text-emerald-600 dark:text-emerald-400',
-    amber:   'text-amber-600   dark:text-amber-400',
-    rose:    'text-rose-600    dark:text-rose-400',
-    pink:    'text-pink-600    dark:text-pink-400',
-    orange:  'text-orange-600  dark:text-orange-400',
-    indigo:  'text-indigo-600  dark:text-indigo-400',
-    yellow:  'text-yellow-600  dark:text-yellow-400',
-    red:     'text-red-600     dark:text-red-400',
-    teal:    'text-teal-600    dark:text-teal-400',
-    cyan:    'text-cyan-600    dark:text-cyan-400',
-    slate:   'text-slate-600   dark:text-slate-400',
-};
-
-/* Hover-chip tint per color key */
-const HOVER_CHIP = {
-    sky:     'group-hover:bg-sky-100/80     dark:group-hover:bg-sky-900/30',
-    violet:  'group-hover:bg-violet-100/80  dark:group-hover:bg-violet-900/30',
-    emerald: 'group-hover:bg-emerald-100/80 dark:group-hover:bg-emerald-900/30',
-    amber:   'group-hover:bg-amber-100/80   dark:group-hover:bg-amber-900/30',
-    rose:    'group-hover:bg-rose-100/80    dark:group-hover:bg-rose-900/30',
-    pink:    'group-hover:bg-pink-100/80    dark:group-hover:bg-pink-900/30',
-    orange:  'group-hover:bg-orange-100/80  dark:group-hover:bg-orange-900/30',
-    indigo:  'group-hover:bg-indigo-100/80  dark:group-hover:bg-indigo-900/30',
-    yellow:  'group-hover:bg-yellow-100/80  dark:group-hover:bg-yellow-900/30',
-    red:     'group-hover:bg-red-100/80     dark:group-hover:bg-red-900/30',
-    teal:    'group-hover:bg-teal-100/80    dark:group-hover:bg-teal-900/30',
-    cyan:    'group-hover:bg-cyan-100/80    dark:group-hover:bg-cyan-900/30',
-    slate:   'group-hover:bg-slate-100/80   dark:group-hover:bg-slate-900/30',
-};
-
-/* Hover-icon color per color key */
-const HOVER_ICON = {
-    sky:     'group-hover:text-sky-600     dark:group-hover:text-sky-400',
-    violet:  'group-hover:text-violet-600  dark:group-hover:text-violet-400',
-    emerald: 'group-hover:text-emerald-600 dark:group-hover:text-emerald-400',
-    amber:   'group-hover:text-amber-600   dark:group-hover:text-amber-400',
-    rose:    'group-hover:text-rose-600    dark:group-hover:text-rose-400',
-    pink:    'group-hover:text-pink-600    dark:group-hover:text-pink-400',
-    orange:  'group-hover:text-orange-600  dark:group-hover:text-orange-400',
-    indigo:  'group-hover:text-indigo-600  dark:group-hover:text-indigo-400',
-    yellow:  'group-hover:text-yellow-600  dark:group-hover:text-yellow-400',
-    red:     'group-hover:text-red-600     dark:group-hover:text-red-400',
-    teal:    'group-hover:text-teal-600    dark:group-hover:text-teal-400',
-    cyan:    'group-hover:text-cyan-600    dark:group-hover:text-cyan-400',
-    slate:   'group-hover:text-slate-600   dark:group-hover:text-slate-400',
+    'Utama':              { icon: LayoutGrid },
+    'Akademik':           { icon: Landmark },
+    'Laporan':            { icon: BarChart3 },
+    'Rekap Jurnal':       { icon: BookText },
+    'Piket':              { icon: ClipboardList },
+    'Administrasi Guru':  { icon: UserCheck },
+    'Media Pembelajaran': { icon: Video },
+    'Asesmen & Kuis':     { icon: HelpCircle },
+    'Jurnal Pimpinan':    { icon: Landmark },
+    'Evaluasi':           { icon: Star },
+    'Broadcast & Sistem': { icon: Megaphone },
+    'Pokja':              { icon: Layers },
+    'Tata Usaha':         { icon: UserCog },
+    'Masukan & Laporan':  { icon: MessageSquare },
+    'Portal Siswa':       { icon: BookOpen },
+    'Siswa':              { icon: Users },
 };
 
 /* ─── Menu data ───────────────────────────────────────────────────── */
@@ -146,19 +61,20 @@ const menuGroups = [
     {
         label: 'Utama',
         items: [
-            { label: 'Dashboard', href: '/dashboard', icon: LayoutDashboard, roles: null },
+            { label: 'Dashboard', href: '/dashboard', icon: LayoutGrid, roles: null },
         ],
     },
     {
         label: 'Akademik',
         roles: ['super_admin', 'kepala_sekolah', 'wakasek_kurikulum', 'wakasek_kesiswaan', 'kepala_tatausaha'],
+        collapsible: true,
         items: [
             { label: 'Pengguna',           href: '/admin/users',              icon: Users,         roles: ['super_admin'] },
             { label: 'Tahun Ajaran',       href: '/admin/tahun-ajaran',       icon: Calendar,      roles: ['super_admin'] },
-            { label: 'Kelas & Jurusan',    href: '/admin/kelas-jurusan',      icon: School,        roles: ['super_admin'] },
+            { label: 'Kelas & Jurusan',    href: '/admin/kelas-jurusan',      icon: Landmark,      roles: ['super_admin'] },
             { label: 'Rombel',             href: '/admin/rombel',             icon: BookOpen,      roles: ['super_admin'] },
             { label: 'Mata Pelajaran',     href: '/admin/mata-pelajaran',     icon: BookMarked,    roles: ['super_admin'] },
-            { label: 'Guru',               href: '/admin/guru',               icon: GraduationCap, roles: ['super_admin', 'wakasek_kurikulum', 'kepala_tatausaha', 'tatausaha'] },
+            { label: 'Guru',               href: '/admin/guru',               icon: UserCheck,     roles: ['super_admin', 'wakasek_kurikulum', 'kepala_tatausaha', 'tatausaha'] },
             { label: 'Tata Usaha',         href: '/admin/tatausaha',          icon: UserCog,       roles: ['super_admin', 'kepala_tatausaha', 'tatausaha'] },
             { label: 'Pembelajaran',       href: '/admin/pembelajaran',       icon: BookOpen,      roles: ['super_admin', 'wakasek_kurikulum'] },
             { label: 'Jadwal Pelajaran',   href: '/admin/jadwal',             icon: Clock,         roles: ['super_admin', 'wakasek_kurikulum', 'kepala_sekolah'] },
@@ -172,19 +88,19 @@ const menuGroups = [
     {
         label: 'Siswa',
         roles: ['super_admin', 'wakasek_kesiswaan', 'kepala_tatausaha', 'tatausaha'],
+        collapsible: true,
         items: [
-            { label: 'Data Siswa',                href: '/admin/siswa',                 icon: Users,          roles: ['super_admin', 'wakasek_kesiswaan', 'kepala_tatausaha', 'tatausaha'], tuSuratExclude: true },
+            { label: 'Data Siswa',      href: '/admin/siswa',                 icon: Users,          roles: ['super_admin', 'wakasek_kesiswaan', 'kepala_tatausaha', 'tatausaha'], tuSuratExclude: true },
             { label: 'Cetak Kartu',     href: '/admin/kartu-siswa',           icon: BadgeCheck,     roles: ['super_admin'] },
             { label: 'Jenis Dokumen',   href: '/admin/dokumen-jenis',         icon: FileStack,      roles: ['super_admin', 'kepala_tatausaha', 'wakasek_kesiswaan'], tuSuratExclude: true },
             { label: 'Laporan Dokumen', href: '/admin/dokumen-jenis/laporan', icon: ClipboardCheck, roles: ['super_admin', 'kepala_tatausaha', 'wakasek_kesiswaan'], tuSuratExclude: true },
-            // Staf TU dengan jabatan 'Tatausaha' hanya perlu ini di label Siswa —
-            // dipindah dari grup Tata Usaha supaya sesuai konteks labelnya.
-            { label: 'Dokumen Siswa',  href: '/tatausaha/dokumen-siswa',     icon: FileStack,      roles: ['tatausaha'], tuSuratOnly: true },
+            { label: 'Dokumen Siswa',   href: '/tatausaha/dokumen-siswa',     icon: FileStack,      roles: ['tatausaha'], tuSuratOnly: true },
         ],
     },
     {
         label: 'Laporan',
         roles: ['super_admin', 'kepala_sekolah', 'wakasek_kurikulum', 'wakasek_kesiswaan', 'kepala_tatausaha'],
+        collapsible: true,
         items: [
             { label: 'Kehadiran Siswa',       href: '/admin/laporan/kehadiran-siswa',            icon: PieChart,  roles: ['super_admin', 'kepala_sekolah', 'wakasek_kurikulum', 'wakasek_kesiswaan'] },
             { label: 'Kehadiran Guru',        href: '/admin/laporan/kehadiran-guru',             icon: BarChart3, roles: ['super_admin', 'kepala_sekolah', 'wakasek_kurikulum'] },
@@ -198,6 +114,7 @@ const menuGroups = [
     {
         label: 'Rekap Jurnal',
         roles: ['super_admin', 'kepala_sekolah'],
+        collapsible: true,
         items: [
             { label: 'Jurnal Tata Usaha',     href: '/admin/riwayat-jurnal/tatausaha',      icon: BookText },
             { label: 'Jurnal Pokja',          href: '/admin/riwayat-jurnal/pokja',          icon: BookText },
@@ -211,6 +128,7 @@ const menuGroups = [
         label: 'Piket',
         roles: ['guru_piket', 'super_admin', 'kepala_sekolah', 'wakasek_kesiswaan', 'kepala_tatausaha'],
         roleSection: 'guru_piket',
+        collapsible: true,
         items: [
             { label: 'Kehadiran Mengajar',  href: '/piket',           icon: ClipboardList },
             { label: 'Kehadiran Manajemen', href: '/piket/manajemen', icon: Crown },
@@ -223,21 +141,22 @@ const menuGroups = [
         label: 'Administrasi Guru',
         roles: ['guru', 'super_admin', 'kepala_sekolah', 'wakasek_kurikulum', 'wakasek_kesiswaan'],
         roleSection: 'guru',
+        collapsible: true,
         items: [
-            { label: 'Jadwal Saya',          href: '/guru/jadwal-saya',          icon: Calendar,      roles: ['guru'] },
-            { label: 'Capaian Pembelajaran', href: '/guru/capaian-pembelajaran', icon: GraduationCap, roles: ['guru'] },
-            { label: 'Jurnal Mengajar',      href: '/guru/jurnal',               icon: FileText,      roles: ['guru'] },
-            { label: 'Riwayat Jurnal',       href: '/guru/jurnal/riwayat',       icon: History,       roles: ['guru'] },
-            { label: 'Presensi Siswa',       href: '/guru/absensi',              icon: ClipboardList },
-            { label: 'Riwayat Presensi Siswa', href: '/guru/absensi/riwayat',    icon: History },
-            { label: 'Presensi Harian (BK)', href: '/guru/presensi-harian',      icon: ClipboardCheck, roles: ['guru', 'super_admin', 'kepala_sekolah', 'wakasek_kesiswaan'], guruBkOnly: true },
-            { label: 'Rekap Presensi',       href: '/guru/presensi-harian/rekap',icon: BarChart3,     roles: ['guru', 'super_admin', 'kepala_sekolah', 'wakasek_kesiswaan'], guruBkOnly: true },
-            { label: 'Pengumpulan',          href: '/guru/pengumpulan',          icon: FolderUp,      roles: ['guru'] },
-            { label: 'LMS',                  href: '/guru/lms',                  icon: Layers,        roles: ['guru'] },
-            { label: 'Jurnal Mengajar Guru', href: '/admin/jurnal-mengajar',     icon: FileText,      roles: ['super_admin', 'kepala_sekolah', 'wakasek_kurikulum'] },
-            { label: 'Input Nilai',          href: '/guru/nilai',                icon: BarChart3 },
-            { label: 'Laporan KPI',          href: '/guru/kpi',                  icon: Star,          roles: ['guru'] },
-            { label: 'Catatan Kepsek',       href: '/guru/catatan-kepsek',       icon: MessageSquare, roles: ['guru'], excludeRoles: ['kepala_sekolah', 'super_admin'] },
+            { label: 'Jadwal Saya',            href: '/guru/jadwal-saya',          icon: Calendar,      roles: ['guru'] },
+            { label: 'Capaian Pembelajaran',   href: '/guru/capaian-pembelajaran', icon: GraduationCap, roles: ['guru'] },
+            { label: 'Jurnal Mengajar',        href: '/guru/jurnal',               icon: FileText,      roles: ['guru'] },
+            { label: 'Riwayat Jurnal',         href: '/guru/jurnal/riwayat',       icon: History,       roles: ['guru'] },
+            { label: 'Presensi Siswa',         href: '/guru/absensi',              icon: ClipboardList },
+            { label: 'Riwayat Presensi Siswa', href: '/guru/absensi/riwayat',      icon: History },
+            { label: 'Presensi Harian (BK)',   href: '/guru/presensi-harian',      icon: ClipboardCheck, roles: ['guru', 'super_admin', 'kepala_sekolah', 'wakasek_kesiswaan'], guruBkOnly: true },
+            { label: 'Rekap Presensi',         href: '/guru/presensi-harian/rekap',icon: BarChart3,     roles: ['guru', 'super_admin', 'kepala_sekolah', 'wakasek_kesiswaan'], guruBkOnly: true },
+            { label: 'Pengumpulan',            href: '/guru/pengumpulan',          icon: FolderUp,      roles: ['guru'] },
+            { label: 'LMS',                    href: '/guru/lms',                  icon: Layers,        roles: ['guru'] },
+            { label: 'Jurnal Mengajar Guru',   href: '/admin/jurnal-mengajar',     icon: FileText,      roles: ['super_admin', 'kepala_sekolah', 'wakasek_kurikulum'] },
+            { label: 'Input Nilai',            href: '/guru/nilai',                icon: BarChart3 },
+            { label: 'Laporan KPI',            href: '/guru/kpi',                  icon: Star,          roles: ['guru'] },
+            { label: 'Catatan Kepsek',         href: '/guru/catatan-kepsek',       icon: MessageSquare, roles: ['guru'], excludeRoles: ['kepala_sekolah', 'super_admin'] },
         ],
     },
     {
@@ -266,6 +185,7 @@ const menuGroups = [
         label: 'Asesmen & Kuis',
         roles: ['guru', 'super_admin', 'kepala_sekolah', 'wakasek_kurikulum'],
         roleSection: 'guru',
+        collapsible: true,
         items: [
             { label: 'Kuis & Asesmen', href: '/guru/kuis-asesmen', icon: HelpCircle },
         ],
@@ -274,6 +194,7 @@ const menuGroups = [
         label: 'Jurnal Pimpinan',
         roles: ['kepala_sekolah', 'wakasek_kurikulum', 'wakasek_kesiswaan', 'wakasek_sarpras', 'wakasek_humas', 'kepala_tatausaha', 'bendahara_sekolah', 'tim_penjamin_mutu', 'kepala_konsentrasi_keahlian', 'super_admin'],
         roleSection: ['kepala_sekolah', 'wakasek_kurikulum', 'wakasek_kesiswaan', 'wakasek_sarpras', 'wakasek_humas', 'kepala_tatausaha', 'bendahara_sekolah', 'tim_penjamin_mutu', 'kepala_konsentrasi_keahlian'],
+        collapsible: true,
         items: [
             { label: 'Jurnal Harian',  href: '/pimpinan/jurnal',         icon: BookText,
               roles: ['kepala_sekolah', 'wakasek_kurikulum', 'wakasek_kesiswaan', 'wakasek_sarpras', 'wakasek_humas', 'kepala_tatausaha', 'bendahara_sekolah', 'tim_penjamin_mutu', 'kepala_konsentrasi_keahlian'] },
@@ -287,6 +208,7 @@ const menuGroups = [
         label: 'Evaluasi',
         roles: ['kepala_sekolah', 'super_admin', 'kepala_tatausaha'],
         roleSection: ['kepala_sekolah', 'kepala_tatausaha'],
+        collapsible: true,
         items: [
             { label: 'KPI Guru',       href: '/admin/kpi',            icon: Star,          roles: ['kepala_sekolah', 'super_admin'] },
             { label: 'KPI Tata Usaha', href: '/admin/kpi-tatausaha',  icon: Star,          roles: ['kepala_sekolah', 'super_admin', 'kepala_tatausaha'] },
@@ -297,6 +219,7 @@ const menuGroups = [
     {
         label: 'Broadcast & Sistem',
         roles: ['super_admin'],
+        collapsible: true,
         items: [
             { label: 'Pesan Popup',       href: '/admin/pesan-popup',  icon: Megaphone,   roles: ['super_admin'] },
             { label: 'Info Menu',         href: '/admin/menu-badge',   icon: Tag,         roles: ['super_admin'] },
@@ -311,6 +234,7 @@ const menuGroups = [
         label: 'Pokja',
         roles: ['pokja_kurikulum', 'pokja_kesiswaan', 'pokja_sarpras', 'pokja_humas', 'bimbingan_konseling'],
         roleSection: ['pokja_kurikulum', 'pokja_kesiswaan', 'pokja_sarpras', 'pokja_humas', 'bimbingan_konseling'],
+        collapsible: true,
         items: [
             { label: 'Jurnal Pokja',   href: '/pokja/jurnal',         icon: BookText,
               roles: ['pokja_kurikulum', 'pokja_kesiswaan', 'pokja_sarpras', 'pokja_humas', 'bimbingan_konseling'] },
@@ -322,6 +246,7 @@ const menuGroups = [
         label: 'Tata Usaha',
         roles: ['tatausaha', 'kepala_tatausaha', 'kepala_sekolah', 'super_admin'],
         roleSection: ['kepala_tatausaha', 'tatausaha'],
+        collapsible: true,
         items: [
             { label: 'Jurnal Karyawan',  href: '/tatausaha/jurnal',         icon: BookText,    roles: ['tatausaha'] },
             { label: 'Riwayat Jurnal',   href: '/tatausaha/jurnal/riwayat', icon: History,     roles: ['tatausaha'] },
@@ -353,157 +278,53 @@ const BADGE_STYLES = {
 const BADGE_LABELS  = { beta: 'Beta', maintenance: 'Maint', pengembangan: 'Dev' };
 const BLOCKED_BADGES = new Set(['maintenance', 'pengembangan']);
 
+function getInitials(name) {
+    if (!name) return 'U';
+    const parts = name.trim().split(/\s+/).filter(Boolean);
+    if (parts.length === 1) return parts[0].substring(0, 2).toUpperCase();
+    return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+}
+
 /* ── Smooth collapse ─────────────────────────────────────────────── */
 function CollapseSection({ open, children }) {
     const ref = useRef(null);
     const [height, setHeight] = useState(open ? 'auto' : '0px');
+
     useEffect(() => {
         if (!ref.current) return;
         if (open) {
             const h = ref.current.scrollHeight;
             setHeight(`${h}px`);
-            const t = setTimeout(() => setHeight('auto'), 280);
+            const t = setTimeout(() => setHeight('auto'), 260);
             return () => clearTimeout(t);
         } else {
             setHeight(`${ref.current.scrollHeight}px`);
             requestAnimationFrame(() => requestAnimationFrame(() => setHeight('0px')));
         }
     }, [open]);
+
     return (
-        <div ref={ref} style={{ height, overflow: 'hidden', transition: 'height 250ms cubic-bezier(0.4,0,0.2,1)' }}>
+        <div ref={ref} style={{ height, overflow: 'hidden', transition: 'height 240ms cubic-bezier(0.4,0,0.2,1)' }}>
             {children}
         </div>
     );
 }
 
-/* ── Nav item — active color varies per group ────────────────────── */
-function SidebarItem({ item, active, badge, onlineCount, masukanCount, ck = 'sky' }) {
-    const Icon    = item.icon;
-    const blocked = badge && BLOCKED_BADGES.has(badge);
-    const activeCls = ACTIVE_CLS[ck] ?? ACTIVE_CLS.sky;
-
-    const cls = cn(
-        'group flex items-center gap-2.5 rounded-lg px-2.5 py-[7px] text-[13px] font-medium transition-all duration-150 w-full',
-        blocked
-            ? 'opacity-35 cursor-not-allowed text-gray-400 dark:text-gray-600'
-            : active
-                ? activeCls
-                : 'text-gray-500 dark:text-gray-400 hover:bg-gray-100/80 dark:hover:bg-white/[0.05] hover:text-gray-900 dark:hover:text-gray-100',
-    );
-
-    const inner = (
-        <>
-            <span className={cn(
-                'shrink-0 flex items-center justify-center h-[22px] w-[22px] rounded-md transition-all duration-150',
-                blocked
-                    ? 'bg-gray-100 dark:bg-gray-800'
-                    : active
-                        ? ACTIVE_CHIP[ck]
-                        : cn('bg-gray-100/80 dark:bg-white/[0.06]', HOVER_CHIP[ck]),
-            )}>
-                <Icon className={cn(
-                    'h-[13px] w-[13px] transition-colors',
-                    blocked
-                        ? 'text-gray-400 dark:text-gray-600'
-                        : active
-                            ? ACTIVE_ICON_COLOR[ck]
-                            : cn('text-gray-400 dark:text-gray-500', HOVER_ICON[ck]),
-                )} />
-            </span>
-            <span className="flex-1 leading-tight truncate">{item.label}</span>
-            {onlineCount > 0 && (
-                <span className="shrink-0 inline-flex items-center gap-1 rounded-full bg-emerald-500 text-white text-[10px] font-bold px-1.5 py-[2px] leading-none">
-                    <span className="h-1.5 w-1.5 rounded-full bg-white/70 animate-pulse" />
-                    {onlineCount}
-                </span>
-            )}
-            {masukanCount > 0 && (
-                <span className="shrink-0 inline-flex items-center justify-center rounded-full bg-rose-500 text-white text-[10px] font-bold min-w-[18px] h-[18px] px-1 leading-none">
-                    {masukanCount > 99 ? '99+' : masukanCount}
-                </span>
-            )}
-            {badge && (
-                <span className={cn('shrink-0 rounded-md px-1.5 py-[2px] text-[10px] font-semibold leading-none', BADGE_STYLES[badge])}>
-                    {blocked ? <Lock className="h-2.5 w-2.5 inline" /> : BADGE_LABELS[badge]}
-                </span>
-            )}
-        </>
-    );
-
-    if (blocked) return <div className={cls} title="Menu ini sedang tidak tersedia">{inner}</div>;
-    if (item.external) return <a href={item.href} target="_blank" rel="noopener noreferrer" className={cls}>{inner}</a>;
-    return <Link href={item.href} className={cls}>{inner}</Link>;
-}
-
 /* ── Role divider ────────────────────────────────────────────────── */
 function RoleDivider({ label }) {
     return (
-        <div className="flex items-center gap-2 px-1 py-2 mt-1">
-            <div className="h-px flex-1 bg-gray-200/80 dark:bg-white/8" />
-            <span className="text-[9.5px] font-bold tracking-[0.12em] uppercase text-sky-500/70 whitespace-nowrap">
+        <div className="flex items-center gap-2 px-2 py-2 mt-2">
+            <div className="h-px flex-1 bg-gray-200 dark:bg-gray-800" />
+            <span className="text-[10px] font-bold tracking-wider uppercase text-sky-600 dark:text-sky-400 whitespace-nowrap">
                 {label}
             </span>
-            <div className="h-px flex-1 bg-gray-200/80 dark:bg-white/8" />
+            <div className="h-px flex-1 bg-gray-200 dark:bg-gray-800" />
         </div>
     );
 }
 
-/* ── Group header ────────────────────────────────────────────────── */
-function GroupHeader({ label, meta, open, onClick }) {
-    const Icon = meta?.icon;
-    const ck   = meta?.ck ?? 'sky';
-    return (
-        <button type="button" onClick={onClick}
-            className="w-full flex items-center gap-2 px-1.5 py-1.5 rounded-lg group mb-0.5 hover:bg-gray-50 dark:hover:bg-white/[0.02] transition-colors">
-            {Icon && (
-                <span className={cn(
-                    'shrink-0 flex items-center justify-center h-[18px] w-[18px] rounded-md',
-                    /* subtle bg using the group color chip */
-                    ck === 'sky'     && 'bg-sky-100     dark:bg-sky-900/40',
-                    ck === 'violet'  && 'bg-violet-100  dark:bg-violet-900/40',
-                    ck === 'emerald' && 'bg-emerald-100 dark:bg-emerald-900/40',
-                    ck === 'amber'   && 'bg-amber-100   dark:bg-amber-900/40',
-                    ck === 'rose'    && 'bg-rose-100    dark:bg-rose-900/40',
-                    ck === 'pink'    && 'bg-pink-100    dark:bg-pink-900/40',
-                    ck === 'orange'  && 'bg-orange-100  dark:bg-orange-900/40',
-                    ck === 'indigo'  && 'bg-indigo-100  dark:bg-indigo-900/40',
-                    ck === 'yellow'  && 'bg-yellow-100  dark:bg-yellow-900/40',
-                    ck === 'red'     && 'bg-red-100     dark:bg-red-900/40',
-                    ck === 'teal'    && 'bg-teal-100    dark:bg-teal-900/40',
-                    ck === 'cyan'    && 'bg-cyan-100    dark:bg-cyan-900/40',
-                    ck === 'slate'   && 'bg-slate-100   dark:bg-slate-800',
-                )}>
-                    <Icon className={cn(
-                        'h-2.5 w-2.5',
-                        ck === 'sky'     && 'text-sky-600     dark:text-sky-400',
-                        ck === 'violet'  && 'text-violet-600  dark:text-violet-400',
-                        ck === 'emerald' && 'text-emerald-600 dark:text-emerald-400',
-                        ck === 'amber'   && 'text-amber-600   dark:text-amber-400',
-                        ck === 'rose'    && 'text-rose-600    dark:text-rose-400',
-                        ck === 'pink'    && 'text-pink-600    dark:text-pink-400',
-                        ck === 'orange'  && 'text-orange-600  dark:text-orange-400',
-                        ck === 'indigo'  && 'text-indigo-600  dark:text-indigo-400',
-                        ck === 'yellow'  && 'text-yellow-600  dark:text-yellow-400',
-                        ck === 'red'     && 'text-red-600     dark:text-red-400',
-                        ck === 'teal'    && 'text-teal-600    dark:text-teal-400',
-                        ck === 'cyan'    && 'text-cyan-600    dark:text-cyan-400',
-                        ck === 'slate'   && 'text-slate-600   dark:text-slate-400',
-                    )} />
-                </span>
-            )}
-            <span className="flex-1 text-left text-[10px] font-bold tracking-[0.07em] uppercase text-gray-400 dark:text-gray-600 group-hover:text-gray-500 dark:group-hover:text-gray-500 transition-colors">
-                {label}
-            </span>
-            <ChevronDown className={cn(
-                'h-3 w-3 text-gray-300 dark:text-gray-700 group-hover:text-gray-400 transition-all duration-200',
-                open ? 'rotate-180' : 'rotate-0',
-            )} />
-        </button>
-    );
-}
-
 /* ── Main sidebar ────────────────────────────────────────────────── */
-export default function Sidebar({ open, onClose }) {
+export default function Sidebar({ open, onClose, isCollapsed = false, onToggleCollapse }) {
     const { url, props } = usePage();
     const user         = props.auth?.user;
     const roles        = user?.roles ?? [];
@@ -514,6 +335,7 @@ export default function Sidebar({ open, onClose }) {
     const onlineCount  = props.online_count ?? 0;
     const masukanCount = props.notifikasi?.masukan ?? 0;
     const appVersion   = props.app_version;
+    const sekolah      = props.sekolah;
 
     const [collapsedGroups, setCollapsedGroups] = useState({});
     const toggleGroup = (label) => setCollapsedGroups(p => ({ ...p, [label]: !p[label] }));
@@ -521,6 +343,14 @@ export default function Sidebar({ open, onClose }) {
     const isGroupOpen = (group) => {
         const hasActive = group.items.some(i => url.split('?')[0] === i.href);
         if (collapsedGroups[group.label] !== undefined) return !collapsedGroups[group.label];
+
+        // Default open untuk Guru (Administrasi Guru) dan Tata Usaha (Tata Usaha)
+        const isGuruGroup = group.label === 'Administrasi Guru' && roles.includes('guru');
+        const isTuGroup = group.label === 'Tata Usaha' && roles.some(r => ['tatausaha', 'kepala_tatausaha'].includes(r));
+        if (isGuruGroup || isTuGroup) {
+            return true;
+        }
+
         return group.collapsible ? hasActive : true;
     };
 
@@ -532,8 +362,6 @@ export default function Sidebar({ open, onClose }) {
             !roles.some(r => ['super_admin', 'kepala_sekolah', 'wakasek_kesiswaan'].includes(r))) return false;
         if (tuSuratOnly && roles.includes('tatausaha') && !isTuSurat &&
             !roles.some(r => ['super_admin', 'kepala_sekolah', 'kepala_tatausaha'].includes(r))) return false;
-        // tuSuratExclude: kebalikan tuSuratOnly — staf TU dengan jabatan 'Tatausaha' hanya
-        // butuh Dokumen Siswa di label Siswa ini, sisanya (Data Siswa dkk) sudah kepala TU.
         if (tuSuratExclude && roles.includes('tatausaha') && isTuSurat &&
             !roles.some(r => ['super_admin', 'kepala_sekolah', 'kepala_tatausaha', 'wakasek_kesiswaan'].includes(r))) return false;
         return !itemRoles || roles.some(r => itemRoles.includes(r));
@@ -562,108 +390,301 @@ export default function Sidebar({ open, onClose }) {
         }).filter(Boolean);
     })();
 
-    const primaryRoleLabel = contextualRoles.length > 0
-        ? contextualRoles.map(r => ROLE_LABELS[r] ?? r.replace(/_/g, ' ')).join(' · ')
-        : (roles[0]?.replace(/_/g, ' ') ?? '');
+    const initials = getInitials(user?.name);
 
     return (
         <>
             {/* Mobile backdrop */}
             {open && (
-                <div className="fixed inset-0 z-20 bg-black/40 backdrop-blur-[2px] lg:hidden" onClick={onClose} />
+                <div className="fixed inset-0 z-40 bg-black/50 backdrop-blur-xs lg:hidden" onClick={onClose} />
             )}
 
-            {/* ── Sidebar — flush, no card float ───────────────── */}
+            {/* ── Sidebar container ─────────────────────────────── */}
             <aside className={cn(
-                'fixed top-0 left-0 bottom-0 z-30 flex flex-col w-64',
-                'bg-white dark:bg-gray-900',
-                'border-r border-gray-200/80 dark:border-gray-800/80',
-                'transition-transform duration-300 ease-in-out',
-                open ? 'translate-x-0' : '-translate-x-full lg:translate-x-0',
+                'fixed top-0 left-0 bottom-0 z-40 flex flex-col bg-white dark:bg-gray-900 border-r border-gray-200/80 dark:border-gray-800/80 transition-all duration-300 ease-in-out',
+                isCollapsed ? 'w-20' : 'w-72',
+                open ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
             )}>
 
-                {/* ── Logo — tinggi h-16 sejajar navbar ─────────── */}
-                <div className="flex h-16 shrink-0 items-center justify-between px-4 border-b border-gray-100 dark:border-gray-800/60">
-                    <Link href="/dashboard" className="flex items-center gap-2.5">
-                        <div className="shrink-0 h-8 w-8 rounded-lg bg-sky-600 flex items-center justify-center overflow-hidden">
-                            <img src="/logodjurnal.svg" alt="DJurnal" className="h-6 w-6 object-contain" />
+                {/* Mobile close button */}
+                <button
+                    type="button"
+                    onClick={onClose}
+                    className="lg:hidden absolute top-3.5 right-3.5 rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors z-20"
+                    aria-label="Tutup Menu"
+                >
+                    <X className="h-4 w-4" />
+                </button>
+
+                {/* ── Profile Section ────── */}
+                <div className={cn(
+                    'relative shrink-0 border-b border-gray-100 dark:border-gray-800/80 transition-all duration-200',
+                    isCollapsed ? 'py-5 px-2 flex justify-center' : 'pt-6 pb-5 px-4 text-center'
+                )}>
+                    {isCollapsed ? (
+                        <Link href="/profile" title={user?.name} className="relative group block">
+                            <div className="w-10 h-10 rounded-full bg-sky-100 dark:bg-sky-950/70 text-sky-600 dark:text-sky-400 font-bold text-sm flex items-center justify-center ring-2 ring-sky-200 dark:ring-sky-800/50 group-hover:scale-105 transition-transform overflow-hidden">
+                                {user?.avatar_url ? (
+                                    <img
+                                        src={user.avatar_url}
+                                        alt={user?.name}
+                                        className="w-full h-full object-cover"
+                                        onError={(e) => {
+                                            e.currentTarget.style.display = 'none';
+                                        }}
+                                    />
+                                ) : (
+                                    initials
+                                )}
+                            </div>
+                        </Link>
+                    ) : (
+                        <div className="flex flex-col items-center">
+                            {/* Avatar Circle with photo or initials */}
+                            <div className="w-14 h-14 rounded-full bg-sky-100 dark:bg-sky-950/70 text-sky-600 dark:text-sky-400 font-bold text-lg flex items-center justify-center ring-4 ring-sky-50 dark:ring-sky-900/30 shadow-2xs select-none overflow-hidden">
+                                {user?.avatar_url ? (
+                                    <img
+                                        src={user.avatar_url}
+                                        alt={user?.name}
+                                        className="w-full h-full object-cover"
+                                        onError={(e) => {
+                                            e.currentTarget.style.display = 'none';
+                                        }}
+                                    />
+                                ) : (
+                                    initials
+                                )}
+                            </div>
+
+                            {/* Full Name */}
+                            <p className="mt-2.5 text-sm sm:text-base font-semibold text-gray-900 dark:text-gray-100 leading-snug truncate max-w-full px-2" title={user?.name}>
+                                {user?.name}
+                            </p>
+
+                            {/* Update Profil link */}
+                            <Link
+                                href="/profile"
+                                className="mt-1.5 inline-flex items-center gap-1.5 text-xs text-gray-500 hover:text-sky-600 dark:text-gray-400 dark:hover:text-sky-400 transition-colors group"
+                            >
+                                <UserPen className="h-4 w-4 group-hover:scale-110 transition-transform" strokeWidth={1.75} />
+                                <span>Update Profil</span>
+                            </Link>
                         </div>
-                        <div>
-                            <span className="block font-black text-gray-900 dark:text-white text-[13px] tracking-tight leading-none">APIKMAS</span>
-                            <span className="block text-[9px] font-bold tracking-[0.2em] uppercase leading-tight mt-[3px] text-sky-500 dark:text-sky-400">
-                                DJurnal
-                            </span>
-                        </div>
-                    </Link>
-                    <button onClick={onClose} className="lg:hidden rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 dark:hover:bg-white/8 transition-colors">
-                        <X className="h-4 w-4" />
-                    </button>
+                    )}
                 </div>
 
-                {/* ── Navigation ───────────────────────────────── */}
-                <nav className="flex-1 overflow-y-auto px-3 py-3
+                {/* ── Navigation Items ─────────────────────────── */}
+                <nav className="flex-1 overflow-y-auto px-3.5 py-3 space-y-1.5
                     [&::-webkit-scrollbar]:w-1
                     [&::-webkit-scrollbar-track]:bg-transparent
                     [&::-webkit-scrollbar-thumb]:rounded-full
                     [&::-webkit-scrollbar-thumb]:bg-gray-200
                     dark:[&::-webkit-scrollbar-thumb]:bg-gray-800">
 
-                    {groups.map(({ group, visibleItems, showDivider, divLabel }, gi) => {
-                        const meta      = GROUP_META[group.label];
-                        const ck        = meta?.ck ?? 'sky';
+                    {groups.map(({ group, visibleItems, showDivider, divLabel }) => {
+                        const meta = GROUP_META[group.label];
+                        const GroupIcon = meta?.icon || Landmark;
+                        const isSingleItem = visibleItems.length === 1 && !group.collapsible;
+
+                        // Case 1: Single direct item (e.g. Dashboard / Masukan)
+                        if (isSingleItem) {
+                            const item = visibleItems[0];
+                            const active = isActive(item.href);
+                            const ItemIcon = item.icon || GroupIcon;
+                            const badge = menuBadges[item.href];
+                            const blocked = badge && BLOCKED_BADGES.has(badge);
+
+                            return (
+                                <div key={group.label} className="pt-1">
+                                    {!isCollapsed && (
+                                        <div className="px-3.5 pt-2 pb-1.5 text-xs font-bold tracking-wider uppercase text-gray-400 dark:text-gray-500">
+                                            {group.label}
+                                        </div>
+                                    )}
+                                    <Link
+                                        href={item.href}
+                                        title={isCollapsed ? item.label : undefined}
+                                        className={cn(
+                                            'flex items-center gap-3 transition-all duration-150',
+                                            isCollapsed
+                                                ? 'justify-center h-11 w-11 mx-auto rounded-lg'
+                                                : 'px-3.5 py-2.5 w-full text-sm font-semibold rounded-lg',
+                                            active
+                                                ? 'bg-sky-50 dark:bg-sky-500/10 text-sky-700 dark:text-sky-300 border border-sky-200/80 dark:border-sky-800/40 font-semibold shadow-2xs'
+                                                : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100/80 dark:hover:bg-gray-800/60 hover:text-gray-900 dark:hover:text-gray-100'
+                                        )}
+                                    >
+                                        <ItemIcon className={cn('h-5 w-5 shrink-0 transition-colors', active ? 'text-sky-600 dark:text-sky-400' : 'text-gray-500 dark:text-gray-400')} strokeWidth={1.75} />
+                                        {!isCollapsed && <span className="truncate leading-tight">{item.label}</span>}
+                                    </Link>
+                                </div>
+                            );
+                        }
+
+                        // Case 2: Multi-item or collapsible group (e.g. Akademik, Siswa, Laporan, Piket, etc.)
                         const groupOpen = isGroupOpen(group);
+                        const anyActive = visibleItems.some(i => isActive(i.href));
+
                         return (
-                            <div key={group.label} className={gi > 0 ? 'mt-1' : ''}>
-                                {showDivider && <RoleDivider label={divLabel} />}
-                                <GroupHeader label={group.label} meta={meta} open={groupOpen} onClick={() => toggleGroup(group.label)} />
-                                <CollapseSection open={groupOpen}>
-                                    <div className="space-y-0.5 pb-1 pl-1">
-                                        {visibleItems.map(item => (
-                                            <SidebarItem
-                                                key={item.href}
-                                                item={item}
-                                                active={isActive(item.href)}
-                                                badge={menuBadges[item.href]}
-                                                ck={ck}
-                                                onlineCount={item.href === '/admin/users' ? onlineCount : 0}
-                                                masukanCount={item.href === '/admin/masukan' ? masukanCount : 0}
-                                            />
-                                        ))}
-                                    </div>
-                                </CollapseSection>
+                            <div key={group.label} className="pt-1">
+                                {showDivider && !isCollapsed && <RoleDivider label={divLabel} />}
+
+                                {/* In collapsed mode, render simple group icon button */}
+                                {isCollapsed ? (
+                                    <button
+                                        type="button"
+                                        onClick={() => toggleGroup(group.label)}
+                                        title={group.label}
+                                        className={cn(
+                                            'flex items-center justify-center h-11 w-11 mx-auto rounded-lg transition-all duration-150',
+                                            anyActive
+                                                ? 'bg-sky-50 dark:bg-sky-950/40 text-sky-600 dark:text-sky-400 font-bold'
+                                                : 'text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800/60'
+                                        )}
+                                    >
+                                        <GroupIcon className="h-5 w-5" strokeWidth={1.75} />
+                                    </button>
+                                ) : (
+                                    <>
+                                        {/* Group Header Button */}
+                                        <button
+                                            type="button"
+                                            onClick={() => toggleGroup(group.label)}
+                                            className={cn(
+                                                'w-full flex items-center justify-between px-3.5 py-2.5 rounded-lg text-sm font-semibold transition-colors group',
+                                                anyActive
+                                                    ? 'text-sky-700 dark:text-sky-300 font-semibold bg-sky-50/60 dark:bg-sky-950/20'
+                                                    : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100/80 dark:hover:bg-gray-800/60'
+                                            )}
+                                        >
+                                            <div className="flex items-center gap-3 min-w-0">
+                                                <GroupIcon className={cn(
+                                                    'h-5 w-5 shrink-0 transition-colors',
+                                                    anyActive ? 'text-sky-600 dark:text-sky-400' : 'text-gray-400 dark:text-gray-500 group-hover:text-gray-600 dark:group-hover:text-gray-300'
+                                                )} strokeWidth={1.75} />
+                                                <span className="truncate text-left">{group.label}</span>
+                                            </div>
+                                            <ChevronDown className={cn(
+                                                'h-4 w-4 transition-transform duration-200 shrink-0',
+                                                groupOpen ? 'rotate-180 text-sky-600 dark:text-sky-400' : 'rotate-0 text-gray-400'
+                                            )} strokeWidth={1.75} />
+                                        </button>
+
+                                        {/* Group Children with Interactive Tree Branch Connecting Lines |-- */}
+                                        <CollapseSection open={groupOpen}>
+                                            <div className="relative ml-6 pl-4 border-l-2 border-gray-200/80 dark:border-gray-800 space-y-1 my-1.5 transition-colors">
+                                                {visibleItems.map(item => {
+                                                    const active = isActive(item.href);
+                                                    const ItemIcon = item.icon || GroupIcon;
+                                                    const badge = menuBadges[item.href];
+                                                    const blocked = badge && BLOCKED_BADGES.has(badge);
+
+                                                    const innerContent = (
+                                                        <>
+                                                            <ItemIcon className={cn(
+                                                                'h-4 w-4 shrink-0 transition-colors',
+                                                                active ? 'text-sky-600 dark:text-sky-400' : 'text-gray-400 dark:text-gray-500 group-hover:text-gray-600 dark:group-hover:text-gray-300'
+                                                            )} strokeWidth={1.75} />
+                                                            <span className="flex-1 truncate leading-tight">{item.label}</span>
+
+                                                            {item.href === '/admin/users' && onlineCount > 0 && (
+                                                                <span className="shrink-0 inline-flex items-center gap-1 rounded-full bg-emerald-500 text-white text-[11px] font-bold px-1.5 py-[2px] leading-none">
+                                                                    <span className="h-1.5 w-1.5 rounded-full bg-white/70 animate-pulse" />
+                                                                    {onlineCount}
+                                                                </span>
+                                                            )}
+                                                            {item.href === '/admin/masukan' && masukanCount > 0 && (
+                                                                <span className="shrink-0 inline-flex items-center justify-center rounded-full bg-rose-500 text-white text-[11px] font-bold min-w-[18px] h-[18px] px-1 leading-none">
+                                                                    {masukanCount > 99 ? '99+' : masukanCount}
+                                                                </span>
+                                                            )}
+                                                            {badge && (
+                                                                <span className={cn('shrink-0 rounded-md px-1.5 py-[2px] text-[11px] font-semibold leading-none', BADGE_STYLES[badge])}>
+                                                                    {blocked ? <Lock className="h-2.5 w-2.5 inline" /> : BADGE_LABELS[badge]}
+                                                                </span>
+                                                            )}
+                                                        </>
+                                                    );
+
+                                                    return (
+                                                        <div key={item.href} className="relative flex items-center group/tree">
+                                                            {/* Clean Tree branch horizontal connector line (tanpa titik) */}
+                                                            <span className={cn(
+                                                                'absolute -left-4 top-1/2 w-4 h-px transition-colors duration-150',
+                                                                active
+                                                                    ? 'bg-sky-500'
+                                                                    : 'bg-gray-200 dark:bg-gray-800 group-hover/tree:bg-gray-300 dark:group-hover/tree:bg-gray-700'
+                                                            )} />
+
+                                                            {blocked ? (
+                                                                <div
+                                                                    className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] font-medium text-gray-400 dark:text-gray-600 opacity-40 cursor-not-allowed w-full"
+                                                                    title="Menu ini sedang tidak tersedia"
+                                                                >
+                                                                    {innerContent}
+                                                                </div>
+                                                            ) : (
+                                                                <Link
+                                                                    href={item.href}
+                                                                    className={cn(
+                                                                        'group flex items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] font-medium transition-all w-full',
+                                                                        active
+                                                                            ? 'bg-sky-50 dark:bg-sky-500/10 text-sky-700 dark:text-sky-300 font-semibold border border-sky-200/80 dark:border-sky-800/40 shadow-2xs'
+                                                                            : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100/80 dark:hover:bg-gray-800/60 hover:text-gray-900 dark:hover:text-gray-100'
+                                                                    )}
+                                                                >
+                                                                    {innerContent}
+                                                                </Link>
+                                                            )}
+                                                        </div>
+                                                    );
+                                                })}
+                                            </div>
+                                        </CollapseSection>
+                                    </>
+                                )}
                             </div>
                         );
                     })}
                 </nav>
 
-                {/* ── User footer ──────────────────────────────── */}
-                <div className="shrink-0 px-3 pb-3 pt-2 border-t border-gray-100 dark:border-gray-800/60">
-                    <Link href="/profile"
-                        className="flex items-center gap-2.5 rounded-lg px-2.5 py-2
-                            hover:bg-gray-50 dark:hover:bg-white/[0.04]
-                            transition-colors group">
-                        <div className="relative shrink-0">
-                            <img
-                                src={user?.avatar_url}
-                                alt={user?.name}
-                                className="h-8 w-8 rounded-lg object-cover ring-[1.5px] ring-gray-200 dark:ring-white/10"
-                                onError={e => {
-                                    e.target.onerror = null;
-                                    e.target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(user?.name ?? '?')}&background=0284c7&color=fff&bold=true&size=64`;
-                                }}
-                            />
-                            <span className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-emerald-400 ring-[1.5px] ring-white dark:ring-gray-900" />
+                {/* ── Footer Section (Matching Screenshot) ────── */}
+                <div className="shrink-0 p-3.5 border-t border-gray-100 dark:border-gray-800/80 bg-white dark:bg-gray-900">
+                    {!isCollapsed ? (
+                        <div className="space-y-2">
+                            {/* Version Info Row */}
+                            <div className="flex items-center justify-between px-1 text-xs">
+                                <span className="text-gray-400 dark:text-gray-500">Versi aplikasi</span>
+                                <span className="font-semibold text-gray-600 dark:text-gray-300">
+                                    v{appVersion || '1.0.10'}
+                                </span>
+                            </div>
+
+                            {/* Collapse Button */}
+                            <button
+                                type="button"
+                                onClick={onToggleCollapse}
+                                className="flex items-center gap-2.5 w-full px-3 py-2.5 text-xs font-medium text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
+                            >
+                                <PanelLeftClose className="h-4.5 w-4.5 shrink-0 text-gray-500 dark:text-gray-400" strokeWidth={1.75} />
+                                <span>Ciutkan sidebar</span>
+                            </button>
                         </div>
-                        <div className="flex-1 min-w-0">
-                            <p className="text-[12.5px] font-semibold text-gray-900 dark:text-gray-100 truncate leading-tight">{user?.name}</p>
-                            <p className="text-[10.5px] text-gray-400 dark:text-gray-500 truncate capitalize leading-tight mt-0.5">{primaryRoleLabel}</p>
+                    ) : (
+                        <div className="flex flex-col items-center gap-2">
+                            <span className="text-[10px] font-mono text-gray-400 dark:text-gray-500">
+                                v{appVersion || '1.0'}
+                            </span>
+                            <button
+                                type="button"
+                                onClick={onToggleCollapse}
+                                title="Perlebar sidebar"
+                                aria-label="Perlebar sidebar"
+                                className="flex items-center justify-center p-2.5 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
+                            >
+                                <PanelLeftOpen className="h-4.5 w-4.5" strokeWidth={1.75} />
+                            </button>
                         </div>
-                        <ChevronRight className="h-3.5 w-3.5 shrink-0 text-gray-300 dark:text-gray-700 group-hover:text-gray-400 transition-colors" />
-                    </Link>
-                    {appVersion && (
-                        <p className="text-center text-[10px] text-gray-300 dark:text-gray-700 mt-1.5 tracking-wide">
-                            APIKMAS DJurnal v{appVersion}
-                        </p>
                     )}
                 </div>
             </aside>
