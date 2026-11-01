@@ -582,6 +582,9 @@ class KpiController extends Controller
             return Inertia::render('Guru/KPI/Index', ['rekap' => []]);
         }
 
+        // Tandai semua KPI guru ini sebagai telah dibaca
+        KpiGuru::where('guru_id', $guruId)->whereNull('dibaca_pada')->update(['dibaca_pada' => now()]);
+
         $rekap = KpiGuru::with(['indikator', 'tahunAjaran'])
             ->where('guru_id', $guruId)
             ->orderByDesc('bulan')
@@ -610,6 +613,31 @@ class KpiController extends Controller
             ->values();
 
         return Inertia::render('Guru/KPI/Index', ['rekap' => $rekap]);
+    }
+
+    // ── Tandai KPI sudah dibaca (dismiss modal popup) ─────────────────────────
+    public function tandaiDibaca(Request $request)
+    {
+        $user  = $request->user();
+        $bulan = $request->input('bulan');
+
+        if ($guruId = $user->guru?->id) {
+            $query = KpiGuru::where('guru_id', $guruId)->whereNull('dibaca_pada');
+            if ($bulan) {
+                $query->where('bulan', $bulan);
+            }
+            $query->update(['dibaca_pada' => now()]);
+        }
+
+        if ($tuId = $user->tatausaha?->id) {
+            $query = KpiTatausaha::where('tatausaha_id', $tuId)->whereNull('dibaca_pada');
+            if ($bulan) {
+                $query->where('bulan', $bulan);
+            }
+            $query->update(['dibaca_pada' => now()]);
+        }
+
+        return response()->json(['success' => true]);
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────

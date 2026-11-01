@@ -402,7 +402,7 @@ export default function Sidebar({ open, onClose, isCollapsed = false, onToggleCo
             {/* ── Sidebar container ─────────────────────────────── */}
             <aside className={cn(
                 'fixed top-0 left-0 bottom-0 z-40 flex flex-col bg-white dark:bg-gray-900 border-r border-gray-200/80 dark:border-gray-800/80 transition-all duration-300 ease-in-out',
-                isCollapsed ? 'w-20' : 'w-72',
+                isCollapsed ? 'w-20' : 'w-64',
                 open ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
             )}>
 
@@ -419,11 +419,11 @@ export default function Sidebar({ open, onClose, isCollapsed = false, onToggleCo
                 {/* ── Profile Section ────── */}
                 <div className={cn(
                     'relative shrink-0 border-b border-gray-100 dark:border-gray-800/80 transition-all duration-200',
-                    isCollapsed ? 'py-5 px-2 flex justify-center' : 'pt-6 pb-5 px-4 text-center'
+                    isCollapsed ? 'py-4 px-2 flex justify-center' : 'pt-5 pb-4 px-3 text-center'
                 )}>
                     {isCollapsed ? (
                         <Link href="/profile" title={user?.name} className="relative group block">
-                            <div className="w-10 h-10 rounded-full bg-sky-100 dark:bg-sky-950/70 text-sky-600 dark:text-sky-400 font-bold text-sm flex items-center justify-center ring-2 ring-sky-200 dark:ring-sky-800/50 group-hover:scale-105 transition-transform overflow-hidden">
+                            <div className="w-9 h-9 rounded-full bg-sky-100 dark:bg-sky-950/70 text-sky-600 dark:text-sky-400 font-bold text-xs flex items-center justify-center ring-2 ring-sky-200 dark:ring-sky-800/50 group-hover:scale-105 transition-transform overflow-hidden">
                                 {user?.avatar_url ? (
                                     <img
                                         src={user.avatar_url}
@@ -441,7 +441,7 @@ export default function Sidebar({ open, onClose, isCollapsed = false, onToggleCo
                     ) : (
                         <div className="flex flex-col items-center">
                             {/* Avatar Circle with photo or initials */}
-                            <div className="w-14 h-14 rounded-full bg-sky-100 dark:bg-sky-950/70 text-sky-600 dark:text-sky-400 font-bold text-lg flex items-center justify-center ring-4 ring-sky-50 dark:ring-sky-900/30 shadow-2xs select-none overflow-hidden">
+                            <div className="w-12 h-12 rounded-full bg-sky-100 dark:bg-sky-950/70 text-sky-600 dark:text-sky-400 font-bold text-base flex items-center justify-center ring-3 ring-sky-50 dark:ring-sky-900/30 shadow-2xs select-none overflow-hidden">
                                 {user?.avatar_url ? (
                                     <img
                                         src={user.avatar_url}
@@ -457,16 +457,16 @@ export default function Sidebar({ open, onClose, isCollapsed = false, onToggleCo
                             </div>
 
                             {/* Full Name */}
-                            <p className="mt-2.5 text-sm sm:text-base font-semibold text-gray-900 dark:text-gray-100 leading-snug truncate max-w-full px-2" title={user?.name}>
+                            <p className="mt-2 text-sm font-semibold text-gray-900 dark:text-gray-100 leading-snug truncate max-w-full px-2" title={user?.name}>
                                 {user?.name}
                             </p>
 
                             {/* Update Profil link */}
                             <Link
                                 href="/profile"
-                                className="mt-1.5 inline-flex items-center gap-1.5 text-xs text-gray-500 hover:text-sky-600 dark:text-gray-400 dark:hover:text-sky-400 transition-colors group"
+                                className="mt-1 inline-flex items-center gap-1.5 text-xs text-gray-500 hover:text-sky-600 dark:text-gray-400 dark:hover:text-sky-400 transition-colors group"
                             >
-                                <UserPen className="h-4 w-4 group-hover:scale-110 transition-transform" strokeWidth={1.75} />
+                                <UserPen className="h-3.5 w-3.5 group-hover:scale-110 transition-transform" strokeWidth={1.75} />
                                 <span>Update Profil</span>
                             </Link>
                         </div>
@@ -474,7 +474,7 @@ export default function Sidebar({ open, onClose, isCollapsed = false, onToggleCo
                 </div>
 
                 {/* ── Navigation Items ─────────────────────────── */}
-                <nav className="flex-1 overflow-y-auto px-3.5 py-3 space-y-1.5
+                <nav className="flex-1 overflow-y-auto px-2.5 py-2.5 space-y-1
                     [&::-webkit-scrollbar]:w-1
                     [&::-webkit-scrollbar-track]:bg-transparent
                     [&::-webkit-scrollbar-thumb]:rounded-full
@@ -495,9 +495,9 @@ export default function Sidebar({ open, onClose, isCollapsed = false, onToggleCo
                             const blocked = badge && BLOCKED_BADGES.has(badge);
 
                             return (
-                                <div key={group.label} className="pt-1">
+                                <div key={group.label} className="pt-0.5">
                                     {!isCollapsed && (
-                                        <div className="px-3.5 pt-2 pb-1.5 text-xs font-bold tracking-wider uppercase text-gray-400 dark:text-gray-500">
+                                        <div className="px-3 pt-1.5 pb-1 text-[11px] font-bold tracking-wider uppercase text-gray-400 dark:text-gray-500">
                                             {group.label}
                                         </div>
                                     )}
@@ -505,16 +505,16 @@ export default function Sidebar({ open, onClose, isCollapsed = false, onToggleCo
                                         href={item.href}
                                         title={isCollapsed ? item.label : undefined}
                                         className={cn(
-                                            'flex items-center gap-3 transition-all duration-150',
+                                            'flex items-center gap-2.5 transition-all duration-150',
                                             isCollapsed
-                                                ? 'justify-center h-11 w-11 mx-auto rounded-lg'
-                                                : 'px-3.5 py-2.5 w-full text-sm font-semibold rounded-lg',
+                                                ? 'justify-center h-10 w-10 mx-auto rounded-lg'
+                                                : 'px-3 py-2 w-full text-[13px] font-semibold rounded-lg',
                                             active
                                                 ? 'bg-sky-50 dark:bg-sky-500/10 text-sky-700 dark:text-sky-300 border border-sky-200/80 dark:border-sky-800/40 font-semibold shadow-2xs'
                                                 : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100/80 dark:hover:bg-gray-800/60 hover:text-gray-900 dark:hover:text-gray-100'
                                         )}
                                     >
-                                        <ItemIcon className={cn('h-5 w-5 shrink-0 transition-colors', active ? 'text-sky-600 dark:text-sky-400' : 'text-gray-500 dark:text-gray-400')} strokeWidth={1.75} />
+                                        <ItemIcon className={cn('h-4.5 w-4.5 shrink-0 transition-colors', active ? 'text-sky-600 dark:text-sky-400' : 'text-gray-500 dark:text-gray-400')} strokeWidth={1.75} />
                                         {!isCollapsed && <span className="truncate leading-tight">{item.label}</span>}
                                     </Link>
                                 </div>
@@ -526,7 +526,7 @@ export default function Sidebar({ open, onClose, isCollapsed = false, onToggleCo
                         const anyActive = visibleItems.some(i => isActive(i.href));
 
                         return (
-                            <div key={group.label} className="pt-1">
+                            <div key={group.label} className="pt-0.5">
                                 {showDivider && !isCollapsed && <RoleDivider label={divLabel} />}
 
                                 {/* In collapsed mode, render simple group icon button */}
@@ -536,13 +536,13 @@ export default function Sidebar({ open, onClose, isCollapsed = false, onToggleCo
                                         onClick={() => toggleGroup(group.label)}
                                         title={group.label}
                                         className={cn(
-                                            'flex items-center justify-center h-11 w-11 mx-auto rounded-lg transition-all duration-150',
+                                            'flex items-center justify-center h-10 w-10 mx-auto rounded-lg transition-all duration-150',
                                             anyActive
                                                 ? 'bg-sky-50 dark:bg-sky-950/40 text-sky-600 dark:text-sky-400 font-bold'
                                                 : 'text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800/60'
                                         )}
                                     >
-                                        <GroupIcon className="h-5 w-5" strokeWidth={1.75} />
+                                        <GroupIcon className="h-4.5 w-4.5" strokeWidth={1.75} />
                                     </button>
                                 ) : (
                                     <>
@@ -551,28 +551,28 @@ export default function Sidebar({ open, onClose, isCollapsed = false, onToggleCo
                                             type="button"
                                             onClick={() => toggleGroup(group.label)}
                                             className={cn(
-                                                'w-full flex items-center justify-between px-3.5 py-2.5 rounded-lg text-sm font-semibold transition-colors group',
+                                                'w-full flex items-center justify-between px-3 py-2 rounded-lg text-[13px] font-semibold transition-colors group',
                                                 anyActive
                                                     ? 'text-sky-700 dark:text-sky-300 font-semibold bg-sky-50/60 dark:bg-sky-950/20'
                                                     : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100/80 dark:hover:bg-gray-800/60'
                                             )}
                                         >
-                                            <div className="flex items-center gap-3 min-w-0">
+                                            <div className="flex items-center gap-2.5 min-w-0">
                                                 <GroupIcon className={cn(
-                                                    'h-5 w-5 shrink-0 transition-colors',
+                                                    'h-4.5 w-4.5 shrink-0 transition-colors',
                                                     anyActive ? 'text-sky-600 dark:text-sky-400' : 'text-gray-400 dark:text-gray-500 group-hover:text-gray-600 dark:group-hover:text-gray-300'
                                                 )} strokeWidth={1.75} />
                                                 <span className="truncate text-left">{group.label}</span>
                                             </div>
                                             <ChevronDown className={cn(
-                                                'h-4 w-4 transition-transform duration-200 shrink-0',
+                                                'h-3.5 w-3.5 transition-transform duration-200 shrink-0',
                                                 groupOpen ? 'rotate-180 text-sky-600 dark:text-sky-400' : 'rotate-0 text-gray-400'
                                             )} strokeWidth={1.75} />
                                         </button>
 
                                         {/* Group Children with Interactive Tree Branch Connecting Lines |-- */}
                                         <CollapseSection open={groupOpen}>
-                                            <div className="relative ml-6 pl-4 border-l-2 border-gray-200/80 dark:border-gray-800 space-y-1 my-1.5 transition-colors">
+                                            <div className="relative ml-4 pl-3 border-l-2 border-gray-200/80 dark:border-gray-800 space-y-0.5 my-1 transition-colors">
                                                 {visibleItems.map(item => {
                                                     const active = isActive(item.href);
                                                     const ItemIcon = item.icon || GroupIcon;
@@ -582,24 +582,24 @@ export default function Sidebar({ open, onClose, isCollapsed = false, onToggleCo
                                                     const innerContent = (
                                                         <>
                                                             <ItemIcon className={cn(
-                                                                'h-4 w-4 shrink-0 transition-colors',
+                                                                'h-3.5 w-3.5 shrink-0 transition-colors',
                                                                 active ? 'text-sky-600 dark:text-sky-400' : 'text-gray-400 dark:text-gray-500 group-hover:text-gray-600 dark:group-hover:text-gray-300'
                                                             )} strokeWidth={1.75} />
                                                             <span className="flex-1 truncate leading-tight">{item.label}</span>
 
                                                             {item.href === '/admin/users' && onlineCount > 0 && (
-                                                                <span className="shrink-0 inline-flex items-center gap-1 rounded-full bg-emerald-500 text-white text-[11px] font-bold px-1.5 py-[2px] leading-none">
+                                                                <span className="shrink-0 inline-flex items-center gap-1 rounded-full bg-emerald-500 text-white text-[10px] font-bold px-1.5 py-[1px] leading-none">
                                                                     <span className="h-1.5 w-1.5 rounded-full bg-white/70 animate-pulse" />
                                                                     {onlineCount}
                                                                 </span>
                                                             )}
                                                             {item.href === '/admin/masukan' && masukanCount > 0 && (
-                                                                <span className="shrink-0 inline-flex items-center justify-center rounded-full bg-rose-500 text-white text-[11px] font-bold min-w-[18px] h-[18px] px-1 leading-none">
+                                                                <span className="shrink-0 inline-flex items-center justify-center rounded-full bg-rose-500 text-white text-[10px] font-bold min-w-[16px] h-[16px] px-1 leading-none">
                                                                     {masukanCount > 99 ? '99+' : masukanCount}
                                                                 </span>
                                                             )}
                                                             {badge && (
-                                                                <span className={cn('shrink-0 rounded-md px-1.5 py-[2px] text-[11px] font-semibold leading-none', BADGE_STYLES[badge])}>
+                                                                <span className={cn('shrink-0 rounded-md px-1.5 py-[1px] text-[10px] font-semibold leading-none', BADGE_STYLES[badge])}>
                                                                     {blocked ? <Lock className="h-2.5 w-2.5 inline" /> : BADGE_LABELS[badge]}
                                                                 </span>
                                                             )}
@@ -610,7 +610,7 @@ export default function Sidebar({ open, onClose, isCollapsed = false, onToggleCo
                                                         <div key={item.href} className="relative flex items-center group/tree">
                                                             {/* Clean Tree branch horizontal connector line (tanpa titik) */}
                                                             <span className={cn(
-                                                                'absolute -left-4 top-1/2 w-4 h-px transition-colors duration-150',
+                                                                'absolute -left-3 top-1/2 w-3 h-px transition-colors duration-150',
                                                                 active
                                                                     ? 'bg-sky-500'
                                                                     : 'bg-gray-200 dark:bg-gray-800 group-hover/tree:bg-gray-300 dark:group-hover/tree:bg-gray-700'
@@ -618,7 +618,7 @@ export default function Sidebar({ open, onClose, isCollapsed = false, onToggleCo
 
                                                             {blocked ? (
                                                                 <div
-                                                                    className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] font-medium text-gray-400 dark:text-gray-600 opacity-40 cursor-not-allowed w-full"
+                                                                    className="flex items-center gap-2 rounded-lg px-2.5 py-1.5 text-[12.5px] font-medium text-gray-400 dark:text-gray-600 opacity-40 cursor-not-allowed w-full"
                                                                     title="Menu ini sedang tidak tersedia"
                                                                 >
                                                                     {innerContent}
@@ -627,7 +627,7 @@ export default function Sidebar({ open, onClose, isCollapsed = false, onToggleCo
                                                                 <Link
                                                                     href={item.href}
                                                                     className={cn(
-                                                                        'group flex items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] font-medium transition-all w-full',
+                                                                        'group flex items-center gap-2 rounded-lg px-2.5 py-1.5 text-[12.5px] font-medium transition-all w-full',
                                                                         active
                                                                             ? 'bg-sky-50 dark:bg-sky-500/10 text-sky-700 dark:text-sky-300 font-semibold border border-sky-200/80 dark:border-sky-800/40 shadow-2xs'
                                                                             : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100/80 dark:hover:bg-gray-800/60 hover:text-gray-900 dark:hover:text-gray-100'
@@ -649,11 +649,11 @@ export default function Sidebar({ open, onClose, isCollapsed = false, onToggleCo
                 </nav>
 
                 {/* ── Footer Section (Matching Screenshot) ────── */}
-                <div className="shrink-0 p-3.5 border-t border-gray-100 dark:border-gray-800/80 bg-white dark:bg-gray-900">
+                <div className="shrink-0 p-3 border-t border-gray-100 dark:border-gray-800/80 bg-white dark:bg-gray-900">
                     {!isCollapsed ? (
-                        <div className="space-y-2">
+                        <div className="space-y-1.5">
                             {/* Version Info Row */}
-                            <div className="flex items-center justify-between px-1 text-xs">
+                            <div className="flex items-center justify-between px-1 text-[11px]">
                                 <span className="text-gray-400 dark:text-gray-500">Versi aplikasi</span>
                                 <span className="font-semibold text-gray-600 dark:text-gray-300">
                                     v{appVersion || '1.0.10'}
@@ -664,14 +664,14 @@ export default function Sidebar({ open, onClose, isCollapsed = false, onToggleCo
                             <button
                                 type="button"
                                 onClick={onToggleCollapse}
-                                className="flex items-center gap-2.5 w-full px-3 py-2.5 text-xs font-medium text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
+                                className="flex items-center gap-2 w-full px-2.5 py-2 text-xs font-medium text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
                             >
-                                <PanelLeftClose className="h-4.5 w-4.5 shrink-0 text-gray-500 dark:text-gray-400" strokeWidth={1.75} />
+                                <PanelLeftClose className="h-4 w-4 shrink-0 text-gray-500 dark:text-gray-400" strokeWidth={1.75} />
                                 <span>Ciutkan sidebar</span>
                             </button>
                         </div>
                     ) : (
-                        <div className="flex flex-col items-center gap-2">
+                        <div className="flex flex-col items-center gap-1.5">
                             <span className="text-[10px] font-mono text-gray-400 dark:text-gray-500">
                                 v{appVersion || '1.0'}
                             </span>
@@ -680,9 +680,9 @@ export default function Sidebar({ open, onClose, isCollapsed = false, onToggleCo
                                 onClick={onToggleCollapse}
                                 title="Perlebar sidebar"
                                 aria-label="Perlebar sidebar"
-                                className="flex items-center justify-center p-2.5 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
+                                className="flex items-center justify-center p-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
                             >
-                                <PanelLeftOpen className="h-4.5 w-4.5" strokeWidth={1.75} />
+                                <PanelLeftOpen className="h-4 w-4" strokeWidth={1.75} />
                             </button>
                         </div>
                     )}

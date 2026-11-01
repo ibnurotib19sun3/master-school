@@ -9,11 +9,16 @@ class KpiTatausaha extends Model
     protected $table = 'kpi_tatausaha';
     protected $fillable = [
         'tatausaha_id', 'tahun_ajaran_id', 'kpi_indikator_id',
-        'bulan', 'persen', 'bobot_snapshot', 'nilai', 'catatan', 'dinilai_oleh',
+        'bulan', 'persen', 'bobot_snapshot', 'nilai', 'catatan', 'dinilai_oleh', 'dibaca_pada',
     ];
     protected function casts(): array
     {
-        return ['nilai' => 'decimal:2', 'persen' => 'decimal:2', 'bobot_snapshot' => 'decimal:2'];
+        return [
+            'nilai'          => 'decimal:2',
+            'persen'         => 'decimal:2',
+            'bobot_snapshot' => 'decimal:2',
+            'dibaca_pada'    => 'datetime',
+        ];
     }
 
     public function tatausaha() { return $this->belongsTo(Tatausaha::class); }

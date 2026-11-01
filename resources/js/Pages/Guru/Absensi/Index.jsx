@@ -118,30 +118,37 @@ export default function AbsensiIndex({
                             );
                         }
 
+                        const jamMulaiSelesai = (jurnal.jam_mulai && jurnal.jam_selesai)
+                            ? `${jurnal.jam_mulai.substring(0, 5)} – ${jurnal.jam_selesai.substring(0, 5)}`
+                            : null;
+
                         return (
-                            <div key={jurnal.id} className={`rounded-xl border p-3 bg-white dark:bg-gray-800 ${
-                                absensiIsi ? 'border-emerald-200 dark:border-emerald-800' : 'border-gray-200 dark:border-gray-700'
+                            <div key={jurnal.id} className={`rounded-xl border p-3 sm:p-3.5 bg-white dark:bg-gray-800 transition-all ${
+                                absensiIsi ? 'border-emerald-200 dark:border-emerald-800/80 shadow-2xs' : 'border-gray-200 dark:border-gray-700 shadow-2xs'
                             }`}>
-                                <div className="flex items-center gap-3">
-                                    {/* Jam badge */}
-                                    <div className="shrink-0">
-                                        <div className="h-10 w-14 rounded-lg bg-sky-100 dark:bg-sky-900/40 flex items-center justify-center">
-                                            <span className="text-[10px] font-bold text-sky-700 dark:text-sky-300 leading-tight whitespace-nowrap text-center px-0.5">
-                                                {jurnal.jam_range ?? '–'}
+                                <div className="flex items-start sm:items-center gap-3">
+                                    {/* Jam & Waktu Badge (Stacked, tidak overflow) */}
+                                    <div className="shrink-0 flex flex-col items-center justify-center min-w-[5.5rem] px-2.5 py-1.5 rounded-xl bg-sky-50 dark:bg-sky-950/50 border border-sky-200/80 dark:border-sky-800/60 shadow-2xs text-center">
+                                        <span className="text-xs font-bold text-sky-800 dark:text-sky-200 leading-tight">
+                                            {jurnal.jam_range ?? '–'}
+                                        </span>
+                                        {jamMulaiSelesai && (
+                                            <span className="text-[10px] font-semibold text-sky-600/90 dark:text-sky-400/90 mt-0.5 leading-tight tracking-tight">
+                                                {jamMulaiSelesai}
                                             </span>
-                                        </div>
+                                        )}
                                     </div>
 
                                     <div className="flex-1 min-w-0">
-                                        {/* Baris 1: mapel + status + action (tidak wrap) */}
-                                        <div className="flex items-center gap-2">
+                                        {/* Baris 1: mapel + status + action */}
+                                        <div className="flex items-start sm:items-center justify-between gap-2">
                                             <div className="flex-1 min-w-0">
-                                                <p className="font-bold text-sm text-gray-900 dark:text-gray-100 truncate leading-tight">{mapel}</p>
-                                                <p className="text-xs text-gray-500 dark:text-gray-400 truncate leading-tight">{rombel}</p>
+                                                <p className="font-bold text-sm text-gray-900 dark:text-gray-100 truncate leading-snug">{mapel}</p>
+                                                <p className="text-xs text-gray-500 dark:text-gray-400 truncate mt-0.5 leading-tight">{rombel}</p>
                                             </div>
                                             <div className="flex items-center gap-1.5 shrink-0">
                                                 {piketSt && (
-                                                    <span className={`text-xs font-semibold px-1.5 py-0.5 rounded-full ${PIKET_COLOR[piketSt]}`}>
+                                                    <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${PIKET_COLOR[piketSt]}`}>
                                                         {PIKET_LABEL[piketSt] ?? piketSt}
                                                     </span>
                                                 )}
@@ -150,9 +157,9 @@ export default function AbsensiIndex({
                                         </div>
 
                                         {/* Baris 2: jurnal info + stats chips */}
-                                        <div className="mt-1.5 flex items-center gap-1.5">
-                                            <span className="inline-flex items-center gap-1 text-xs text-sky-600 dark:text-sky-400 bg-sky-50 dark:bg-sky-900/20 px-2 py-0.5 rounded-full border border-sky-100 dark:border-sky-800 min-w-0">
-                                                <FileText className="h-3 w-3 shrink-0" />
+                                        <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
+                                            <span className="inline-flex items-center gap-1.5 text-xs text-sky-700 dark:text-sky-300 bg-sky-50 dark:bg-sky-900/20 px-2.5 py-1 rounded-lg border border-sky-100 dark:border-sky-800 min-w-0 max-w-full">
+                                                <FileText className="h-3 w-3 shrink-0 text-sky-600 dark:text-sky-400" />
                                                 <span className="truncate">P{jurnal.pertemuan_ke}: {jurnal.materi_pokok}</span>
                                             </span>
                                             {absensiIsi && (
@@ -174,33 +181,41 @@ export default function AbsensiIndex({
                     {jadwalUncovered.map((item) => {
                         const mapel  = item.pembelajaran?.mata_pelajaran?.nama ?? '–';
                         const rombel = item.pembelajaran?.rombel?.nama ?? '–';
-                        const jamLabel = item.jam_mulai && item.jam_selesai
-                            ? `${item.jam_mulai.substring(0,5)}–${item.jam_selesai.substring(0,5)}`
-                            : `Jam ${item.jam_ke}`;
+                        const jamWaktu = (item.jam_mulai && item.jam_selesai)
+                            ? `${item.jam_mulai.substring(0, 5)} – ${item.jam_selesai.substring(0, 5)}`
+                            : null;
+
                         return (
-                            <div key={item.id} className="rounded-xl border border-amber-200 dark:border-amber-800 p-3 bg-amber-50 dark:bg-amber-950/30">
-                                <div className="flex items-center gap-3">
-                                    <div className="shrink-0">
-                                        <div className="h-10 w-14 rounded-lg bg-amber-200 dark:bg-amber-900/40 flex flex-col items-center justify-center">
-                                            <span className="text-[10px] font-bold text-amber-700 dark:text-amber-300 leading-tight whitespace-nowrap text-center px-0.5">{jamLabel}</span>
-                                        </div>
+                            <div key={item.id} className="rounded-xl border border-amber-200 dark:border-amber-800/80 p-3 sm:p-3.5 bg-amber-50/70 dark:bg-amber-950/30 shadow-2xs">
+                                <div className="flex items-start sm:items-center gap-3">
+                                    {/* Jam & Waktu Badge (Stacked, tidak overflow) */}
+                                    <div className="shrink-0 flex flex-col items-center justify-center min-w-[5.5rem] px-2.5 py-1.5 rounded-xl bg-amber-100 dark:bg-amber-900/40 border border-amber-300/80 dark:border-amber-700/60 shadow-2xs text-center">
+                                        <span className="text-xs font-bold text-amber-900 dark:text-amber-200 leading-tight">
+                                            Jam {item.jam_ke}
+                                        </span>
+                                        {jamWaktu && (
+                                            <span className="text-[10px] font-semibold text-amber-700 dark:text-amber-400 mt-0.5 leading-tight tracking-tight">
+                                                {jamWaktu}
+                                            </span>
+                                        )}
                                     </div>
+
                                     <div className="flex-1 min-w-0">
-                                        <div className="flex items-center gap-2">
+                                        <div className="flex items-start sm:items-center justify-between gap-2">
                                             <div className="flex-1 min-w-0">
-                                                <p className="font-bold text-sm text-gray-900 dark:text-gray-100 truncate leading-tight">{mapel}</p>
-                                                <p className="text-xs text-gray-500 dark:text-gray-400 truncate leading-tight">{rombel}</p>
+                                                <p className="font-bold text-sm text-gray-900 dark:text-gray-100 truncate leading-snug">{mapel}</p>
+                                                <p className="text-xs text-gray-500 dark:text-gray-400 truncate mt-0.5 leading-tight">{rombel}</p>
                                             </div>
                                             <Link
                                                 href="/guru/jurnal"
-                                                className="inline-flex items-center gap-1 text-xs font-medium px-2 py-1 rounded-lg bg-amber-100 text-amber-700 border border-amber-300 dark:bg-amber-900/30 dark:text-amber-300 dark:border-amber-700 hover:bg-amber-200 dark:hover:bg-amber-900/50 whitespace-nowrap shrink-0"
+                                                className="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-lg bg-amber-100 text-amber-800 border border-amber-300 dark:bg-amber-900/40 dark:text-amber-300 dark:border-amber-700 hover:bg-amber-200 dark:hover:bg-amber-900/60 whitespace-nowrap shrink-0 transition-colors"
                                             >
                                                 <FileText className="h-3 w-3 shrink-0" /> Isi Jurnal
                                             </Link>
                                         </div>
-                                        <div className="mt-1.5">
-                                            <span className="inline-flex items-center gap-1 text-xs text-amber-600 dark:text-amber-400">
-                                                <AlertCircle className="h-3 w-3 shrink-0" />
+                                        <div className="mt-2">
+                                            <span className="inline-flex items-center gap-1.5 text-xs text-amber-700 dark:text-amber-300">
+                                                <AlertCircle className="h-3.5 w-3.5 shrink-0 text-amber-600 dark:text-amber-400" />
                                                 Isi jurnal mengajar dulu agar presensi bisa dibuka
                                             </span>
                                         </div>

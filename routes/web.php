@@ -106,6 +106,9 @@ Route::middleware('auth')->group(function () {
     Route::put('/profile/password', [ProfileController::class, 'updatePassword'])->name('profile.password');
     Route::put('/profile/guru', [ProfileController::class, 'updateGuru'])->name('profile.guru');
 
+    // KPI Read status (popup notification)
+    Route::post('/kpi/tandai-dibaca', [KpiController::class, 'tandaiDibaca'])->name('kpi.tandai-dibaca');
+
     // File preview — serve stored files inline (PDF opens in browser, etc.)
     Route::get('/media/preview', function (\Illuminate\Http\Request $request) {
         $path = ltrim($request->query('path', ''), '/');

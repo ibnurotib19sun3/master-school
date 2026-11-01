@@ -278,6 +278,9 @@ class KpiTatausahaController extends Controller
             return Inertia::render('TataUsaha/KPI/Index', ['rekap' => []]);
         }
 
+        // Tandai semua KPI tata usaha ini sebagai telah dibaca
+        KpiTatausaha::where('tatausaha_id', $tuId)->whereNull('dibaca_pada')->update(['dibaca_pada' => now()]);
+
         $rekap = KpiTatausaha::with(['indikator', 'tahunAjaran'])
             ->where('tatausaha_id', $tuId)
             ->orderByDesc('bulan')

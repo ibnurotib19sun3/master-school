@@ -3,7 +3,7 @@ import { usePage, router, Head, Link } from '@inertiajs/react';
 import Sidebar from '@/Components/Sidebar';
 import Navbar from '@/Components/Navbar';
 import FloatingMasukan from '@/Components/FloatingMasukan';
-import { CheckCircle, XCircle, Info, X, Clock, AlertTriangle, Megaphone, Home, ChevronRight } from 'lucide-react';
+import { CheckCircle, XCircle, Info, X, Clock, AlertTriangle, Megaphone, Home, ChevronRight, Trophy, ArrowRight } from 'lucide-react';
 
 function getGreeting() {
     const h = new Date().getHours();
@@ -385,6 +385,203 @@ function AnnouncementPopup() {
     );
 }
 
+function KpiNotificationPopup() {
+    const { kpi_popup } = usePage().props;
+    const [visible, setVisible] = useState(false);
+    const [leaving, setLeaving] = useState(false);
+
+    useEffect(() => {
+        if (kpi_popup) {
+            setVisible(true);
+            setLeaving(false);
+        }
+    }, [kpi_popup?.id, kpi_popup?.bulan]);
+
+    if (!visible || !kpi_popup) return null;
+
+    const dismiss = (goToDetail = false) => {
+        setLeaving(true);
+        try {
+            if (window.axios) {
+                window.axios.post('/kpi/tandai-dibaca', { bulan: kpi_popup.bulan }).catch(() => {});
+            }
+        } catch (_) {}
+
+        setTimeout(() => {
+            setVisible(false);
+            if (goToDetail && kpi_popup.detail_url) {
+                router.visit(kpi_popup.detail_url);
+            }
+        }, 250);
+    };
+
+    const predikatColor = {
+        emerald: {
+            bg: 'bg-emerald-50 dark:bg-emerald-950/40',
+            text: 'text-emerald-700 dark:text-emerald-300',
+            border: 'border-emerald-200 dark:border-emerald-800/60',
+            badge: 'bg-emerald-500 text-white',
+        },
+        sky: {
+            bg: 'bg-sky-50 dark:bg-sky-950/40',
+            text: 'text-sky-700 dark:text-sky-300',
+            border: 'border-sky-200 dark:border-sky-800/60',
+            badge: 'bg-sky-500 text-white',
+        },
+        amber: {
+            bg: 'bg-amber-50 dark:bg-amber-950/40',
+            text: 'text-amber-700 dark:text-amber-300',
+            border: 'border-amber-200 dark:border-amber-800/60',
+            badge: 'bg-amber-500 text-white',
+        },
+        rose: {
+            bg: 'bg-rose-50 dark:bg-rose-950/40',
+            text: 'text-rose-700 dark:text-rose-300',
+            border: 'border-rose-200 dark:border-rose-800/60',
+            badge: 'bg-rose-500 text-white',
+        },
+    }[kpi_popup.predikat?.color || 'sky'];
+
+    return (
+        <>
+            <style>{`
+                @keyframes kpi-bd-in  { from{opacity:0} to{opacity:1} }
+                @keyframes kpi-bd-out { from{opacity:1} to{opacity:0} }
+                @keyframes kpi-in     { from{opacity:0;transform:scale(0.92) translateY(12px)} to{opacity:1;transform:scale(1) translateY(0)} }
+                @keyframes kpi-out    { from{opacity:1;transform:scale(1) translateY(0)} to{opacity:0;transform:scale(0.95) translateY(10px)} }
+            `}</style>
+
+            {/* Backdrop */}
+            <div
+                className="fixed inset-0 z-9997 bg-black/50 backdrop-blur-xs transition-opacity duration-300"
+                style={{ animation: `${leaving ? 'kpi-bd-out' : 'kpi-bd-in'} 0.25s ease forwards` }}
+                onClick={() => dismiss(false)}
+            />
+
+            {/* Modal Dialog */}
+            <div className="fixed inset-0 z-9998 flex items-center justify-center p-4 sm:p-6 overflow-y-auto pointer-events-none">
+                <div
+                    className="relative w-full max-w-md bg-white dark:bg-gray-900 rounded-3xl shadow-2xl border border-gray-100 dark:border-gray-800 overflow-hidden pointer-events-auto"
+                    style={{ animation: `${leaving ? 'kpi-out' : 'kpi-in'} 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards` }}
+                >
+                    {/* Header Decorative Pattern */}
+                    <div className="relative bg-gradient-to-br from-sky-600 via-sky-700 to-indigo-800 pt-7 pb-6 px-6 text-white text-center select-none overflow-hidden">
+                        <div className="absolute -top-12 -right-12 w-36 h-36 bg-white/10 rounded-full blur-xl pointer-events-none" />
+                        <div className="absolute -bottom-8 -left-8 w-32 h-32 bg-sky-400/20 rounded-full blur-lg pointer-events-none" />
+
+                        {/* Close button X */}
+                        <button
+                            type="button"
+                            onClick={() => dismiss(false)}
+                            aria-label="Tutup"
+                            className="absolute top-3.5 right-3.5 p-1.5 rounded-full text-white/70 hover:text-white hover:bg-white/15 transition-colors"
+                        >
+                            <X className="h-4.5 w-4.5" />
+                        </button>
+
+                        {/* Trophy Icon */}
+                        <div className="mx-auto w-14 h-14 rounded-2xl bg-white/15 backdrop-blur-md border border-white/25 flex items-center justify-center shadow-lg mb-3">
+                            <Trophy className="h-7 w-7 text-amber-300" />
+                        </div>
+
+                        <span className="inline-block px-3 py-0.5 rounded-full bg-white/20 text-[11px] font-semibold uppercase tracking-wider text-sky-100">
+                            Evaluasi Kinerja Tersimpan
+                        </span>
+                        <h3 className="mt-1.5 text-lg sm:text-xl font-bold tracking-tight text-white leading-snug">
+                            Hasil KPI Bulan {kpi_popup.bulan_format}
+                        </h3>
+                        <p className="mt-1 text-xs text-sky-100/80">
+                            Penilaian kinerja {kpi_popup.role_label} untuk Anda telah selesai dievaluasi.
+                        </p>
+                    </div>
+
+                    {/* Body */}
+                    <div className="p-5 sm:p-6 space-y-4">
+                        {/* Summary Score Card */}
+                        <div className={`p-4 rounded-2xl border ${predikatColor.bg} ${predikatColor.border} flex items-center justify-between`}>
+                            <div>
+                                <p className="text-xs font-medium text-gray-500 dark:text-gray-400">Nilai Akhir KPI</p>
+                                <div className="flex items-baseline gap-2 mt-0.5">
+                                    <span className="text-3xl font-extrabold tracking-tight text-gray-900 dark:text-gray-100">
+                                        {kpi_popup.total_nilai}
+                                    </span>
+                                    <span className="text-xs font-semibold text-gray-400">/ 100</span>
+                                </div>
+                            </div>
+                            <div className="text-right">
+                                <span className={`inline-block px-2.5 py-1 rounded-xl text-xs font-bold ${predikatColor.badge}`}>
+                                    Grade {kpi_popup.predikat?.grade}
+                                </span>
+                                <p className={`text-xs font-semibold mt-1 ${predikatColor.text}`}>
+                                    {kpi_popup.predikat?.label}
+                                </p>
+                            </div>
+                        </div>
+
+                        {/* Indikator Breakdown */}
+                        {kpi_popup.indikator && kpi_popup.indikator.length > 0 && (
+                            <div className="space-y-2.5">
+                                <p className="text-xs font-semibold text-gray-700 dark:text-gray-300">
+                                    Rincian Capaian Indikator:
+                                </p>
+                                <div className="space-y-2">
+                                    {kpi_popup.indikator.map((item, idx) => (
+                                        <div key={idx} className="p-2.5 rounded-xl bg-gray-50 dark:bg-gray-800/60 border border-gray-100 dark:border-gray-800 text-xs">
+                                            <div className="flex items-center justify-between font-medium text-gray-800 dark:text-gray-200 mb-1">
+                                                <span className="truncate pr-2">{item.nama}</span>
+                                                <span className="font-bold shrink-0">{item.persen}%</span>
+                                            </div>
+                                            <div className="w-full bg-gray-200 dark:bg-gray-700 h-1.5 rounded-full overflow-hidden">
+                                                <div
+                                                    className="bg-sky-500 h-full rounded-full transition-all duration-500"
+                                                    style={{ width: `${Math.min(100, Math.max(0, item.persen))}%` }}
+                                                />
+                                            </div>
+                                            <div className="mt-1 flex items-center justify-between text-[10.5px] text-gray-400 dark:text-gray-500">
+                                                <span>Bobot: {item.bobot}%</span>
+                                                <span>Nilai: {item.nilai}</span>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Catatan Penilai (Jika ada) */}
+                        {kpi_popup.catatan && (
+                            <div className="p-3 rounded-xl bg-amber-50/80 dark:bg-amber-950/30 border border-amber-200/80 dark:border-amber-800/50 text-xs">
+                                <p className="font-semibold text-amber-800 dark:text-amber-300 mb-0.5">Catatan Penilai:</p>
+                                <p className="text-amber-700/90 dark:text-amber-400 italic leading-relaxed">
+                                    "{kpi_popup.catatan}"
+                                </p>
+                            </div>
+                        )}
+
+                        {/* Action Buttons */}
+                        <div className="pt-2 space-y-2">
+                            <button
+                                type="button"
+                                onClick={() => dismiss(true)}
+                                className="w-full py-2.5 px-4 rounded-xl font-semibold text-xs text-white bg-sky-600 hover:bg-sky-700 active:scale-[0.99] shadow-sm transition-all flex items-center justify-center gap-1.5"
+                            >
+                                <span>Lihat Detail di Halaman KPI</span>
+                                <ArrowRight className="h-3.5 w-3.5" />
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => dismiss(false)}
+                                className="w-full py-2.5 px-4 rounded-xl font-medium text-xs text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                            >
+                                Mengerti &amp; Tutup
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </>
+    );
+}
+
 function Toast() {
     const { props } = usePage();
     const flash = props.flash ?? {};
@@ -589,27 +786,23 @@ export default function AppLayout({ children, title }) {
             <AutoLogout />
             <LoginWelcome />
             <AnnouncementPopup />
+            <KpiNotificationPopup />
             <Toast />
             <FloatingMasukan />
-            <div className={`flex flex-col min-h-screen transition-all duration-300 ${isCollapsed ? 'lg:pl-20' : 'lg:pl-72'}`}>
+            <div className={`flex flex-col min-h-screen transition-all duration-300 ${isCollapsed ? 'lg:pl-20' : 'lg:pl-64'}`}>
                 <Navbar onToggleSidebar={toggleSidebar} />
 
-                {/* Breadcrumb Bar matching screenshot */}
+                {/* Breadcrumb Bar */}
                 <div className="border-b border-gray-200/80 dark:border-gray-800/80 bg-white/70 dark:bg-gray-900/60 backdrop-blur-xs px-4 sm:px-6 py-2.5 flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
-                    <Link href="/dashboard" className="flex items-center gap-1.5 hover:text-sky-600 dark:hover:text-sky-400 transition-colors">
-                        <Home className="h-3.5 w-3.5" strokeWidth={1.75} />
-                        <span>Dashboard</span>
-                    </Link>
-                    {title && title !== 'Dashboard' ? (
-                        <>
-                            <ChevronRight className="h-3 w-3 text-gray-300 dark:text-gray-600 shrink-0" strokeWidth={1.75} />
-                            <span className="font-medium text-gray-800 dark:text-gray-200 truncate">{title}</span>
-                        </>
+                    {(!title || title === 'Dashboard') ? (
+                        <div className="flex items-center gap-1.5 font-medium text-gray-800 dark:text-gray-200">
+                            <Home className="h-3.5 w-3.5 text-sky-600 dark:text-sky-400" strokeWidth={1.75} />
+                            <span>Dashboard</span>
+                        </div>
                     ) : (
-                        <>
-                            <ChevronRight className="h-3 w-3 text-gray-300 dark:text-gray-600 shrink-0" strokeWidth={1.75} />
-                            <span className="font-medium text-gray-800 dark:text-gray-200">Dashboard</span>
-                        </>
+                        <div className="flex items-center gap-1.5 font-medium text-gray-800 dark:text-gray-200 truncate">
+                            <span>{title}</span>
+                        </div>
                     )}
                 </div>
 
