@@ -12,7 +12,7 @@ import {
 } from 'lucide-react';
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
-import { PDFDocument } from 'pdf-lib';
+import { PDFDocument, StandardFonts, rgb } from 'pdf-lib';
 
 const fmt = (val) => val
     ? new Date(val + 'T00:00:00').toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' })
@@ -317,6 +317,7 @@ function QrPlacerModal({ item, onClose, initialConfigs = {} }) {
                 const existingBytes = await fetch(item.file_url).then((r) => r.arrayBuffer());
                 pdfDoc = await PDFDocument.load(existingBytes, { ignoreEncryption: true });
                 const qrImage = await pdfDoc.embedPng(qrBytes);
+                const font    = await pdfDoc.embedFont(StandardFonts.Helvetica);
                 const pages   = pdfDoc.getPages();
 
                 for (const pageNum of configuredPages) {
@@ -351,11 +352,45 @@ function QrPlacerModal({ item, onClose, initialConfigs = {} }) {
                     }
 
                     page.drawImage(qrImage, { x, y, width: qrPts, height: qrPts });
+
+                    // Keterangan Footer TTE resmi
+                    try {
+                        const marginX = 36;
+                        const lineY   = 28;
+                        const textY1  = 19;
+                        const textY2  = 11;
+                        page.drawLine({
+                            start: { x: marginX, y: lineY },
+                            end:   { x: width - marginX, y: lineY },
+                            thickness: 0.5,
+                            color: rgb(0.65, 0.65, 0.65),
+                        });
+                        page.drawText('Dokumen ini telah ditandatangani secara elektronik yang sah melalui Sistem Informasi DJurnal.', {
+                            x: marginX,
+                            y: textY1,
+                            size: 6.5,
+                            font,
+                            color: rgb(0.3, 0.3, 0.3),
+                        });
+                        const verifText = item.verifikasi_url
+                            ? `Verifikasi keaslian dokumen dapat diakses dengan memindai QR Code di atas atau tautan: ${item.verifikasi_url}`
+                            : 'Verifikasi keaslian dokumen dapat diakses dengan memindai QR Code di atas.';
+                        page.drawText(verifText, {
+                            x: marginX,
+                            y: textY2,
+                            size: 5.5,
+                            font,
+                            color: rgb(0.45, 0.45, 0.45),
+                        });
+                    } catch (footerErr) {
+                        console.warn('Gagal menambahkan footer TTE:', footerErr);
+                    }
                 }
             } else if (isImage) {
                 const cfg  = finalConfigs[1] ?? { x: pos.x, y: pos.y, qrSize };
                 const A4_W = 595.28, A4_H = 841.89;
                 pdfDoc = await PDFDocument.create();
+                const font     = await pdfDoc.embedFont(StandardFonts.Helvetica);
                 const page     = pdfDoc.addPage([A4_W, A4_H]);
                 const imgBytes = await fetch(item.file_url).then((r) => r.arrayBuffer());
                 let docImage;
@@ -390,11 +425,56 @@ function QrPlacerModal({ item, onClose, initialConfigs = {} }) {
                     y: A4_H - (cfg.y / 100) * A4_H - qrPts,
                     width: qrPts, height: qrPts,
                 });
+
+                // Keterangan Footer TTE
+                try {
+                    const marginX = 36;
+                    page.drawLine({
+                        start: { x: marginX, y: 28 },
+                        end:   { x: A4_W - marginX, y: 28 },
+                        thickness: 0.5,
+                        color: rgb(0.65, 0.65, 0.65),
+                    });
+                    page.drawText('Dokumen ini telah ditandatangani secara elektronik yang sah melalui Sistem Informasi DJurnal.', {
+                        x: marginX,
+                        y: 19,
+                        size: 6.5,
+                        font,
+                        color: rgb(0.3, 0.3, 0.3),
+                    });
+                    const verifText = item.verifikasi_url
+                        ? `Verifikasi keaslian dokumen dapat diakses dengan memindai QR Code di atas atau tautan: ${item.verifikasi_url}`
+                        : 'Verifikasi keaslian dokumen dapat diakses dengan memindai QR Code di atas.';
+                    page.drawText(verifText, {
+                        x: marginX,
+                        y: 11,
+                        size: 5.5,
+                        font,
+                        color: rgb(0.45, 0.45, 0.45),
+                    });
+                } catch (footerErr) {
+                    console.warn('Gagal menambahkan footer TTE:', footerErr);
+                }
             } else {
                 return;
             }
 
             const pdfBytes = await pdfDoc.save();
+
+            // Simpan dokumen hasil TTE ke server agar ketika QR code discan,
+            // dokumen yang tampil dan diunduh adalah dokumen setelah TTE (bukan draf awal)
+            try {
+                const pdfBlob = new Blob([pdfBytes], { type: 'application/pdf' });
+                const formData = new FormData();
+                formData.append('file_tte', pdfBlob, filename);
+                await window.axios.post(`/tatausaha/surat-keluar/${item.id}/simpan-dokumen-tte`, formData, {
+                    headers: { 'Content-Type': 'multipart/form-data' },
+                });
+                router.reload({ only: ['surat'] });
+            } catch (uploadErr) {
+                console.warn('Gagal menyimpan file TTE ke server:', uploadErr);
+            }
+
             const pdfUrl   = URL.createObjectURL(new Blob([pdfBytes], { type: 'application/pdf' }));
             const a        = Object.assign(document.createElement('a'), { href: pdfUrl, download: filename });
             document.body.appendChild(a); a.click(); document.body.removeChild(a);
@@ -572,6 +652,18 @@ function QrPlacerModal({ item, onClose, initialConfigs = {} }) {
                                                 </div>
                                             )}
                                         </>
+                                    )}
+
+                                    {/* Visual TTE Footer in preview */}
+                                    {!isSkipped && (
+                                        <div className="absolute bottom-1.5 left-3 right-3 border-t border-gray-300 dark:border-gray-600 pt-0.5 pointer-events-none select-none z-10 text-left">
+                                            <p className="text-[6.5px] text-gray-500 dark:text-gray-400 leading-tight truncate">
+                                                Dokumen ini telah ditandatangani secara elektronik yang sah melalui Sistem Informasi DJurnal.
+                                            </p>
+                                            <p className="text-[5.5px] text-gray-400 dark:text-gray-500 leading-tight truncate">
+                                                Verifikasi keaslian dokumen dapat diakses dengan memindai QR Code di atas.
+                                            </p>
+                                        </div>
                                     )}
 
                                     {isSkipped && (
@@ -1028,6 +1120,17 @@ export default function TteIndex({ surat, filters }) {
                                         <td className="px-4 py-3 max-w-50">
                                             <p className="font-medium text-gray-900 dark:text-gray-100 truncate">{item.perihal || <span className="text-gray-400 italic text-xs">—</span>}</p>
                                             <p className="text-xs text-gray-500 truncate">{item.tujuan}</p>
+                                            {item.file_tte_url ? (
+                                                <a href={item.file_tte_url} target="_blank" rel="noreferrer"
+                                                    className="inline-flex items-center gap-1 text-[11px] text-emerald-600 dark:text-emerald-400 hover:underline mt-0.5">
+                                                    <CheckCircle className="h-3 w-3" /> Dokumen TTE
+                                                </a>
+                                            ) : item.file_url ? (
+                                                <a href={item.file_url} target="_blank" rel="noreferrer"
+                                                    className="inline-flex items-center gap-1 text-[11px] text-gray-400 hover:text-sky-600 hover:underline mt-0.5">
+                                                    <Paperclip className="h-3 w-3" /> File Asli
+                                                </a>
+                                            ) : null}
                                         </td>
                                         <td className="px-4 py-3 text-gray-500 whitespace-nowrap hidden md:table-cell text-xs">{fmt(item.tgl_keluar)}</td>
                                         <td className="px-4 py-3 hidden lg:table-cell">
@@ -1096,7 +1199,22 @@ export default function TteIndex({ surat, filters }) {
                                     )}
                                 </div>
                                 <p className="text-sm font-medium text-gray-900 dark:text-gray-100 mb-0.5">{item.perihal || '—'}</p>
-                                <p className="text-xs text-gray-500 mb-2">Tujuan: {item.tujuan} · {fmt(item.tgl_keluar)}</p>
+                                <p className="text-xs text-gray-500 mb-1">Tujuan: {item.tujuan} · {fmt(item.tgl_keluar)}</p>
+                                {item.file_tte_url ? (
+                                    <div className="mb-2">
+                                        <a href={item.file_tte_url} target="_blank" rel="noreferrer"
+                                            className="inline-flex items-center gap-1 text-xs text-emerald-600 dark:text-emerald-400 hover:underline">
+                                            <CheckCircle className="h-3.5 w-3.5" /> Lihat Dokumen TTE
+                                        </a>
+                                    </div>
+                                ) : item.file_url ? (
+                                    <div className="mb-2">
+                                        <a href={item.file_url} target="_blank" rel="noreferrer"
+                                            className="inline-flex items-center gap-1 text-xs text-gray-400 hover:text-sky-600 hover:underline">
+                                            <Paperclip className="h-3.5 w-3.5" /> Lihat Dokumen Asli
+                                        </a>
+                                    </div>
+                                ) : null}
                                 {item.kode_tte && (
                                     <p className="text-xs text-gray-400 mb-2">{item.tte_oleh_nama} · {item.tte_at}</p>
                                 )}

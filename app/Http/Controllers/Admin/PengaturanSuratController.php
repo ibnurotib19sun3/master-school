@@ -49,11 +49,15 @@ class PengaturanSuratController extends Controller
     public function updateFormat(Request $request)
     {
         $data = $request->validate([
-            'separator'       => 'required|string|max:5',
-            'prefix_kode'     => 'nullable|string|max:100',
-            'format_bagian'   => 'required|array|min:1',
-            'format_bagian.*' => 'string|in:prefix,seq,kode_jenis,kode_dept,kode_jenis_dept,kode_dept_jenis,bulan_romawi,tahun',
+            'separator'        => 'required|string|max:5',
+            'prefix_kode'      => 'nullable|string|max:100',
+            'nomor_awal_surat' => 'nullable|integer|min:1',
+            'format_bagian'    => 'required|array|min:1',
+            'format_bagian.*'  => 'string|in:prefix,seq,kode_jenis,kode_dept,kode_jenis_dept,kode_dept_jenis,bulan_romawi,tahun',
         ]);
+        if (empty($data['nomor_awal_surat'])) {
+            $data['nomor_awal_surat'] = 1;
+        }
         PengaturanSurat::current()->update($data);
         return back()->with('success', 'Format nomor surat berhasil disimpan.');
     }

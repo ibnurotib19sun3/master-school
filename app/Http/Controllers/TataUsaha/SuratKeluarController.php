@@ -15,6 +15,9 @@ class SuratKeluarController extends Controller
 {
     public function index(Request $request)
     {
+        $sortBy  = in_array($request->sort_by, ['nomor_surat', 'tgl_surat', 'tgl_keluar']) ? $request->sort_by : 'nomor_surat';
+        $sortDir = in_array(strtolower($request->sort_dir ?? ''), ['asc', 'desc']) ? strtolower($request->sort_dir) : 'desc';
+
         $query = SuratKeluar::with('pembuat:id,name')
             ->when($request->search,   fn ($q) => $q
                 ->where('nomor_surat', 'like', "%{$request->search}%")
@@ -23,21 +26,31 @@ class SuratKeluarController extends Controller
             ->when($request->status,   fn ($q) => $q->where('status',   $request->status))
             ->when($request->kategori, fn ($q) => $q->where('kategori', $request->kategori))
             ->when($request->tahun,    fn ($q) => $q->whereYear('tgl_keluar', $request->tahun))
-            ->latest('tgl_keluar');
+            ->orderBy($sortBy, $sortDir);
 
         $ps = PengaturanSurat::current();
+        $nomorAwal = max(1, (int) ($ps->nomor_awal_surat ?: 1));
+        $countSurat = SuratKeluar::where(function ($q) {
+            $q->whereYear('tgl_keluar', now()->year)
+              ->orWhereYear('tgl_surat', now()->year);
+        })->count();
+        $nextSeq = max($nomorAwal, $nomorAwal + $countSurat);
 
         return Inertia::render('TataUsaha/Surat/KeluarIndex', [
             'surat'          => $query->paginate(20)->withQueryString(),
-            'filters'        => $request->only('search', 'status', 'kategori', 'tahun'),
+            'filters'        => array_merge($request->only('search', 'status', 'kategori', 'tahun'), [
+                'sort_by'  => $sortBy,
+                'sort_dir' => $sortDir,
+            ]),
             'kode_departemen'=> KodeDepartemen::where('aktif', true)->orderBy('urutan')->get(['id', 'nama', 'kode']),
             'kode_jenis'     => KodeJenisSurat::where('aktif', true)->orderBy('urutan')->get(['id', 'nama', 'kode']),
             'format_nomor'   => [
-                'separator'    => $ps->separator,
-                'format_bagian'=> $ps->format_bagian,
-                'prefix_kode'  => $ps->prefix_kode,
+                'separator'        => $ps->separator,
+                'format_bagian'    => $ps->format_bagian,
+                'prefix_kode'      => $ps->prefix_kode,
+                'nomor_awal_surat' => $nomorAwal,
             ],
-            'next_seq'       => SuratKeluar::whereYear('tgl_keluar', now()->year)->count() + 1,
+            'next_seq'       => $nextSeq,
         ]);
     }
 

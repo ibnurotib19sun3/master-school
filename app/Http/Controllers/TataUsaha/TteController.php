@@ -9,6 +9,7 @@ use App\Models\PengaturanSekolah;
 use App\Models\PengaturanSurat;
 use App\Models\SuratKeluar;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Inertia\Inertia;
 
@@ -60,13 +61,38 @@ class TteController extends Controller
 
     public function batalTte(SuratKeluar $suratKeluar)
     {
+        if ($suratKeluar->file_tte) {
+            Storage::disk('public')->delete($suratKeluar->file_tte);
+        }
+
         $suratKeluar->update([
             'kode_tte' => null,
             'tte_at'   => null,
             'tte_oleh' => null,
+            'file_tte' => null,
         ]);
 
         return back()->with('success', 'TTE berhasil dibatalkan.');
+    }
+
+    public function simpanDokumenTte(Request $request, SuratKeluar $suratKeluar)
+    {
+        $request->validate([
+            'file_tte' => 'required|file|mimes:pdf|max:25600',
+        ]);
+
+        if ($suratKeluar->file_tte) {
+            Storage::disk('public')->delete($suratKeluar->file_tte);
+        }
+
+        $path = $request->file('file_tte')->store('surat/tte', 'public');
+        $suratKeluar->update(['file_tte' => $path]);
+
+        return response()->json([
+            'success'      => true,
+            'message'      => 'Dokumen hasil TTE berhasil disimpan.',
+            'file_tte_url' => '/storage/' . $path,
+        ]);
     }
 
     private function mapSurat(SuratKeluar $s): array
@@ -81,6 +107,7 @@ class TteController extends Controller
             'kategori'        => $s->kategori,
             'status'          => $s->status,
             'file_url'        => $s->file_url,
+            'file_tte_url'    => $s->file_tte_url,
             'kode_tte'        => $s->kode_tte,
             'tte_at'          => $s->tte_at?->format('d/m/Y H:i'),
             'tte_oleh_nama'   => $s->ttePenandatangan?->name,

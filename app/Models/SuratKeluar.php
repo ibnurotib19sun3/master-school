@@ -10,7 +10,7 @@ class SuratKeluar extends Model
     protected $fillable = [
         'dibuat_oleh', 'nomor_surat', 'perihal', 'tujuan',
         'tgl_surat', 'tgl_keluar', 'kategori', 'status',
-        'keterangan', 'file_surat',
+        'keterangan', 'file_surat', 'file_tte',
         'kode_tte', 'tte_at', 'tte_oleh',
         'isi_surat', 'penerima_tipe', 'penerima_id', 'template_kode',
     ];
@@ -39,5 +39,10 @@ class SuratKeluar extends Model
         return $this->file_surat ? '/storage/' . $this->file_surat : null;
     }
 
-    protected $appends = ['file_url'];
+    public function getFileTteUrlAttribute(): ?string
+    {
+        return $this->file_tte ? '/storage/' . $this->file_tte : null;
+    }
+
+    protected $appends = ['file_url', 'file_tte_url'];
 }

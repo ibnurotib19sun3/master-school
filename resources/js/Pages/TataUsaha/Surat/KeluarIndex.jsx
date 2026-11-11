@@ -10,6 +10,7 @@ import {
     Plus, Search, Edit, Trash2, Download, Send,
     FileText, Paperclip, X, RefreshCw, ArrowRight, ArrowLeft,
     Hash, CheckCircle2, Copy, CheckCircle,
+    ArrowUpDown, ArrowUp, ArrowDown,
 } from 'lucide-react';
 import { useState, useMemo, useRef } from 'react';
 
@@ -90,12 +91,13 @@ function StepNomor({ fmt, nextSeq, kodeDeptList, kodeJenisList, onLanjutkan, onS
     const [jenis,   setJenis]   = useState(kodeJenisList[0] ?? null);
     const [dept,    setDept]    = useState(kodeDeptList[0]  ?? null);
     const [tgl,     setTgl]     = useState(today);
+    const [seq,     setSeq]     = useState(nextSeq);
     const [edited,  setEdited]  = useState(false);
     const [nomorManual, setNomorManual] = useState('');
 
     const autoNomor = useMemo(
-        () => buildNomor(fmt, nextSeq, jenis?.kode, dept?.kode, tgl),
-        [fmt, nextSeq, jenis, dept, tgl]
+        () => buildNomor(fmt, seq, jenis?.kode, dept?.kode, tgl),
+        [fmt, seq, jenis, dept, tgl]
     );
 
     const nomor = edited ? nomorManual : autoNomor;
@@ -146,6 +148,26 @@ function StepNomor({ fmt, nextSeq, kodeDeptList, kodeJenisList, onLanjutkan, onS
                     )}
                 </div>
 
+                {/* No. Urut Surat */}
+                <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                        No. Urut Surat <span className="text-xs text-sky-500 font-normal">(otomatis / ubah manual)</span>
+                    </label>
+                    <input
+                        type="number"
+                        min="1"
+                        value={seq}
+                        onChange={e => {
+                            const val = parseInt(e.target.value, 10);
+                            setSeq(isNaN(val) ? 1 : val);
+                            setEdited(false);
+                            setNomorManual('');
+                        }}
+                        className="w-full rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-sky-500 font-mono"
+                        placeholder="1"
+                    />
+                </div>
+
                 {/* Kode Departemen */}
                 {showDept && (
                     <div>
@@ -188,7 +210,7 @@ function StepNomor({ fmt, nextSeq, kodeDeptList, kodeJenisList, onLanjutkan, onS
                     {autoNomor || <span className="text-gray-300 dark:text-gray-600">—</span>}
                 </p>
                 <p className="text-xs text-sky-400 dark:text-sky-500 mt-2">
-                    No. urut: <strong>{String(nextSeq).padStart(3, '0')}</strong>
+                    No. urut: <strong>{String(seq).padStart(3, '0')}</strong>
                     {jenis && <> · Jenis: <strong>{jenis.kode}</strong></>}
                     {showDept && dept && <> · Dept: <strong>{dept.kode}</strong></>}
                 </p>
@@ -342,6 +364,13 @@ export default function SuratKeluarIndex({ surat, filters, kode_departemen, kode
     const setFilter = (key, val) =>
         router.get('/tatausaha/surat-keluar', { ...filters, [key]: val || undefined }, { preserveState: true, replace: true });
 
+    const toggleSort = (field) => {
+        const isCurrent = (filters.sort_by ?? 'nomor_surat') === field;
+        const currentDir = filters.sort_dir ?? 'desc';
+        const nextDir = isCurrent && currentDir === 'desc' ? 'asc' : 'desc';
+        router.get('/tatausaha/surat-keluar', { ...filters, sort_by: field, sort_dir: nextDir }, { preserveState: true, replace: true });
+    };
+
     const tahunList = Array.from({ length: 6 }, (_, i) => new Date().getFullYear() - i);
 
     // Kategori options: from kode_jenis + generic
@@ -381,6 +410,22 @@ export default function SuratKeluarIndex({ surat, filters, kode_departemen, kode
                             <option value="">Semua Tahun</option>
                             {tahunList.map((y) => <option key={y} value={y}>{y}</option>)}
                         </select>
+                        {/* Sort selector */}
+                        <select
+                            value={`${filters.sort_by ?? 'nomor_surat'}_${filters.sort_dir ?? 'desc'}`}
+                            onChange={(e) => {
+                                const [field, dir] = e.target.value.split('_');
+                                router.get('/tatausaha/surat-keluar', { ...filters, sort_by: field, sort_dir: dir }, { preserveState: true, replace: true });
+                            }}
+                            className="rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 px-2.5 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-sky-500"
+                        >
+                            <option value="nomor_surat_desc">Sort: No. Surat (Z-A / Baru)</option>
+                            <option value="nomor_surat_asc">Sort: No. Surat (A-Z / Lama)</option>
+                            <option value="tgl_surat_desc">Sort: Tgl Surat (Terbaru)</option>
+                            <option value="tgl_surat_asc">Sort: Tgl Surat (Terlama)</option>
+                            <option value="tgl_keluar_desc">Sort: Tgl Keluar (Terbaru)</option>
+                            <option value="tgl_keluar_asc">Sort: Tgl Keluar (Terlama)</option>
+                        </select>
                         <Button icon={Plus} onClick={openTambah}>Tambah</Button>
                     </div>
                 </CardHeader>
@@ -390,10 +435,30 @@ export default function SuratKeluarIndex({ surat, filters, kode_departemen, kode
                         <table className="w-full text-sm">
                             <thead className="bg-gray-50 dark:bg-gray-900/50 text-xs uppercase text-gray-500">
                                 <tr>
-                                    <th className="px-4 py-3 text-left font-medium">Nomor Surat</th>
+                                    <th className="px-4 py-3 text-left font-medium cursor-pointer select-none hover:text-sky-600 transition-colors"
+                                        onClick={() => toggleSort('nomor_surat')}>
+                                        <div className="flex items-center gap-1">
+                                            <span>Nomor Surat</span>
+                                            {(filters.sort_by ?? 'nomor_surat') === 'nomor_surat' ? (
+                                                (filters.sort_dir ?? 'desc') === 'asc' ? <ArrowUp className="h-3 w-3 text-sky-600" /> : <ArrowDown className="h-3 w-3 text-sky-600" />
+                                            ) : (
+                                                <ArrowUpDown className="h-3 w-3 text-gray-400 opacity-60" />
+                                            )}
+                                        </div>
+                                    </th>
                                     <th className="px-4 py-3 text-left font-medium">Perihal</th>
                                     <th className="px-4 py-3 text-left font-medium hidden sm:table-cell">Tujuan</th>
-                                    <th className="px-4 py-3 text-left font-medium hidden sm:table-cell">Tgl Keluar</th>
+                                    <th className="px-4 py-3 text-left font-medium hidden sm:table-cell cursor-pointer select-none hover:text-sky-600 transition-colors"
+                                        onClick={() => toggleSort('tgl_keluar')}>
+                                        <div className="flex items-center gap-1">
+                                            <span>Tgl Keluar</span>
+                                            {filters.sort_by === 'tgl_keluar' ? (
+                                                filters.sort_dir === 'asc' ? <ArrowUp className="h-3 w-3 text-sky-600" /> : <ArrowDown className="h-3 w-3 text-sky-600" />
+                                            ) : (
+                                                <ArrowUpDown className="h-3 w-3 text-gray-400 opacity-60" />
+                                            )}
+                                        </div>
+                                    </th>
                                     <th className="px-4 py-3 text-left font-medium hidden md:table-cell">Kategori</th>
                                     <th className="px-4 py-3 text-left font-medium">Status</th>
                                     <th className="px-4 py-3 text-left font-medium">Aksi</th>

@@ -28,7 +28,9 @@ class SuratVerifikasiController extends Controller
                 'kategori'      => $surat->kategori,
                 'status'        => $surat->status,
                 'keterangan'    => $surat->keterangan,
-                'file_url'      => $surat->file_url,
+                // Dokumen yang dilampirkan adalah dokumen setelah TTE jika tersedia
+                'file_url'      => $surat->file_tte ? ('/storage/' . $surat->file_tte) : $surat->file_url,
+                'is_dokumen_tte'=> (bool) $surat->file_tte,
                 'tte_at'        => $surat->tte_at?->translatedFormat('d F Y, H:i'),
                 'tte_oleh_nama' => $surat->ttePenandatangan?->name,
                 'dibuat_oleh'   => $surat->pembuat?->name,

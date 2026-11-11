@@ -2,7 +2,8 @@ import AppLayout from '@/Layouts/AppLayout';
 import { router } from '@inertiajs/react';
 import { Card, CardHeader, CardBody, CardTitle } from '@/Components/ui/Card';
 import Badge from '@/Components/ui/Badge';
-import { BarChart3, Search, Users, TrendingUp, Calendar } from 'lucide-react';
+import Modal from '@/Components/ui/Modal';
+import { BarChart3, Search, Users, TrendingUp, Calendar, Eye, FileText, CheckCircle, Clock } from 'lucide-react';
 import { useState, useMemo, useCallback } from 'react';
 
 const BULAN = [
@@ -20,6 +21,30 @@ export default function PresensiHarianRekap({
     rombelList, tahunAjaranList, rekap, hariEfektif, periodeLabel, canEdit, filters,
 }) {
     const [search, setSearch] = useState(filters.search ?? '');
+    const [detailSiswa, setDetailSiswa]     = useState(null);
+    const [detailData, setDetailData]       = useState(null);
+    const [loadingDetail, setLoadingDetail] = useState(false);
+
+    const openDetail = async (student) => {
+        setDetailSiswa(student);
+        setDetailData(null);
+        setLoadingDetail(true);
+        try {
+            const res = await window.axios.get('/guru/presensi-harian/rekap/detail-siswa', {
+                params: {
+                    siswa_id: student.id,
+                    from: filters.from,
+                    to:   filters.to,
+                },
+            });
+            setDetailData(res.data);
+        } catch (err) {
+            console.error('Gagal memuat detail presensi:', err);
+            alert('Gagal memuat detail presensi siswa.');
+        } finally {
+            setLoadingDetail(false);
+        }
+    };
 
     const navigate = useCallback((params) => {
         router.get('/guru/presensi-harian/rekap', { ...filters, ...params }, {
@@ -209,12 +234,21 @@ export default function PresensiHarianRekap({
                                             {r.persen}%
                                         </span>
                                     </div>
-                                    <div className="flex gap-2 flex-wrap">
-                                        {[['Hadir', r.hadir, 'green'], ['Sakit', r.sakit, 'sky'], ['Izin', r.izin, 'yellow'], ['Alpha', r.alpha, 'red']].map(([label, val, color]) => (
-                                            <div key={label} className="text-center">
-                                                <Badge color={color}>{label}: {val}</Badge>
-                                            </div>
-                                        ))}
+                                    <div className="flex items-center justify-between gap-2 mt-2 pt-2 border-t border-gray-100 dark:border-gray-800">
+                                        <div className="flex gap-1.5 flex-wrap">
+                                            {[['H', r.hadir, 'green'], ['S', r.sakit, 'sky'], ['I', r.izin, 'yellow'], ['A', r.alpha, 'red']].map(([label, val, color]) => (
+                                                <div key={label} className="text-center">
+                                                    <Badge color={color}>{label}: {val}</Badge>
+                                                </div>
+                                            ))}
+                                        </div>
+                                        <button
+                                            type="button"
+                                            onClick={() => openDetail(r)}
+                                            className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium text-sky-600 dark:text-sky-400 bg-sky-50 dark:bg-sky-950/40 hover:bg-sky-100 dark:hover:bg-sky-900/50 rounded-lg border border-sky-200 dark:border-sky-800 shrink-0 transition-colors"
+                                        >
+                                            <Eye className="h-3.5 w-3.5" /> Detail
+                                        </button>
                                     </div>
                                 </div>
                             ))}
@@ -233,6 +267,7 @@ export default function PresensiHarianRekap({
                                         <th className="px-3 py-3 text-center font-medium w-14 text-amber-600 dark:text-amber-400">Izin</th>
                                         <th className="px-3 py-3 text-center font-medium w-16 text-red-600 dark:text-red-400">Alpha</th>
                                         <th className="px-4 py-3 text-center font-medium w-20">% Hadir</th>
+                                        <th className="px-3 py-3 text-center font-medium w-24">Aksi</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
@@ -250,6 +285,16 @@ export default function PresensiHarianRekap({
                                                     {r.persen}%
                                                 </span>
                                             </td>
+                                            <td className="px-3 py-2.5 text-center">
+                                                <button
+                                                    type="button"
+                                                    onClick={() => openDetail(r)}
+                                                    className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium text-sky-600 dark:text-sky-400 bg-sky-50 dark:bg-sky-950/40 hover:bg-sky-100 dark:hover:bg-sky-900/50 rounded-lg transition-colors border border-sky-200 dark:border-sky-800"
+                                                    title="Lihat Detail Riwayat Presensi"
+                                                >
+                                                    <Eye className="h-3.5 w-3.5" /> Detail
+                                                </button>
+                                            </td>
                                         </tr>
                                     ))}
                                 </tbody>
@@ -264,6 +309,7 @@ export default function PresensiHarianRekap({
                                             <td className="px-4 py-2.5 text-center">
                                                 <span className={`px-2.5 py-1 rounded-lg text-xs font-bold ${pctColor(avgPct)}`}>{avgPct}%</span>
                                             </td>
+                                            <td className="px-3 py-2.5"></td>
                                         </tr>
                                     </tfoot>
                                 )}
@@ -272,6 +318,112 @@ export default function PresensiHarianRekap({
                     </Card>
                 </>
             )}
+
+            {/* Modal Detail Presensi Siswa */}
+            <Modal
+                show={!!detailSiswa}
+                onClose={() => setDetailSiswa(null)}
+                title="Detail Presensi Siswa"
+                size="lg"
+            >
+                {detailSiswa && (
+                    <div className="space-y-4">
+                        {/* Header info siswa */}
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 rounded-xl bg-sky-50 dark:bg-sky-950/30 border border-sky-100 dark:border-sky-900/50">
+                            <div>
+                                <h3 className="font-bold text-gray-900 dark:text-gray-100 text-base">{detailSiswa.name}</h3>
+                                <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                                    NIS: <span className="font-mono font-medium text-gray-700 dark:text-gray-300">{detailSiswa.nis}</span> · Kelas/Rombel: <span className="font-medium text-gray-700 dark:text-gray-300">{detailData?.siswa?.rombel || '–'}</span>
+                                </p>
+                            </div>
+                            <div className="text-left sm:text-right">
+                                <span className="text-xs text-gray-500 dark:text-gray-400">Periode</span>
+                                <p className="text-xs font-semibold text-sky-700 dark:text-sky-300">{periodeLabel}</p>
+                            </div>
+                        </div>
+
+                        {/* Summary counts */}
+                        {detailData && (
+                            <div className="grid grid-cols-4 gap-2">
+                                <div className="p-2.5 rounded-lg bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800 text-center">
+                                    <p className="text-[11px] text-emerald-600 dark:text-emerald-400 font-medium">Hadir</p>
+                                    <p className="text-lg font-bold text-emerald-700 dark:text-emerald-300">{detailData.counts?.Hadir ?? 0}</p>
+                                </div>
+                                <div className="p-2.5 rounded-lg bg-sky-50 dark:bg-sky-950/30 border border-sky-200 dark:border-sky-800 text-center">
+                                    <p className="text-[11px] text-sky-600 dark:text-sky-400 font-medium">Sakit</p>
+                                    <p className="text-lg font-bold text-sky-700 dark:text-sky-300">{detailData.counts?.Sakit ?? 0}</p>
+                                </div>
+                                <div className="p-2.5 rounded-lg bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 text-center">
+                                    <p className="text-[11px] text-amber-600 dark:text-amber-400 font-medium">Izin</p>
+                                    <p className="text-lg font-bold text-amber-700 dark:text-amber-300">{detailData.counts?.Izin ?? 0}</p>
+                                </div>
+                                <div className="p-2.5 rounded-lg bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800 text-center">
+                                    <p className="text-[11px] text-red-600 dark:text-red-400 font-medium">Alpha</p>
+                                    <p className="text-lg font-bold text-red-700 dark:text-red-300">{detailData.counts?.Alpha ?? 0}</p>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* List tanggal records */}
+                        <div className="border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden">
+                            {loadingDetail ? (
+                                <div className="py-12 text-center text-gray-400">
+                                    <div className="animate-spin rounded-full h-6 w-6 border-2 border-sky-600 border-t-transparent mx-auto mb-2" />
+                                    <p className="text-xs">Memuat riwayat presensi siswa...</p>
+                                </div>
+                            ) : !detailData || detailData.records.length === 0 ? (
+                                <div className="py-10 text-center text-gray-400">
+                                    <Calendar className="h-8 w-8 mx-auto mb-2 opacity-30" />
+                                    <p className="text-xs">Tidak ada riwayat presensi harian pada periode ini.</p>
+                                </div>
+                            ) : (
+                                <div className="max-h-72 overflow-y-auto">
+                                    <table className="w-full text-xs">
+                                        <thead className="bg-gray-50 dark:bg-gray-900/60 sticky top-0 uppercase text-gray-500 font-medium border-b border-gray-200 dark:border-gray-700">
+                                            <tr>
+                                                <th className="px-3 py-2.5 text-center w-8">No</th>
+                                                <th className="px-3 py-2.5 text-left">Hari, Tanggal</th>
+                                                <th className="px-3 py-2.5 text-center w-20">Status</th>
+                                                <th className="px-3 py-2.5 text-left">Keterangan</th>
+                                                <th className="px-3 py-2.5 text-left">Pencatat</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
+                                            {detailData.records.map((rec, i) => {
+                                                const statusColor = rec.status === 'Hadir' ? 'green'
+                                                    : rec.status === 'Sakit' ? 'sky'
+                                                    : rec.status === 'Izin' ? 'yellow' : 'red';
+                                                return (
+                                                    <tr key={rec.id} className="hover:bg-gray-50 dark:hover:bg-gray-800/40">
+                                                        <td className="px-3 py-2 text-center text-gray-400">{i + 1}</td>
+                                                        <td className="px-3 py-2 font-medium text-gray-800 dark:text-gray-200">{rec.tanggal_indo}</td>
+                                                        <td className="px-3 py-2 text-center">
+                                                            <Badge color={statusColor}>{rec.status}</Badge>
+                                                        </td>
+                                                        <td className="px-3 py-2 text-gray-600 dark:text-gray-400">{rec.keterangan}</td>
+                                                        <td className="px-3 py-2 text-gray-500 dark:text-gray-400">{rec.pencatat}</td>
+                                                    </tr>
+                                                );
+                                            })}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Modal Footer */}
+                        <div className="flex justify-end pt-2">
+                            <button
+                                type="button"
+                                onClick={() => setDetailSiswa(null)}
+                                className="px-4 py-2 text-sm font-medium rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                            >
+                                Tutup
+                            </button>
+                        </div>
+                    </div>
+                )}
+            </Modal>
         </AppLayout>
     );
 }

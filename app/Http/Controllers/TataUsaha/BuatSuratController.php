@@ -55,16 +55,23 @@ class BuatSuratController extends Controller
     private function nomorConfig(): array
     {
         $ps = PengaturanSurat::current();
+        $nomorAwal = max(1, (int) ($ps->nomor_awal_surat ?: 1));
+        $countSurat = SuratKeluar::where(function ($q) {
+            $q->whereYear('tgl_keluar', now()->year)
+              ->orWhereYear('tgl_surat', now()->year);
+        })->count();
+        $nextSeq = max($nomorAwal, $nomorAwal + $countSurat);
 
         return [
             'kode_departemen' => KodeDepartemen::where('aktif', true)->orderBy('urutan')->get(['id', 'nama', 'kode']),
             'kode_jenis'      => KodeJenisSurat::where('aktif', true)->orderBy('urutan')->get(['id', 'nama', 'kode']),
             'format_nomor'    => [
-                'separator'     => $ps->separator,
-                'format_bagian' => $ps->format_bagian,
-                'prefix_kode'   => $ps->prefix_kode,
+                'separator'        => $ps->separator,
+                'format_bagian'    => $ps->format_bagian,
+                'prefix_kode'      => $ps->prefix_kode,
+                'nomor_awal_surat' => $nomorAwal,
             ],
-            'next_seq' => SuratKeluar::whereYear('tgl_keluar', now()->year)->count() + 1,
+            'next_seq' => $nextSeq,
         ];
     }
 

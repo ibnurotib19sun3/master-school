@@ -295,6 +295,7 @@ function TabFormat({ pengaturan }) {
 
     const [separator, setSeparator] = useState(pengaturan.separator ?? '/');
     const [prefixKode, setPrefixKode] = useState(pengaturan.prefix_kode ?? '');
+    const [nomorAwal, setNomorAwal] = useState(pengaturan.nomor_awal_surat ?? 1);
     const [enabled, setEnabled]     = useState(
         () => {
             const set = new Set(defaultParts);
@@ -326,7 +327,7 @@ function TabFormat({ pengaturan }) {
         const sep = separator || '/';
         const map = {
             prefix:          prefixKode || 'SMK',
-            seq:             '001',
+            seq:             String(nomorAwal || 1).padStart(3, '0'),
             kode_jenis:      'SK',
             kode_dept:       'KUR',
             kode_jenis_dept: 'SK.KUR',
@@ -341,15 +342,16 @@ function TabFormat({ pengaturan }) {
         setSaving(true);
         router.post('/admin/pengaturan-surat/format', {
             separator,
-            prefix_kode:  prefixKode || null,
-            format_bagian: currentBagian,
+            prefix_kode:      prefixKode || null,
+            nomor_awal_surat: Number(nomorAwal) || 1,
+            format_bagian:    currentBagian,
         }, { onFinish: () => setSaving(false) });
     };
 
     return (
         <div className="space-y-6">
-            {/* Separator + Prefix */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {/* Separator + Prefix + Nomor Awal */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div>
                     <Input label="Separator antar bagian" value={separator}
                         onChange={e => setSeparator(e.target.value)}
@@ -361,8 +363,15 @@ function TabFormat({ pengaturan }) {
                         onChange={e => setPrefixKode(e.target.value)}
                         placeholder="YP.m/7" className="font-mono" />
                     <p className="text-xs text-gray-400 mt-1">
-                        Boleh mengandung tanda baca. Contoh: <code className="bg-gray-100 dark:bg-gray-800 px-1 rounded">YP.m/7</code> → <code className="bg-gray-100 dark:bg-gray-800 px-1 rounded">YP.m/7/001/SK/...</code>.
-                        Aktifkan bagian "Prefix" di daftar bawah agar muncul.
+                        Contoh: <code className="bg-gray-100 dark:bg-gray-800 px-1 rounded">YP.m/7</code>. Aktifkan bagian "Prefix" di daftar bawah.
+                    </p>
+                </div>
+                <div>
+                    <Input label="Nomor Awal Surat" type="number" min="1" value={nomorAwal}
+                        onChange={e => setNomorAwal(Math.max(1, parseInt(e.target.value) || 1))}
+                        placeholder="1" className="font-mono" />
+                    <p className="text-xs text-gray-400 mt-1">
+                        Nomor awal urutan surat saat mulai berpindah ke aplikasi ini.
                     </p>
                 </div>
             </div>

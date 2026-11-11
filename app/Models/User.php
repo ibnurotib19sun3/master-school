@@ -66,7 +66,7 @@ class User extends Authenticatable
 
     public function getAvatarUrlAttribute(): string
     {
-        return $this->avatar
+        return ($this->avatar && Storage::disk('public')->exists($this->avatar))
             ? Storage::disk('public')->url($this->avatar)
             : 'https://ui-avatars.com/api/?name=' . urlencode($this->name) . '&background=0284c7&color=fff&bold=true';
     }

@@ -14,6 +14,9 @@ class SuratMasukController extends Controller
 {
     public function index(Request $request)
     {
+        $sortBy  = in_array($request->sort_by, ['nomor_surat', 'tgl_surat', 'tgl_diterima']) ? $request->sort_by : 'tgl_surat';
+        $sortDir = in_array(strtolower($request->sort_dir ?? ''), ['asc', 'desc']) ? strtolower($request->sort_dir) : 'desc';
+
         $query = SuratMasuk::with('pembuat:id,name')
             ->when($request->search, fn ($q) => $q
                 ->where('nomor_surat', 'like', "%{$request->search}%")
@@ -22,7 +25,7 @@ class SuratMasukController extends Controller
             ->when($request->disposisi, fn ($q) => $q->where('disposisi', $request->disposisi))
             ->when($request->kategori,  fn ($q) => $q->where('kategori', $request->kategori))
             ->when($request->tahun,     fn ($q) => $q->whereYear('tgl_diterima', $request->tahun))
-            ->latest('tgl_diterima');
+            ->orderBy($sortBy, $sortDir);
 
         $sekolah = PengaturanSekolah::current();
 
@@ -43,7 +46,10 @@ class SuratMasukController extends Controller
                 'verifikasi_url' => $s->kode_ref ? route('surat-masuk.verifikasi', $s->kode_ref) : null,
                 'dibuat_oleh'  => $s->pembuat?->name,
             ]),
-            'filters'      => $request->only('search', 'disposisi', 'kategori', 'tahun'),
+            'filters'      => array_merge($request->only('search', 'disposisi', 'kategori', 'tahun'), [
+                'sort_by'  => $sortBy,
+                'sort_dir' => $sortDir,
+            ]),
             'namaSekolah'  => $sekolah->nama_sekolah ?? 'Nama Sekolah',
         ]);
     }

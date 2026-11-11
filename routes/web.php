@@ -639,9 +639,10 @@ Route::middleware('auth')->group(function () {
 
     // Presensi Siswa Harian (Guru BK)
     Route::prefix('guru')->name('guru.')->middleware('role:guru|super_admin|kepala_sekolah|wakasek_kesiswaan')->group(function () {
-        Route::get('presensi-harian',        [PresensiHarianController::class, 'index'])->name('presensi-harian.index');
-        Route::post('presensi-harian',       [PresensiHarianController::class, 'store'])->name('presensi-harian.store');
-        Route::get('presensi-harian/rekap',  [PresensiHarianController::class, 'rekap'])->name('presensi-harian.rekap');
+        Route::get('presensi-harian',                    [PresensiHarianController::class, 'index'])->name('presensi-harian.index');
+        Route::post('presensi-harian',                   [PresensiHarianController::class, 'store'])->name('presensi-harian.store');
+        Route::get('presensi-harian/rekap',              [PresensiHarianController::class, 'rekap'])->name('presensi-harian.rekap');
+        Route::get('presensi-harian/rekap/detail-siswa', [PresensiHarianController::class, 'detailSiswa'])->name('presensi-harian.detail-siswa');
     });
 
     // Guru area
@@ -1107,6 +1108,7 @@ Route::middleware('auth')->group(function () {
         // TTE Surat Keluar
         Route::get('tte',                                 [TteController::class, 'index'])->name('tte.index');
         Route::post('surat-keluar/{suratKeluar}/tte',     [TteController::class, 'tandatangani'])->name('surat-keluar.tte');
+        Route::post('surat-keluar/{suratKeluar}/simpan-dokumen-tte', [TteController::class, 'simpanDokumenTte'])->name('surat-keluar.simpan-dokumen-tte');
         Route::delete('surat-keluar/{suratKeluar}/tte',   [TteController::class, 'batalTte'])->name('surat-keluar.tte.batal');
 
         // Catatan dari Kepala Sekolah (read-only)

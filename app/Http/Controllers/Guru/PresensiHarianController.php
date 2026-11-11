@@ -228,7 +228,62 @@ class PresensiHarianController extends Controller
                 'tahun'           => (int) ($request->tahun  ?? now()->year),
                 'tahun_ajaran_id' => $request->tahun_ajaran_id ? (int) $request->tahun_ajaran_id : $tahunAjaran?->id,
                 'search'          => $search,
+                'from'            => isset($from) ? $from->toDateString() : null,
+                'to'              => isset($to) ? $to->toDateString() : null,
             ],
+        ]);
+    }
+
+    public function detailSiswa(Request $request)
+    {
+        $this->authorize();
+
+        $request->validate([
+            'siswa_id' => 'required|exists:siswa,id',
+            'from'     => 'required|date',
+            'to'       => 'required|date',
+        ]);
+
+        $siswa = Siswa::with(['user', 'rombel'])->findOrFail($request->siswa_id);
+
+        $wkRombelId = $this->getWaliKelasRombelId();
+        if ($wkRombelId && !$this->canEdit() && !auth()->user()->hasAnyRole(['kepala_sekolah', 'wakasek_kesiswaan', 'super_admin'])) {
+            if ($siswa->rombel_id !== $wkRombelId) {
+                abort(403);
+            }
+        }
+
+        $records = PresensiSiswaHarian::with('pencatat:id,name')
+            ->where('siswa_id', $siswa->id)
+            ->whereBetween('tanggal', [$request->from, $request->to])
+            ->orderBy('tanggal', 'desc')
+            ->get(['id', 'tanggal', 'status', 'keterangan', 'dicatat_oleh'])
+            ->map(fn ($r) => [
+                'id'           => $r->id,
+                'tanggal'      => $r->tanggal?->format('Y-m-d'),
+                'tanggal_indo' => $r->tanggal?->locale('id')->translatedFormat('l, d F Y'),
+                'status'       => $r->status,
+                'keterangan'   => $r->keterangan ?: '-',
+                'pencatat'     => $r->pencatat?->name ?: '-',
+            ]);
+
+        $counts = [
+            'Hadir' => $records->where('status', 'Hadir')->count(),
+            'Sakit' => $records->where('status', 'Sakit')->count(),
+            'Izin'  => $records->where('status', 'Izin')->count(),
+            'Alpha' => $records->where('status', 'Alpha')->count(),
+            'Total' => $records->count(),
+        ];
+
+        return response()->json([
+            'siswa' => [
+                'id'     => $siswa->id,
+                'name'   => $siswa->user?->name ?? '–',
+                'nis'    => $siswa->nis,
+                'rombel' => $siswa->rombel?->nama ?? '–',
+            ],
+            'records' => $records->values(),
+            'counts'  => $counts,
         ]);
     }
 }

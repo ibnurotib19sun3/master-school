@@ -12,10 +12,13 @@ class PengaturanSurat extends Model
     protected $fillable = [
         'nama_instansi', 'sub_nama', 'yayasan_dinas', 'alamat_kop', 'telepon_kop',
         'website_kop', 'email_kop', 'npsn_kop', 'logo_path',
-        'separator', 'format_bagian', 'prefix_kode',
+        'separator', 'format_bagian', 'prefix_kode', 'nomor_awal_surat',
     ];
 
-    protected $casts = ['format_bagian' => 'array'];
+    protected $casts = [
+        'format_bagian'    => 'array',
+        'nomor_awal_surat' => 'integer',
+    ];
 
     public static function current(): self
     {

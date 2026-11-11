@@ -9,6 +9,7 @@ import { Input, Select, Textarea } from '@/Components/ui/Input';
 import {
     Plus, Search, Edit, Trash2, Download, MailOpen,
     FileText, Paperclip, X, QrCode, Copy, CheckCircle, Printer, ExternalLink,
+    ArrowUpDown, ArrowUp, ArrowDown,
 } from 'lucide-react';
 import { useState, useRef } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
@@ -222,6 +223,13 @@ export default function SuratMasukIndex({ surat, filters, namaSekolah }) {
     const setFilter = (key, val) =>
         router.get('/tatausaha/surat-masuk', { ...filters, [key]: val || undefined }, { preserveState: true, replace: true });
 
+    const toggleSort = (field) => {
+        const isCurrent = (filters.sort_by ?? 'tgl_surat') === field;
+        const currentDir = filters.sort_dir ?? 'desc';
+        const nextDir = isCurrent && currentDir === 'desc' ? 'asc' : 'desc';
+        router.get('/tatausaha/surat-masuk', { ...filters, sort_by: field, sort_dir: nextDir }, { preserveState: true, replace: true });
+    };
+
     const tahunList = Array.from({ length: 6 }, (_, i) => new Date().getFullYear() - i);
 
     return (
@@ -252,6 +260,22 @@ export default function SuratMasukIndex({ surat, filters, namaSekolah }) {
                             <option value="">Semua Tahun</option>
                             {tahunList.map((y) => <option key={y} value={y}>{y}</option>)}
                         </select>
+                        {/* Sort selector */}
+                        <select
+                            value={`${filters.sort_by ?? 'tgl_surat'}_${filters.sort_dir ?? 'desc'}`}
+                            onChange={(e) => {
+                                const [field, dir] = e.target.value.split('_');
+                                router.get('/tatausaha/surat-masuk', { ...filters, sort_by: field, sort_dir: dir }, { preserveState: true, replace: true });
+                            }}
+                            className="rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 px-2.5 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-sky-500"
+                        >
+                            <option value="tgl_surat_desc">Sort: Tgl Surat (Terbaru)</option>
+                            <option value="tgl_surat_asc">Sort: Tgl Surat (Terlama)</option>
+                            <option value="nomor_surat_desc">Sort: No. Surat (Z-A / Baru)</option>
+                            <option value="nomor_surat_asc">Sort: No. Surat (A-Z / Lama)</option>
+                            <option value="tgl_diterima_desc">Sort: Tgl Diterima (Terbaru)</option>
+                            <option value="tgl_diterima_asc">Sort: Tgl Diterima (Terlama)</option>
+                        </select>
                         <Button icon={Plus} onClick={() => setShowModal(true)}>Tambah</Button>
                     </div>
                 </CardHeader>
@@ -261,10 +285,30 @@ export default function SuratMasukIndex({ surat, filters, namaSekolah }) {
                         <table className="w-full text-sm">
                             <thead className="bg-gray-50 dark:bg-gray-900/50 text-xs uppercase text-gray-500">
                                 <tr>
-                                    <th className="px-4 py-3 text-left font-medium">Nomor Surat</th>
+                                    <th className="px-4 py-3 text-left font-medium cursor-pointer select-none hover:text-sky-600 transition-colors"
+                                        onClick={() => toggleSort('nomor_surat')}>
+                                        <div className="flex items-center gap-1">
+                                            <span>Nomor Surat</span>
+                                            {(filters.sort_by ?? 'tgl_surat') === 'nomor_surat' ? (
+                                                (filters.sort_dir ?? 'desc') === 'asc' ? <ArrowUp className="h-3 w-3 text-sky-600" /> : <ArrowDown className="h-3 w-3 text-sky-600" />
+                                            ) : (
+                                                <ArrowUpDown className="h-3 w-3 text-gray-400 opacity-60" />
+                                            )}
+                                        </div>
+                                    </th>
                                     <th className="px-4 py-3 text-left font-medium">Perihal</th>
                                     <th className="px-4 py-3 text-left font-medium hidden sm:table-cell">Pengirim</th>
-                                    <th className="px-4 py-3 text-left font-medium hidden sm:table-cell">Tgl Diterima</th>
+                                    <th className="px-4 py-3 text-left font-medium hidden sm:table-cell cursor-pointer select-none hover:text-sky-600 transition-colors"
+                                        onClick={() => toggleSort('tgl_surat')}>
+                                        <div className="flex items-center gap-1">
+                                            <span>Tgl Surat / Terima</span>
+                                            {(filters.sort_by ?? 'tgl_surat') === 'tgl_surat' ? (
+                                                (filters.sort_dir ?? 'desc') === 'asc' ? <ArrowUp className="h-3 w-3 text-sky-600" /> : <ArrowDown className="h-3 w-3 text-sky-600" />
+                                            ) : (
+                                                <ArrowUpDown className="h-3 w-3 text-gray-400 opacity-60" />
+                                            )}
+                                        </div>
+                                    </th>
                                     <th className="px-4 py-3 text-left font-medium hidden md:table-cell">Kategori</th>
                                     <th className="px-4 py-3 text-left font-medium">Disposisi</th>
                                     <th className="px-4 py-3 text-left font-medium">Aksi</th>
@@ -294,7 +338,10 @@ export default function SuratMasukIndex({ surat, filters, namaSekolah }) {
                                             )}
                                         </td>
                                         <td className="px-4 py-3 text-gray-500 hidden sm:table-cell">{item.pengirim}</td>
-                                        <td className="px-4 py-3 text-gray-500 whitespace-nowrap hidden sm:table-cell">{fmt(item.tgl_diterima)}</td>
+                                        <td className="px-4 py-3 text-gray-500 whitespace-nowrap hidden sm:table-cell">
+                                            <p>{fmt(item.tgl_diterima)}</p>
+                                            {item.tgl_surat && <p className="text-[11px] text-gray-400">Surat: {fmt(item.tgl_surat)}</p>}
+                                        </td>
                                         <td className="px-4 py-3 text-gray-500 hidden md:table-cell">{item.kategori}</td>
                                         <td className="px-4 py-3">
                                             <Badge color={DISPOSISI_COLOR[item.disposisi] ?? 'gray'}>{item.disposisi}</Badge>

@@ -24,6 +24,35 @@ const TAMU_JABATAN_COLOR = {
     tatausaha: 'bg-violet-100 text-violet-700 dark:bg-violet-900/40 dark:text-violet-300',
 };
 
+function UserAvatar({ name, src, className = 'h-10 w-10 text-xs' }) {
+    const [err, setErr] = useState(false);
+
+    useEffect(() => {
+        setErr(false);
+    }, [src]);
+
+    const initials = (name ?? '?')
+        .split(' ').filter(Boolean).slice(0, 2)
+        .map((w) => w[0].toUpperCase()).join('');
+
+    return (
+        <span className="relative inline-flex shrink-0">
+            {(!src || err) ? (
+                <div className={`rounded-full bg-sky-100 dark:bg-sky-900/40 text-sky-700 dark:text-sky-300 flex items-center justify-center font-semibold select-none ${className}`}>
+                    {initials}
+                </div>
+            ) : (
+                <img
+                    src={src}
+                    alt={name}
+                    onError={() => setErr(true)}
+                    className={`rounded-full object-cover ${className}`}
+                />
+            )}
+        </span>
+    );
+}
+
 function StafCard({ staf, selected, onSelect }) {
     const isSelected = selected?.key === staf.key;
     return (
@@ -36,13 +65,7 @@ function StafCard({ staf, selected, onSelect }) {
                     : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 hover:border-sky-300 dark:hover:border-sky-600'
             }`}
         >
-            {staf.avatar ? (
-                <img src={staf.avatar} alt="" className="h-10 w-10 rounded-full object-cover shrink-0" />
-            ) : (
-                <div className="h-10 w-10 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center shrink-0">
-                    <User className="h-5 w-5 text-gray-400" />
-                </div>
-            )}
+            <UserAvatar name={staf.nama} src={staf.avatar} className="h-10 w-10 text-xs" />
             <div className="flex-1 min-w-0">
                 <p className={`text-sm font-semibold truncate ${isSelected ? 'text-sky-700 dark:text-sky-300' : 'text-gray-900 dark:text-gray-100'}`}>
                     {staf.nama}
@@ -283,13 +306,7 @@ export default function BukuTamu({ staf = [], namaSekolah, logoSekolah }) {
                                 {/* Selected person card */}
                                 {selected ? (
                                     <div className="mb-5 p-3 rounded-xl bg-sky-50 dark:bg-sky-900/30 border border-sky-200 dark:border-sky-700 flex items-center gap-3">
-                                        {selected.avatar ? (
-                                            <img src={selected.avatar} alt="" className="h-10 w-10 rounded-full object-cover shrink-0" />
-                                        ) : (
-                                            <div className="h-10 w-10 rounded-full bg-sky-200 dark:bg-sky-800 flex items-center justify-center shrink-0">
-                                                <User className="h-5 w-5 text-sky-500" />
-                                            </div>
-                                        )}
+                                        <UserAvatar name={selected.nama} src={selected.avatar} className="h-10 w-10 text-xs" />
                                         <div className="flex-1 min-w-0">
                                             <p className="text-sm font-bold text-sky-700 dark:text-sky-300 truncate">{selected.nama}</p>
                                             <p className="text-xs text-sky-500 dark:text-sky-400 truncate">{selected.jabatan.join(' · ')}</p>
