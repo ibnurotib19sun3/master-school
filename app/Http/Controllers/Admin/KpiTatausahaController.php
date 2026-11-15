@@ -10,6 +10,7 @@ use App\Models\KpiIndikator;
 use App\Models\KpiTatausaha;
 use App\Models\Tatausaha;
 use App\Models\TahunAjaran;
+use App\Services\KehadiranTatausahaRekapService;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -63,31 +64,25 @@ class KpiTatausahaController extends Controller
             ->map(fn ($t) => $t->format('Y-m-d'))
             ->all();
 
-        // ── Keaktifan Kehadiran ──────────────────────────────────
-        $absensi      = AbsensiTatausaha::where('tatausaha_id', $tuId)
-            ->whereBetween('tanggal', [$start, $end])
-            ->when(count($liburPenuh) > 0, fn ($q) => $q->whereNotIn('tanggal', $liburPenuh))
-            ->get();
-        $totalAbsensi = $absensi->count();
-        $totalHadir   = $absensi->where('status', 'Hadir')->count();
-        $persenTu     = $totalAbsensi > 0 ? round($totalHadir / $totalAbsensi * 100, 1) : 0;
+        // ── Keaktifan Kehadiran (memperhitungkan hari tanpa aktivitas otomatis libur) ──
+        $rekapRow = app(KehadiranTatausahaRekapService::class)->hitung($request->bulan, $tuId)->first();
+        $persenTu = $rekapRow ? (float) $rekapRow['persen'] : 0;
+        $totalHadir = $rekapRow ? (int) $rekapRow['hadir'] : 0;
 
         // ── Keaktifan Jurnal TU ──────────────────────────────────
         // Hari hadir = dasar; jurnal harus diisi pada hari yang hadir
-        $hariHadir = $absensi->where('status', 'Hadir')
-            ->pluck('tanggal')
-            ->map(fn ($t) => $t->format('Y-m-d'))
-            ->unique()
-            ->all();
+        $staffAbsensi = AbsensiTatausaha::where('tatausaha_id', $tuId)->whereBetween('tanggal', [$start, $end])->get();
+        $hadirDates = $staffAbsensi->where('status', 'Hadir')->pluck('tanggal')->map(fn ($t) => Carbon::parse($t)->format('Y-m-d'))->toArray();
 
-        $jurnal = JurnalTatausaha::where('tatausaha_id', $tuId)
+        $jurnalDates = JurnalTatausaha::where('tatausaha_id', $tuId)
             ->whereBetween('tanggal', [$start, $end])
             ->pluck('tanggal')
-            ->map(fn ($t) => $t->format('Y-m-d'))
+            ->map(fn ($t) => Carbon::parse($t)->format('Y-m-d'))
             ->unique()
             ->all();
 
-        $jurnal_terisi = count(array_intersect($hariHadir, $jurnal));
+        $effectiveHadir = array_unique(array_merge($hadirDates, $jurnalDates));
+        $jurnal_terisi = count(array_intersect($effectiveHadir, $jurnalDates));
         $persenJurnal  = $totalHadir > 0 ? round($jurnal_terisi / $totalHadir * 100, 1) : 0;
 
         $existing      = KpiTatausaha::where('tatausaha_id', $tuId)->where('bulan', $request->bulan)->get();
@@ -202,22 +197,27 @@ class KpiTatausahaController extends Controller
         $indTu       = KpiIndikator::where('kode', 'KEAKTIFAN_TU')->first();
         $indJurnal   = KpiIndikator::where('kode', 'KEAKTIFAN_JURNAL_TU')->first();
 
+        $rekapAll   = app(KehadiranTatausahaRekapService::class)->hitung($data['bulan'])->keyBy('id');
+        $allJurnal  = JurnalTatausaha::whereBetween('tanggal', [$start, $end])->get()->groupBy('tatausaha_id');
+        $allAbsensi = AbsensiTatausaha::whereBetween('tanggal', [$start, $end])->get()->groupBy('tatausaha_id');
+
         $saved = 0; $skipped = 0;
         foreach ($tuList as $tu) {
             $sudahAda = KpiTatausaha::where('tatausaha_id', $tu->id)->where('bulan', $data['bulan'])->exists();
             if ($sudahAda && !($data['force_update'] ?? false)) { $skipped++; continue; }
 
-            $absensi      = \App\Models\AbsensiTatausaha::where('tatausaha_id', $tu->id)
-                ->whereBetween('tanggal', [$start, $end])
-                ->when(count($liburPenuh) > 0, fn ($q) => $q->whereNotIn('tanggal', $liburPenuh))
-                ->get();
-            $totalHadir   = $absensi->where('status', 'Hadir')->count();
-            $totalAbsensi = $absensi->count();
-            $persenTu     = $totalAbsensi > 0 ? round($totalHadir / $totalAbsensi * 100, 1) : 0;
+            $rekapRow   = $rekapAll->get($tu->id);
+            $persenTu   = $rekapRow ? (float) $rekapRow['persen'] : 0;
+            $totalHadir = $rekapRow ? (int) $rekapRow['hadir'] : 0;
 
-            $hariHadir = $absensi->where('status', 'Hadir')->pluck('tanggal')->map(fn ($t) => $t->format('Y-m-d'))->unique()->all();
-            $jurnal    = \App\Models\JurnalTatausaha::where('tatausaha_id', $tu->id)->whereBetween('tanggal', [$start, $end])->pluck('tanggal')->map(fn ($t) => $t->format('Y-m-d'))->unique()->all();
-            $terisi       = count(array_intersect($hariHadir, $jurnal));
+            $staffAbsensi = $allAbsensi->get($tu->id, collect());
+            $hadirDates   = $staffAbsensi->where('status', 'Hadir')->pluck('tanggal')->map(fn ($t) => Carbon::parse($t)->format('Y-m-d'))->toArray();
+
+            $staffJurnal  = $allJurnal->get($tu->id, collect());
+            $jurnalDates  = $staffJurnal->pluck('tanggal')->map(fn ($t) => Carbon::parse($t)->format('Y-m-d'))->unique()->all();
+
+            $effectiveHadir = array_unique(array_merge($hadirDates, $jurnalDates));
+            $terisi       = count(array_intersect($effectiveHadir, $jurnalDates));
             $persenJurnal = $totalHadir > 0 ? round($terisi / $totalHadir * 100, 1) : 0;
 
             if ($sudahAda) KpiTatausaha::where('tatausaha_id', $tu->id)->where('bulan', $data['bulan'])->delete();

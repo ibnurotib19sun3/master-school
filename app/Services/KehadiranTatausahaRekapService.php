@@ -2,8 +2,11 @@
 
 namespace App\Services;
 
+use App\Models\AbsensiGuru;
+use App\Models\AbsensiPiket;
 use App\Models\AbsensiTatausaha;
 use App\Models\HariLibur;
+use App\Models\JurnalTatausaha;
 use App\Models\PengaturanSekolah;
 use App\Models\Tatausaha;
 use Carbon\Carbon;
@@ -16,6 +19,7 @@ use Illuminate\Support\Collection;
  *
  * Rumus: persen = hadir / hari_kerja (bukan hadir / total tercatat), karena hari
  * tanpa catatan absensi sama sekali dihitung sebagai "tidak_absen" yang menurunkan persentase.
+ * Hari tanpa aktivitas sama sekali otomatis dianggap libur dan tidak dihitung sebagai hari kerja.
  */
 class KehadiranTatausahaRekapService
 {
@@ -33,8 +37,11 @@ class KehadiranTatausahaRekapService
 
         $absensiData = AbsensiTatausaha::whereBetween('tanggal', [$tanggalMulai, $tanggalSelesai])
             ->whereIn('tatausaha_id', $tuIds)
-            ->selectRaw('tatausaha_id, status, COUNT(*) as jumlah')
-            ->groupBy('tatausaha_id', 'status')
+            ->get()
+            ->groupBy('tatausaha_id');
+
+        $jurnalData = JurnalTatausaha::whereBetween('tanggal', [$tanggalMulai, $tanggalSelesai])
+            ->whereIn('tatausaha_id', $tuIds)
             ->get()
             ->groupBy('tatausaha_id');
 
@@ -45,25 +52,44 @@ class KehadiranTatausahaRekapService
             ->map(fn ($t) => $t->format('Y-m-d'))
             ->all();
 
-        // Mulai hitung dari tanggal absensi pertama agar bulan baru tidak merah semua
-        $earliestTU = AbsensiTatausaha::whereBetween('tanggal', [$tanggalMulai, $tanggalSelesai])->min('tanggal');
-        $hkStart    = $earliestTU ? Carbon::parse($earliestTU) : Carbon::parse($tanggalMulai);
-        $hkEnd      = Carbon::parse($tanggalSelesai);
-        $today      = Carbon::today();
+        // Mulai hitung dari tanggal absensi / jurnal pertama agar bulan baru tidak merah semua
+        $earliest = collect([
+            AbsensiTatausaha::whereBetween('tanggal', [$tanggalMulai, $tanggalSelesai])->min('tanggal'),
+            JurnalTatausaha::whereBetween('tanggal', [$tanggalMulai, $tanggalSelesai])->min('tanggal'),
+        ])->filter()->sort()->first();
+
+        $hkStart = $earliest ? Carbon::parse($earliest) : Carbon::parse($tanggalMulai);
+        $hkEnd   = Carbon::parse($tanggalSelesai);
+        $today   = Carbon::today();
         if ($today->lt($hkEnd)) {
             $hkEnd = $today->copy();
         }
 
-        // Tanggal dengan minimal 1 catatan absensi TU — tanggal tanpa aktivitas sama
-        // sekali (dari staf manapun) dianggap libur tidak resmi dan tidak dihitung
-        // sebagai hari kerja, sama seperti logika kehadiran guru.
-        $activeDates = AbsensiTatausaha::whereBetween('tanggal', [$tanggalMulai, $tanggalSelesai])
+        // Tanggal dengan minimal 1 catatan aktivitas TU, Jurnal TU, Piket, atau Guru.
+        // Tanggal tanpa aktivitas sama sekali otomatis dianggap libur dan TIDAK dihitung sebagai hari kerja.
+        $datesAbsensi = AbsensiTatausaha::whereBetween('tanggal', [$tanggalMulai, $tanggalSelesai])
             ->distinct()->pluck('tanggal')
             ->map(fn ($t) => Carbon::parse($t)->format('Y-m-d'))
-            ->flip()->toArray();
+            ->toArray();
 
-        // Nama hari aktif sekolah ini — JANGAN asumsikan Ahad selalu libur, itu salah untuk
-        // sekolah yang justru masuk hari Ahad (dan libur di hari lain, mis. Jumat).
+        $datesJurnal = JurnalTatausaha::whereBetween('tanggal', [$tanggalMulai, $tanggalSelesai])
+            ->distinct()->pluck('tanggal')
+            ->map(fn ($t) => Carbon::parse($t)->format('Y-m-d'))
+            ->toArray();
+
+        $datesPiket = AbsensiPiket::whereBetween('tanggal', [$tanggalMulai, $tanggalSelesai])
+            ->distinct()->pluck('tanggal')
+            ->map(fn ($t) => Carbon::parse($t)->format('Y-m-d'))
+            ->toArray();
+
+        $datesGuru = AbsensiGuru::whereBetween('tanggal', [$tanggalMulai, $tanggalSelesai])
+            ->distinct()->pluck('tanggal')
+            ->map(fn ($t) => Carbon::parse($t)->format('Y-m-d'))
+            ->toArray();
+
+        $activeDates = array_flip(array_unique(array_merge($datesAbsensi, $datesJurnal, $datesPiket, $datesGuru)));
+
+        // Nama hari aktif sekolah ini
         $hariAktif = PengaturanSekolah::current()->hari_aktif
             ?? ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat'];
         $namaHariByIndex = ['Ahad', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
@@ -77,12 +103,18 @@ class KehadiranTatausahaRekapService
             $hariKerja++;
         }
 
-        return $tuList->map(function ($tu) use ($absensiData, $hariKerja) {
-            $data  = $absensiData->get($tu->id, collect());
-            $hadir = (int) $data->where('status', 'Hadir')->sum('jumlah');
-            $sakit = (int) $data->where('status', 'Sakit')->sum('jumlah');
-            $izin  = (int) $data->where('status', 'Izin')->sum('jumlah');
-            $alpha = (int) $data->where('status', 'Alpha')->sum('jumlah');
+        return $tuList->map(function ($tu) use ($absensiData, $jurnalData, $hariKerja) {
+            $staffAbsensi = $absensiData->get($tu->id, collect());
+            $staffJurnal  = $jurnalData->get($tu->id, collect());
+
+            $hadirDates = $staffAbsensi->where('status', 'Hadir')->pluck('tanggal')->map(fn ($t) => Carbon::parse($t)->format('Y-m-d'))->toArray();
+            $jurnalDates = $staffJurnal->pluck('tanggal')->map(fn ($t) => Carbon::parse($t)->format('Y-m-d'))->toArray();
+            $effectiveHadir = array_unique(array_merge($hadirDates, $jurnalDates));
+
+            $hadir = count($effectiveHadir);
+            $sakit = (int) $staffAbsensi->where('status', 'Sakit')->count();
+            $izin  = (int) $staffAbsensi->where('status', 'Izin')->count();
+            $alpha = (int) $staffAbsensi->where('status', 'Alpha')->count();
             $total = $hadir + $sakit + $izin + $alpha;
 
             return [

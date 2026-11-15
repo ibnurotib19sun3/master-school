@@ -402,7 +402,7 @@ export default function SuratMasukIndex({ surat, filters, namaSekolah }) {
             <Modal show={showModal} onClose={closeModal} title={editItem ? 'Edit Surat Masuk' : 'Tambah Surat Masuk'} size="lg">
                 <form onSubmit={submit} className="space-y-4">
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <Input label="Nomor Surat" value={data.nomor_surat} onChange={(e) => setData('nomor_surat', e.target.value)} error={errors.nomor_surat} required placeholder="cth: 001/SM/VII/2026" />
+                        <Input label="Nomor Surat" value={data.nomor_surat} onChange={(e) => setData('nomor_surat', e.target.value)} error={errors.nomor_surat} required placeholder="cth: 0001/SM/VII/2026" />
                         <Input label="Pengirim" value={data.pengirim} onChange={(e) => setData('pengirim', e.target.value)} error={errors.pengirim} required placeholder="Instansi / nama pengirim" />
                         <div className="col-span-1 sm:col-span-2">
                             <Input label="Perihal" value={data.perihal} onChange={(e) => setData('perihal', e.target.value)} error={errors.perihal} required placeholder="Isi perihal surat" />

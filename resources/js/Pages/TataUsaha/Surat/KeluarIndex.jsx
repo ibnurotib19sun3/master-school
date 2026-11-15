@@ -28,9 +28,11 @@ function buildNomor(fmt, seq, kodeJenis, kodeDept, tanggal) {
     const sep = fmt?.separator || '/';
     kodeJenis = kodeJenis || '';
     kodeDept  = kodeDept  || '';
+    const num = parseInt(seq, 10) || 0;
+    const seqStr = num < 1000 ? String(num).padStart(4, '0') : String(num);
     const map = {
         prefix:          fmt?.prefix_kode || '',
-        seq:             String(seq).padStart(3, '0'),
+        seq:             seqStr,
         kode_jenis:      kodeJenis,
         kode_dept:       kodeDept,
         kode_jenis_dept: kodeJenis && kodeDept ? `${kodeJenis}.${kodeDept}` : (kodeJenis || kodeDept),
@@ -210,7 +212,7 @@ function StepNomor({ fmt, nextSeq, kodeDeptList, kodeJenisList, onLanjutkan, onS
                     {autoNomor || <span className="text-gray-300 dark:text-gray-600">—</span>}
                 </p>
                 <p className="text-xs text-sky-400 dark:text-sky-500 mt-2">
-                    No. urut: <strong>{String(seq).padStart(3, '0')}</strong>
+                    No. urut: <strong>{(parseInt(seq, 10) || 0) < 1000 ? String(seq).padStart(4, '0') : String(seq)}</strong>
                     {jenis && <> · Jenis: <strong>{jenis.kode}</strong></>}
                     {showDept && dept && <> · Dept: <strong>{dept.kode}</strong></>}
                 </p>

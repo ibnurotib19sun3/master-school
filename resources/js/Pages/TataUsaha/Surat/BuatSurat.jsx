@@ -31,9 +31,11 @@ function buildNomor(fmt, seq, kodeJenis, kodeDept, dateStr) {
     const sep = fmt?.separator || '/';
     kodeJenis = kodeJenis || '';
     kodeDept = kodeDept || '';
+    const num = parseInt(seq, 10) || 0;
+    const seqStr = num < 1000 ? String(num).padStart(4, '0') : String(num);
     const map = {
         prefix: fmt?.prefix_kode || '',
-        seq: String(seq).padStart(3, '0'),
+        seq: seqStr,
         kode_jenis: kodeJenis,
         kode_dept: kodeDept,
         kode_jenis_dept: kodeJenis && kodeDept ? `${kodeJenis}.${kodeDept}` : (kodeJenis || kodeDept),

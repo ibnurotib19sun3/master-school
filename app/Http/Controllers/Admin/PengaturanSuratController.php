@@ -7,6 +7,7 @@ use App\Models\KodeDepartemen;
 use App\Models\KodeJenisSurat;
 use App\Models\PengaturanSekolah;
 use App\Models\PengaturanSurat;
+use App\Models\SuratKeluar;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 
@@ -55,10 +56,15 @@ class PengaturanSuratController extends Controller
             'format_bagian'    => 'required|array|min:1',
             'format_bagian.*'  => 'string|in:prefix,seq,kode_jenis,kode_dept,kode_jenis_dept,kode_dept_jenis,bulan_romawi,tahun',
         ]);
-        if (empty($data['nomor_awal_surat'])) {
-            $data['nomor_awal_surat'] = 1;
+        $currentPs = PengaturanSurat::current();
+        $nomorAwal = empty($data['nomor_awal_surat']) ? 1 : (int) $data['nomor_awal_surat'];
+        $data['nomor_awal_surat'] = $nomorAwal;
+
+        if ($currentPs->nomor_awal_surat_id === null || (int) $currentPs->nomor_awal_surat !== $nomorAwal) {
+            $data['nomor_awal_surat_id'] = SuratKeluar::max('id') ?? 0;
         }
-        PengaturanSurat::current()->update($data);
+
+        $currentPs->update($data);
         return back()->with('success', 'Format nomor surat berhasil disimpan.');
     }
 

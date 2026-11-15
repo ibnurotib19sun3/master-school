@@ -14,9 +14,11 @@ import { useState } from 'react';
 const ROMAN = ['','I','II','III','IV','V','VI','VII','VIII','IX','X','XI','XII'];
 function previewNomor(pengaturan) {
     const sep  = pengaturan.separator || '/';
+    const numAwal = Number(pengaturan.nomor_awal_surat) || 1;
+    const seqStr = numAwal < 1000 ? String(numAwal).padStart(4, '0') : String(numAwal);
     const map  = {
         prefix:          pengaturan.prefix_kode || '',
-        seq:             '001',
+        seq:             seqStr,
         kode_jenis:      'SK',
         kode_dept:       'KUR',
         kode_jenis_dept: 'SK.KUR',
@@ -32,7 +34,7 @@ function previewNomor(pengaturan) {
 
 const ALL_PARTS = [
     { key: 'prefix',          label: 'Prefix/Kode Sekolah',          example: 'SMK',    hint: 'Kode tetap di awal nomor' },
-    { key: 'seq',             label: 'Nomor Urut',                   example: '001',    hint: 'Urutan surat tahun ini' },
+    { key: 'seq',             label: 'Nomor Urut',                   example: '0001 / 0813', hint: 'Urutan surat tahun ini (4 digit untuk < 1000)' },
     { key: 'kode_jenis',      label: 'Kode Jenis Surat',             example: 'SK',     hint: 'Kode jenis surat saja (misal SK, Und)' },
     { key: 'kode_dept',       label: 'Kode Departemen',              example: 'KUR',    hint: 'Kode bidang/departemen saja' },
     { key: 'kode_jenis_dept', label: 'Kode Jenis.Dept (Gabung)',     example: 'SK.KUR', hint: 'Jenis & dept digabung dengan titik — misal SK.03' },
@@ -325,9 +327,11 @@ function TabFormat({ pengaturan }) {
 
     const currentPreview = (() => {
         const sep = separator || '/';
+        const numAwal = Number(nomorAwal) || 1;
+        const seqStr = numAwal < 1000 ? String(numAwal).padStart(4, '0') : String(numAwal);
         const map = {
             prefix:          prefixKode || 'SMK',
-            seq:             String(nomorAwal || 1).padStart(3, '0'),
+            seq:             seqStr,
             kode_jenis:      'SK',
             kode_dept:       'KUR',
             kode_jenis_dept: 'SK.KUR',
@@ -383,7 +387,7 @@ function TabFormat({ pengaturan }) {
                     {currentPreview}
                 </p>
                 <p className="text-xs text-sky-400 dark:text-sky-500 mt-1">
-                    Contoh: No. urut 001, Surat Keputusan (SK), Kurikulum (KUR)
+                    Contoh: No. urut {(Number(nomorAwal) || 1) < 1000 ? String(nomorAwal || 1).padStart(4, '0') : String(nomorAwal || 1)}, Surat Keputusan (SK), Kurikulum (KUR)
                 </p>
             </div>
 

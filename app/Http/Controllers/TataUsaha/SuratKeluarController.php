@@ -30,11 +30,7 @@ class SuratKeluarController extends Controller
 
         $ps = PengaturanSurat::current();
         $nomorAwal = max(1, (int) ($ps->nomor_awal_surat ?: 1));
-        $countSurat = SuratKeluar::where(function ($q) {
-            $q->whereYear('tgl_keluar', now()->year)
-              ->orWhereYear('tgl_surat', now()->year);
-        })->count();
-        $nextSeq = max($nomorAwal, $nomorAwal + $countSurat);
+        $nextSeq = $ps->getNextSeq();
 
         return Inertia::render('TataUsaha/Surat/KeluarIndex', [
             'surat'          => $query->paginate(20)->withQueryString(),

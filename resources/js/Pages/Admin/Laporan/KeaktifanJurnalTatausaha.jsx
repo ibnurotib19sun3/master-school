@@ -40,10 +40,11 @@ export default function KeaktifanJurnalTatausaha({ rekap, bulan, hariKerja }) {
     const [tahun, bln] = bulan.split('-');
     const [q, setQ] = useState('');
 
-    const totHadir   = rekap.reduce((s, r) => s + r.hari_hadir, 0);
-    const totTerisi  = rekap.reduce((s, r) => s + r.jurnal_terisi, 0);
-    const totKosong  = rekap.reduce((s, r) => s + r.jurnal_kosong, 0);
-    const totPersen  = totHadir > 0 ? Math.round((totTerisi / totHadir) * 100 * 10) / 10 : 0;
+    const totHadir      = rekap.reduce((s, r) => s + r.hari_hadir, 0);
+    const totTidakHadir = rekap.reduce((s, r) => s + (r.hari_tidak_hadir ?? 0), 0);
+    const totTerisi     = rekap.reduce((s, r) => s + r.jurnal_terisi, 0);
+    const totKosong     = rekap.reduce((s, r) => s + r.jurnal_kosong, 0);
+    const totPersen     = totHadir > 0 ? Math.round((totTerisi / totHadir) * 100 * 10) / 10 : 0;
 
     const sorted  = [...rekap].sort((a, b) => b.persen - a.persen);
     const visible = q.trim()
@@ -59,7 +60,7 @@ export default function KeaktifanJurnalTatausaha({ rekap, bulan, hariKerja }) {
                         Keaktifan Jurnal Tata Usaha
                     </h1>
                     <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
-                        {BULAN_NAMES[parseInt(bln)]} {tahun} · {hariKerja} hari kerja
+                        {BULAN_NAMES[parseInt(bln)]} {tahun} · {hariKerja} hari kerja aktif
                     </p>
                 </div>
                 <div className="flex items-center gap-2">
@@ -74,20 +75,24 @@ export default function KeaktifanJurnalTatausaha({ rekap, bulan, hariKerja }) {
             </div>
 
             {/* Summary */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
+            <div className="grid grid-cols-2 sm:grid-cols-5 gap-4 mb-6">
                 <Card><CardBody className="p-4 text-center">
                     <p className="text-2xl font-black text-gray-900 dark:text-white">{hariKerja}</p>
-                    <p className="text-xs text-gray-500 mt-1 font-medium">Hari Kerja</p>
+                    <p className="text-xs text-gray-500 mt-1 font-medium">Hari Kerja Aktif</p>
                 </CardBody></Card>
                 <Card><CardBody className="p-4 text-center">
                     <p className="text-2xl font-black text-sky-600 dark:text-sky-400">{totHadir}</p>
                     <p className="text-xs text-gray-500 mt-1 font-medium">Total Hadir</p>
                 </CardBody></Card>
                 <Card><CardBody className="p-4 text-center">
+                    <p className="text-2xl font-black text-red-500 dark:text-red-400">{totTidakHadir}</p>
+                    <p className="text-xs text-gray-500 mt-1 font-medium">Tidak Hadir</p>
+                </CardBody></Card>
+                <Card><CardBody className="p-4 text-center">
                     <p className="text-2xl font-black text-emerald-600 dark:text-emerald-400">{totTerisi}</p>
                     <p className="text-xs text-gray-500 mt-1 font-medium">Jurnal Terisi</p>
                 </CardBody></Card>
-                <Card><CardBody className="p-4 text-center">
+                <Card><CardBody className="p-4 text-center col-span-2 sm:col-span-1">
                     <p className={`text-2xl font-black ${pctText(totPersen)}`}>{totPersen}%</p>
                     <p className="text-xs text-gray-500 mt-1 font-medium">Rata-rata</p>
                     <div className="h-1.5 rounded-full bg-gray-100 dark:bg-gray-700 mt-2">
@@ -128,6 +133,7 @@ export default function KeaktifanJurnalTatausaha({ rekap, bulan, hariKerja }) {
                                         <th className="px-4 py-3 text-left">Nama</th>
                                         <th className="px-4 py-3 text-left hidden sm:table-cell">Jabatan</th>
                                         <th className="px-4 py-3 text-center">Hari Hadir</th>
+                                        <th className="px-4 py-3 text-center">Tidak Hadir</th>
                                         <th className="px-4 py-3 text-center">Jurnal Terisi</th>
                                         <th className="px-4 py-3 text-center">Kosong</th>
                                         <th className="px-4 py-3 text-center min-w-[160px]">Keaktifan</th>
@@ -142,6 +148,11 @@ export default function KeaktifanJurnalTatausaha({ rekap, bulan, hariKerja }) {
                                             <td className="px-4 py-3 font-medium text-gray-900 dark:text-gray-100">{row.nama}</td>
                                             <td className="px-4 py-3 text-gray-500 text-xs hidden sm:table-cell">{row.jabatan}</td>
                                             <td className="px-4 py-3 text-center text-sky-600 dark:text-sky-400 font-semibold">{row.hari_hadir}</td>
+                                            <td className="px-4 py-3 text-center">
+                                                <span className={`font-semibold ${row.hari_tidak_hadir > 0 ? 'text-red-500' : 'text-gray-400'}`}>
+                                                    {row.hari_tidak_hadir ?? 0}
+                                                </span>
+                                            </td>
                                             <td className="px-4 py-3 text-center font-semibold text-emerald-600 dark:text-emerald-400">{row.jurnal_terisi}</td>
                                             <td className="px-4 py-3 text-center">
                                                 <span className={`font-semibold ${row.jurnal_kosong > 0 ? 'text-red-500' : 'text-gray-400'}`}>
@@ -174,6 +185,7 @@ export default function KeaktifanJurnalTatausaha({ rekap, bulan, hariKerja }) {
                                     <tr>
                                         <td colSpan={3} className="px-4 py-3 text-xs font-bold text-gray-600 dark:text-gray-400 uppercase">Total</td>
                                         <td className="px-4 py-3 text-center font-bold text-sky-600 dark:text-sky-400">{totHadir}</td>
+                                        <td className="px-4 py-3 text-center font-bold text-red-500">{totTidakHadir}</td>
                                         <td className="px-4 py-3 text-center font-bold text-emerald-600 dark:text-emerald-400">{totTerisi}</td>
                                         <td className="px-4 py-3 text-center font-bold text-red-500">{totKosong}</td>
                                         <td className="px-4 py-3">
@@ -199,7 +211,7 @@ export default function KeaktifanJurnalTatausaha({ rekap, bulan, hariKerja }) {
                 <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full bg-emerald-500" /> Aktif ≥80%</span>
                 <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full bg-amber-500" /> Cukup 50–79%</span>
                 <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full bg-red-500" /> Kurang &lt;50%</span>
-                <span className="ml-2 text-gray-400">* % dihitung dari hari hadir vs jurnal terisi</span>
+                <span className="ml-2 text-gray-400">* Tanggal tanpa aktivitas sama sekali otomatis dianggap libur. % keaktifan dihitung dari hari hadir vs jurnal terisi.</span>
             </div>
         </AppLayout>
     );

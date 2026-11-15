@@ -22,6 +22,7 @@ use App\Models\Tatausaha;
 use App\Models\PengaturanSekolah;
 use App\Models\PengaturanSurat;
 use App\Services\KehadiranGuruRekapService;
+use App\Services\KehadiranTatausahaRekapService;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -299,7 +300,32 @@ class LaporanController extends Controller
             ?? ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat'];
     }
 
-    private function hariKerjaTatausaha(string $tanggalMulai, string $tanggalSelesai): int
+    private function activeDatesTatausaha(string $tanggalMulai, string $tanggalSelesai): array
+    {
+        $datesAbsensi = AbsensiTatausaha::whereBetween('tanggal', [$tanggalMulai, $tanggalSelesai])
+            ->distinct()->pluck('tanggal')
+            ->map(fn ($t) => Carbon::parse($t)->format('Y-m-d'))
+            ->toArray();
+
+        $datesJurnal = JurnalTatausaha::whereBetween('tanggal', [$tanggalMulai, $tanggalSelesai])
+            ->distinct()->pluck('tanggal')
+            ->map(fn ($t) => Carbon::parse($t)->format('Y-m-d'))
+            ->toArray();
+
+        $datesPiket = AbsensiPiket::whereBetween('tanggal', [$tanggalMulai, $tanggalSelesai])
+            ->distinct()->pluck('tanggal')
+            ->map(fn ($t) => Carbon::parse($t)->format('Y-m-d'))
+            ->toArray();
+
+        $datesGuru = AbsensiGuru::whereBetween('tanggal', [$tanggalMulai, $tanggalSelesai])
+            ->distinct()->pluck('tanggal')
+            ->map(fn ($t) => Carbon::parse($t)->format('Y-m-d'))
+            ->toArray();
+
+        return array_flip(array_unique(array_merge($datesAbsensi, $datesJurnal, $datesPiket, $datesGuru)));
+    }
+
+    private function hariKerjaDatesTatausaha(string $tanggalMulai, string $tanggalSelesai): array
     {
         $liburPenuh = HariLibur::whereNull('jam_tertentu')
             ->whereBetween('tanggal', [$tanggalMulai, $tanggalSelesai])
@@ -307,34 +333,39 @@ class LaporanController extends Controller
             ->map(fn ($t) => $t->format('Y-m-d'))
             ->all();
 
-        $earliestTU = AbsensiTatausaha::whereBetween('tanggal', [$tanggalMulai, $tanggalSelesai])->min('tanggal');
-        $hkStart    = $earliestTU ? Carbon::parse($earliestTU) : Carbon::parse($tanggalMulai);
-        $hkEnd      = Carbon::parse($tanggalSelesai);
-        $today      = Carbon::today();
+        $earliest = collect([
+            AbsensiTatausaha::whereBetween('tanggal', [$tanggalMulai, $tanggalSelesai])->min('tanggal'),
+            JurnalTatausaha::whereBetween('tanggal', [$tanggalMulai, $tanggalSelesai])->min('tanggal'),
+        ])->filter()->sort()->first();
+
+        $hkStart = $earliest ? Carbon::parse($earliest) : Carbon::parse($tanggalMulai);
+        $hkEnd   = Carbon::parse($tanggalSelesai);
+        $today   = Carbon::today();
         if ($today->lt($hkEnd)) {
             $hkEnd = $today->copy();
         }
 
-        // Tanggal dengan minimal 1 catatan absensi TU — tanggal tanpa aktivitas sama
-        // sekali dianggap libur tidak resmi dan tidak dihitung sebagai hari kerja.
-        $activeDates = AbsensiTatausaha::whereBetween('tanggal', [$tanggalMulai, $tanggalSelesai])
-            ->distinct()->pluck('tanggal')
-            ->map(fn ($t) => Carbon::parse($t)->format('Y-m-d'))
-            ->flip()->toArray();
+        $activeDates = $this->activeDatesTatausaha($tanggalMulai, $tanggalSelesai);
 
         $hariAktif = $this->hariAktifNames();
         $namaHariByIndex = ['Ahad', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
 
-        $hariKerja = 0;
+        $workDates = [];
         for ($d = $hkStart->copy(); $d->lte($hkEnd); $d->addDay()) {
             $dateStr = $d->format('Y-m-d');
             if (!in_array($namaHariByIndex[$d->dayOfWeek], $hariAktif, true)) continue;
             if (in_array($dateStr, $liburPenuh)) continue;
+            // Hari tanpa aktivitas sama sekali (baik TU, Guru, maupun Piket) otomatis dianggap libur
             if ($d->lte($today) && !isset($activeDates[$dateStr])) continue;
-            $hariKerja++;
+            $workDates[] = $dateStr;
         }
 
-        return $hariKerja;
+        return $workDates;
+    }
+
+    private function hariKerjaTatausaha(string $tanggalMulai, string $tanggalSelesai): int
+    {
+        return count($this->hariKerjaDatesTatausaha($tanggalMulai, $tanggalSelesai));
     }
 
     private function kopData(): array
@@ -694,40 +725,8 @@ class LaporanController extends Controller
     public function exportKehadiranTatausaha(Request $request)
     {
         $bulan = $request->input('bulan', now()->format('Y-m'));
-        [$tahun, $bln]  = explode('-', $bulan);
-        $tanggalMulai   = "{$tahun}-{$bln}-01";
-        $tanggalSelesai = date('Y-m-t', strtotime($tanggalMulai));
-
-        $tuList = Tatausaha::with('user')->where('is_aktif', true)->get();
-        $tuIds  = $tuList->pluck('id');
-
-        $absensiData = AbsensiTatausaha::whereBetween('tanggal', [$tanggalMulai, $tanggalSelesai])
-            ->whereIn('tatausaha_id', $tuIds)
-            ->selectRaw('tatausaha_id, status, COUNT(*) as jumlah')
-            ->groupBy('tatausaha_id', 'status')->get()->groupBy('tatausaha_id');
-
-        $hariKerja = $this->hariKerjaTatausaha($tanggalMulai, $tanggalSelesai);
-
-        $rekap = $tuList->map(function ($tu) use ($absensiData, $hariKerja) {
-            $data  = $absensiData->get($tu->id, collect());
-            $hadir = (int) $data->where('status', 'Hadir')->sum('jumlah');
-            $sakit = (int) $data->where('status', 'Sakit')->sum('jumlah');
-            $izin  = (int) $data->where('status', 'Izin')->sum('jumlah');
-            $alpha = (int) $data->where('status', 'Alpha')->sum('jumlah');
-            $total = $hadir + $sakit + $izin + $alpha;
-            return [
-                'nama'       => $tu->nama_lengkap,
-                'nip'        => $tu->nip ?? '-',
-                'jabatan'    => $tu->jabatan ?? '-',
-                'hadir'      => $hadir,
-                'sakit'      => $sakit,
-                'izin'       => $izin,
-                'alpha'      => $alpha,
-                'total'      => $total,
-                'tidak_absen'=> max(0, $hariKerja - $total),
-                'persen'     => $hariKerja > 0 ? round(($hadir / $hariKerja) * 100, 1) : 0,
-            ];
-        })->values();
+        $rekap = app(KehadiranTatausahaRekapService::class)->hitung($bulan);
+        $hariKerja = $rekap->first()['hari_kerja'] ?? $this->hariKerjaTatausaha("{$bulan}-01", date('Y-m-t', strtotime("{$bulan}-01")));
 
         return Excel::download(new KehadiranTatausahaExport($rekap, $bulan, $hariKerja), "kehadiran-tatausaha-{$bulan}.xlsx");
     }
@@ -898,47 +897,8 @@ class LaporanController extends Controller
     public function kehadiranTatausaha(Request $request)
     {
         $bulan = $request->get('bulan', now()->format('Y-m'));
-        [$tahun, $bln] = explode('-', $bulan);
-        $tanggalMulai   = "{$tahun}-{$bln}-01";
-        $tanggalSelesai = date('Y-m-t', strtotime($tanggalMulai));
-
-        // Hitung hari kerja (Senin-Jumat): mulai dari absensi pertama tercatat,
-        // tidak melebihi hari ini, agar bulan yang baru dimulai tidak merah semua
-        $tuList = Tatausaha::with('user')->where('is_aktif', true)->get();
-        $tuIds  = $tuList->pluck('id');
-
-        $absensiData = AbsensiTatausaha::whereBetween('tanggal', [$tanggalMulai, $tanggalSelesai])
-            ->whereIn('tatausaha_id', $tuIds)
-            ->selectRaw('tatausaha_id, status, COUNT(*) as jumlah')
-            ->groupBy('tatausaha_id', 'status')
-            ->get()
-            ->groupBy('tatausaha_id');
-
-        $hariKerja = $this->hariKerjaTatausaha($tanggalMulai, $tanggalSelesai);
-
-        $rekap = $tuList->map(function ($tu) use ($absensiData, $hariKerja) {
-            $data  = $absensiData->get($tu->id, collect());
-            $hadir = $data->where('status', 'Hadir')->sum('jumlah');
-            $sakit = $data->where('status', 'Sakit')->sum('jumlah');
-            $izin  = $data->where('status', 'Izin')->sum('jumlah');
-            $alpha = $data->where('status', 'Alpha')->sum('jumlah');
-            $total = $hadir + $sakit + $izin + $alpha;
-
-            return [
-                'id'         => $tu->id,
-                'nama'       => $tu->nama_lengkap,
-                'nip'        => $tu->nip ?? '-',
-                'jabatan'    => $tu->jabatan ?? '-',
-                'hari_kerja' => $hariKerja,
-                'hadir'      => $hadir,
-                'sakit'      => $sakit,
-                'izin'       => $izin,
-                'alpha'      => $alpha,
-                'total'      => $total,
-                'tidak_absen'=> max(0, $hariKerja - $total),
-                'persen'     => $hariKerja > 0 ? round(($hadir / $hariKerja) * 100, 1) : 0,
-            ];
-        });
+        $rekap = app(KehadiranTatausahaRekapService::class)->hitung($bulan);
+        $hariKerja = $rekap->first()['hari_kerja'] ?? $this->hariKerjaTatausaha("{$bulan}-01", date('Y-m-t', strtotime("{$bulan}-01")));
 
         return Inertia::render('Admin/Laporan/KehadiranTatausaha', array_merge([
             'rekap'    => $rekap->values(),
@@ -958,39 +918,49 @@ class LaporanController extends Controller
         $tuList = Tatausaha::with('user')->where('is_aktif', true)->get();
         $tuIds  = $tuList->pluck('id');
 
-        // Presensi Hadir per TU dalam periode
-        $hadirPerTU = AbsensiTatausaha::whereBetween('tanggal', [$from->toDateString(), $to->toDateString()])
+        // Presensi absensi per TU dalam periode
+        $absensiPerTU = AbsensiTatausaha::whereBetween('tanggal', [$from->toDateString(), $to->toDateString()])
             ->whereIn('tatausaha_id', $tuIds)
-            ->where('status', 'Hadir')
-            ->selectRaw('tatausaha_id, COUNT(*) as jumlah')
-            ->groupBy('tatausaha_id')
-            ->pluck('jumlah', 'tatausaha_id');
+            ->get()
+            ->groupBy('tatausaha_id');
 
         // Jurnal per TU dalam periode
         $jurnalPerTU = JurnalTatausaha::whereBetween('tanggal', [$from->toDateString(), $to->toDateString()])
             ->whereIn('tatausaha_id', $tuIds)
-            ->selectRaw('tatausaha_id, COUNT(*) as jumlah')
-            ->groupBy('tatausaha_id')
-            ->pluck('jumlah', 'tatausaha_id');
+            ->get()
+            ->groupBy('tatausaha_id');
 
-        // Hitung hari kerja: mulai dari absensi pertama, tidak melebihi hari ini
+        // Hitung hari kerja aktif (tanpa hari tanpa aktivitas sama sekali yang otomatis dianggap libur)
         $hariKerja = $this->hariKerjaTatausaha($from->toDateString(), $to->toDateString());
 
-        $rekap = $tuList->map(function ($tu) use ($hadirPerTU, $jurnalPerTU, $hariKerja) {
-            $hadirCount  = $hadirPerTU[$tu->id] ?? 0;
-            $jurnalCount = $jurnalPerTU[$tu->id] ?? 0;
-            $kosong      = max(0, $hadirCount - $jurnalCount);
-            $persen      = $hadirCount > 0 ? round(($jurnalCount / $hadirCount) * 100, 1) : 0;
+        $rekap = $tuList->map(function ($tu) use ($absensiPerTU, $jurnalPerTU, $hariKerja) {
+            $staffAbsensi = $absensiPerTU->get($tu->id, collect());
+            $staffJurnal  = $jurnalPerTU->get($tu->id, collect());
+
+            $hadirDates = $staffAbsensi->where('status', 'Hadir')->pluck('tanggal')->map(fn ($t) => Carbon::parse($t)->format('Y-m-d'))->toArray();
+            $jurnalDates = $staffJurnal->pluck('tanggal')->map(fn ($t) => Carbon::parse($t)->format('Y-m-d'))->toArray();
+
+            // Tanggal hadir efektif: hadir di absensi ATAU isi jurnal
+            $effectiveHadirDates = array_values(array_unique(array_merge($hadirDates, $jurnalDates)));
+            $hadirCount = count($effectiveHadirDates);
+            $tidakHadirCount = max(0, $hariKerja - $hadirCount);
+
+            // Jurnal terisi pada hari yang bersangkutan
+            $jurnalTerisiCount = count(array_intersect($effectiveHadirDates, $jurnalDates));
+            $kosong = max(0, $hadirCount - $jurnalTerisiCount);
+            $persen = $hadirCount > 0 ? round(($jurnalTerisiCount / $hadirCount) * 100, 1) : 0;
 
             return [
-                'id'          => $tu->id,
-                'nama'        => $tu->nama_lengkap,
-                'nip'         => $tu->nip ?? '-',
-                'jabatan'     => $tu->jabatan ?? '-',
-                'hari_hadir'  => $hadirCount,
-                'jurnal_terisi'  => $jurnalCount,
-                'jurnal_kosong'  => $kosong,
-                'persen'      => $persen,
+                'id'               => $tu->id,
+                'nama'             => $tu->nama_lengkap,
+                'nip'              => $tu->nip ?? '-',
+                'jabatan'          => $tu->jabatan ?? '-',
+                'hari_kerja'       => $hariKerja,
+                'hari_hadir'       => $hadirCount,
+                'hari_tidak_hadir' => $tidakHadirCount,
+                'jurnal_terisi'    => $jurnalTerisiCount,
+                'jurnal_kosong'    => $kosong,
+                'persen'           => $persen,
             ];
         });
 
@@ -1010,14 +980,15 @@ class LaporanController extends Controller
         $to          = $from->copy()->endOfMonth();
         $effectiveTo = $to->gt(Carbon::today()) ? Carbon::today() : $to->copy();
 
-        // Semua hari hadir TU dalam periode
-        $hadirRows = AbsensiTatausaha::whereBetween('tanggal', [$from->toDateString(), $effectiveTo->toDateString()])
-            ->where('tatausaha_id', $tatausaha->id)
-            ->where('status', 'Hadir')
-            ->orderBy('tanggal')
-            ->get(['tanggal']);
+        // Hari kerja aktif TU dalam periode (hari tanpa aktivitas otomatis dianggap libur)
+        $hariKerjaDates = $this->hariKerjaDatesTatausaha($from->toDateString(), $effectiveTo->toDateString());
+        $hariKerja = count($hariKerjaDates);
 
-        $tanggalList = $hadirRows->map(fn ($r) => Carbon::parse($r->tanggal)->format('Y-m-d'))->unique()->values();
+        // Absensi TU dalam periode
+        $absensiRows = AbsensiTatausaha::whereBetween('tanggal', [$from->toDateString(), $effectiveTo->toDateString()])
+            ->where('tatausaha_id', $tatausaha->id)
+            ->get()
+            ->keyBy(fn ($r) => Carbon::parse($r->tanggal)->format('Y-m-d'));
 
         // Jurnal TU dalam periode
         $jurnalMap = JurnalTatausaha::whereBetween('tanggal', [$from->toDateString(), $effectiveTo->toDateString()])
@@ -1025,16 +996,38 @@ class LaporanController extends Controller
             ->get(['tanggal', 'kegiatan'])
             ->keyBy(fn ($j) => Carbon::parse($j->tanggal)->format('Y-m-d'));
 
-        $slots = $tanggalList->map(fn ($tgl) => [
-            'tanggal' => $tgl,
-            'terisi'  => $jurnalMap->has($tgl),
-            'kegiatan'=> $jurnalMap[$tgl]->kegiatan ?? null,
+        $hadirDates = $absensiRows->filter(fn ($r) => $r->status === 'Hadir')->keys()->all();
+        $jurnalDates = $jurnalMap->keys()->all();
+        $effectiveHadirDates = array_values(array_unique(array_merge($hadirDates, $jurnalDates)));
+        sort($effectiveHadirDates);
+
+        $slots = collect($effectiveHadirDates)->map(fn ($tgl) => [
+            'tanggal'        => $tgl,
+            'terisi'         => $jurnalMap->has($tgl),
+            'kegiatan'       => $jurnalMap[$tgl]->kegiatan ?? null,
+            'status_absensi' => $absensiRows[$tgl]->status ?? ($jurnalMap->has($tgl) ? 'Hadir (via Jurnal)' : 'Hadir'),
         ]);
 
+        // Hari tidak hadir HANYA pada hari kerja aktif (hari tanpa aktivitas sama sekali tidak dimasukkan ke sini)
+        $tidakHadirDates = array_values(array_diff($hariKerjaDates, $effectiveHadirDates));
+        sort($tidakHadirDates);
+
+        $tidakHadirList = collect($tidakHadirDates)->map(function ($tgl) use ($absensiRows) {
+            $status = $absensiRows[$tgl]->status ?? 'Tidak Absen';
+            $keterangan = $absensiRows[$tgl]->keterangan ?? ($status === 'Tidak Absen' ? 'Tidak ada catatan kehadiran/jurnal' : null);
+            return [
+                'tanggal'    => $tgl,
+                'status'     => $status,
+                'keterangan' => $keterangan,
+            ];
+        });
+
         return Inertia::render('Admin/Laporan/KeaktifanJurnalTatausahaDetail', [
-            'tatausaha' => ['id' => $tatausaha->id, 'nama' => $tatausaha->nama_lengkap, 'jabatan' => $tatausaha->jabatan ?? '-', 'nip' => $tatausaha->nip ?? '-'],
-            'slots'     => $slots->values(),
-            'bulan'     => $bulan,
+            'tatausaha'      => ['id' => $tatausaha->id, 'nama' => $tatausaha->nama_lengkap, 'jabatan' => $tatausaha->jabatan ?? '-', 'nip' => $tatausaha->nip ?? '-'],
+            'slots'          => $slots->values(),
+            'tidakHadirList' => $tidakHadirList->values(),
+            'hariKerja'      => $hariKerja,
+            'bulan'          => $bulan,
         ]);
     }
 
