@@ -14,8 +14,10 @@ import { useState } from 'react';
 const ROMAN = ['','I','II','III','IV','V','VI','VII','VIII','IX','X','XI','XII'];
 function previewNomor(pengaturan) {
     const sep  = pengaturan.separator || '/';
-    const numAwal = Number(pengaturan.nomor_awal_surat) || 1;
-    const seqStr = numAwal < 1000 ? String(numAwal).padStart(4, '0') : String(numAwal);
+    const numAwal = Number(pengaturan.nomor_awal_surat) || 0;
+    const seqStr = numAwal <= 0
+        ? '[Manual]'
+        : (numAwal < 1000 ? String(numAwal).padStart(4, '0') : String(numAwal));
     const map  = {
         prefix:          pengaturan.prefix_kode || '',
         seq:             seqStr,
@@ -33,26 +35,27 @@ function previewNomor(pengaturan) {
 }
 
 const ALL_PARTS = [
-    { key: 'prefix',          label: 'Prefix/Kode Sekolah',          example: 'SMK',    hint: 'Kode tetap di awal nomor' },
+    { key: 'prefix',          label: 'Prefix/Kode Sekolah',          example: 'SMK',         hint: 'Kode tetap di awal nomor' },
     { key: 'seq',             label: 'Nomor Urut',                   example: '0001 / 0813', hint: 'Urutan surat tahun ini (4 digit untuk < 1000)' },
-    { key: 'kode_jenis',      label: 'Kode Jenis Surat',             example: 'SK',     hint: 'Kode jenis surat saja (misal SK, Und)' },
-    { key: 'kode_dept',       label: 'Kode Departemen',              example: 'KUR',    hint: 'Kode bidang/departemen saja' },
-    { key: 'kode_jenis_dept', label: 'Kode Jenis.Dept (Gabung)',     example: 'SK.KUR', hint: 'Jenis & dept digabung dengan titik — misal SK.03' },
-    { key: 'kode_dept_jenis', label: 'Kode Dept.Jenis (Gabung)',     example: 'KUR.SK', hint: 'Dept & jenis digabung dengan titik — urutan terbalik' },
-    { key: 'bulan_romawi',    label: 'Bulan (Romawi)',               example: 'VII',    hint: 'Bulan dalam angka romawi' },
-    { key: 'tahun',           label: 'Tahun',                        example: '2026',   hint: 'Tahun penerbitan surat' },
+    { key: 'kode_jenis',      label: 'Kode Jenis Surat',             example: 'SK',          hint: 'Kode jenis surat saja (misal SK, Und)' },
+    { key: 'kode_dept',       label: 'Kode Departemen',              example: 'KUR',         hint: 'Kode bidang/departemen saja' },
+    { key: 'kode_jenis_dept', label: 'Kode Jenis.Dept (Gabung)',     example: 'SK.KUR',      hint: 'Jenis & dept digabung dengan titik — misal SK.03' },
+    { key: 'kode_dept_jenis', label: 'Kode Dept.Jenis (Gabung)',     example: 'KUR.SK',      hint: 'Dept & jenis digabung dengan titik — urutan terbalik' },
+    { key: 'bulan_romawi',    label: 'Bulan (Romawi)',               example: 'VII',         hint: 'Bulan dalam angka romawi' },
+    { key: 'tahun',           label: 'Tahun',                        example: '2026',        hint: 'Tahun penerbitan surat' },
 ];
 
 /* ─── Tab Button ─── */
 function TabBtn({ active, onClick, icon: Icon, children }) {
     return (
         <button onClick={onClick}
-            className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
+            className={`flex items-center gap-2 px-3.5 sm:px-4 py-2.5 sm:py-3 text-xs sm:text-sm font-medium border-b-2 transition-colors whitespace-nowrap active:scale-[0.98] ${
                 active
-                    ? 'border-sky-600 text-sky-600 dark:text-sky-400 dark:border-sky-400'
+                    ? 'border-sky-600 text-sky-600 dark:text-sky-400 dark:border-sky-400 font-semibold'
                     : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'
             }`}>
-            <Icon className="h-4 w-4" /> {children}
+            <Icon className="h-4 w-4 shrink-0" />
+            <span>{children}</span>
         </button>
     );
 }
@@ -81,25 +84,25 @@ function KopPreview({ form, sekolah }) {
                 <span className="text-xs font-semibold uppercase tracking-wide text-sky-500 dark:text-sky-400">Pratinjau KOP Surat</span>
                 <span className="ml-auto text-xs text-sky-400 dark:text-sky-500 italic">Update otomatis saat mengetik</span>
             </div>
-            <div className="p-5">
-                <div className="flex items-center gap-4 pb-3 border-b-[3px] border-gray-900 dark:border-gray-300">
+            <div className="p-4 sm:p-5">
+                <div className="flex flex-col sm:flex-row items-center gap-3 sm:gap-4 pb-3 border-b-[3px] border-gray-900 dark:border-gray-300">
                     {sekolah.logo_url ? (
-                        <img src={sekolah.logo_url} className="h-16 w-16 object-contain shrink-0" alt="Logo" />
+                        <img src={sekolah.logo_url} className="h-14 w-14 sm:h-16 sm:w-16 object-contain shrink-0" alt="Logo" />
                     ) : (
-                        <div className="h-16 w-16 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded flex items-center justify-center text-xs text-gray-400 shrink-0">
+                        <div className="h-14 w-14 sm:h-16 sm:w-16 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded flex items-center justify-center text-xs text-gray-400 shrink-0">
                             LOGO
                         </div>
                     )}
                     <div className="flex-1 text-center space-y-0.5">
                         {yayasan && (
-                            <p className="text-[10px] uppercase tracking-wider text-gray-500 dark:text-gray-400">{yayasan}</p>
+                            <p className="text-[10px] sm:text-xs uppercase tracking-wider text-gray-500 dark:text-gray-400">{yayasan}</p>
                         )}
-                        <p className="text-xl font-black uppercase tracking-wide text-gray-900 dark:text-gray-100 leading-tight">
+                        <p className="text-lg sm:text-xl font-black uppercase tracking-wide text-gray-900 dark:text-gray-100 leading-tight">
                             {nama || <span className="text-gray-300 dark:text-gray-600 font-normal not-italic">Nama Sekolah</span>}
                         </p>
-                        {sub && <p className="text-[11px] text-gray-500 dark:text-gray-400">{sub}</p>}
-                        {alamat && <p className="text-[10px] text-gray-500 dark:text-gray-400">{alamat}</p>}
-                        {contacts && <p className="text-[10px] text-gray-400 dark:text-gray-500">{contacts}</p>}
+                        {sub && <p className="text-[11px] sm:text-xs text-gray-500 dark:text-gray-400">{sub}</p>}
+                        {alamat && <p className="text-[10px] sm:text-[11px] text-gray-500 dark:text-gray-400 leading-tight">{alamat}</p>}
+                        {contacts && <p className="text-[9px] sm:text-[10px] text-gray-400 dark:text-gray-500 break-words">{contacts}</p>}
                     </div>
                 </div>
                 <div className="h-1 bg-yellow-500 mt-0.5 rounded-sm" />
@@ -165,8 +168,10 @@ function TabKop({ pengaturan, sekolah }) {
                 <Input label="Email (override)" type="email" value={form.email_kop} onChange={e => set('email_kop', e.target.value)} placeholder={sekolah.email_sekolah || 'info@sekolah.sch.id'} />
                 <Input label="Website (override)" value={form.website_kop} onChange={e => set('website_kop', e.target.value)} placeholder={sekolah.website || 'www.sekolah.sch.id'} />
             </div>
-            <div className="flex justify-end">
-                <Button onClick={handleSave} loading={saving}>Simpan KOP Surat</Button>
+            <div className="flex flex-col sm:flex-row sm:justify-end gap-2 pt-1">
+                <Button onClick={handleSave} loading={saving} className="w-full sm:w-auto justify-center">
+                    Simpan KOP Surat
+                </Button>
             </div>
         </div>
     );
@@ -184,15 +189,15 @@ function KodeTable({ items, onStore, onUpdate, onDestroy, addLabel }) {
 
     return (
         <div className="space-y-4">
-            {/* Add form */}
-            <div className="flex gap-2 items-end flex-wrap">
-                <div className="flex-1 min-w-40">
+            {/* Add form - Responsive on mobile */}
+            <div className="flex flex-col sm:flex-row gap-2.5 sm:items-end bg-gray-50/70 dark:bg-gray-800/40 p-3.5 rounded-2xl border border-gray-200/80 dark:border-gray-700/60">
+                <div className="flex-1">
                     <Input label="Nama" value={form.nama} onChange={e => setForm(p => ({ ...p, nama: e.target.value }))} placeholder="Misal: Kurikulum" />
                 </div>
-                <div className="w-28">
+                <div className="w-full sm:w-28">
                     <Input label="Kode" value={form.kode} onChange={e => setForm(p => ({ ...p, kode: e.target.value.toUpperCase() }))} placeholder="KUR" />
                 </div>
-                <Button icon={Plus} loading={adding}
+                <Button icon={Plus} loading={adding} className="w-full sm:w-auto justify-center"
                     onClick={() => {
                         if (!form.nama || !form.kode) return;
                         setAdding(true);
@@ -297,8 +302,12 @@ function TabFormat({ pengaturan }) {
 
     const [separator, setSeparator] = useState(pengaturan.separator ?? '/');
     const [prefixKode, setPrefixKode] = useState(pengaturan.prefix_kode ?? '');
-    const [nomorAwal, setNomorAwal] = useState(pengaturan.nomor_awal_surat ?? 1);
-    const [enabled, setEnabled]     = useState(
+    const [nomorAwal, setNomorAwal] = useState(
+        pengaturan.nomor_awal_surat !== null && pengaturan.nomor_awal_surat !== undefined
+            ? pengaturan.nomor_awal_surat
+            : 0
+    );
+    const [enabled, setEnabled] = useState(
         () => {
             const set = new Set(defaultParts);
             return Object.fromEntries(ALL_PARTS.map(p => [p.key, set.has(p.key)]));
@@ -324,11 +333,20 @@ function TabFormat({ pengaturan }) {
     };
 
     const currentBagian = order.filter(k => enabled[k]);
+    const isManual = Number(nomorAwal) === 0;
 
     const currentPreview = (() => {
         const sep = separator || '/';
-        const numAwal = Number(nomorAwal) || 1;
-        const seqStr = numAwal < 1000 ? String(numAwal).padStart(4, '0') : String(numAwal);
+        const numAwal = Number(nomorAwal) || 0;
+        let seqStr = '';
+        if (numAwal === 0) {
+            seqStr = '[No.Urut-Manual]';
+        } else if (numAwal < 1000) {
+            seqStr = String(numAwal).padStart(4, '0');
+        } else {
+            seqStr = String(numAwal);
+        }
+
         const map = {
             prefix:          prefixKode || 'SMK',
             seq:             seqStr,
@@ -344,10 +362,11 @@ function TabFormat({ pengaturan }) {
 
     const handleSave = () => {
         setSaving(true);
+        const num = nomorAwal === '' ? 0 : Math.max(0, parseInt(nomorAwal, 10) || 0);
         router.post('/admin/pengaturan-surat/format', {
             separator,
             prefix_kode:      prefixKode || null,
-            nomor_awal_surat: Number(nomorAwal) || 1,
+            nomor_awal_surat: num,
             format_bagian:    currentBagian,
         }, { onFinish: () => setSaving(false) });
     };
@@ -355,84 +374,218 @@ function TabFormat({ pengaturan }) {
     return (
         <div className="space-y-6">
             {/* Separator + Prefix + Nomor Awal */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <div>
-                    <Input label="Separator antar bagian" value={separator}
-                        onChange={e => setSeparator(e.target.value)}
-                        placeholder="/" className="font-mono" />
-                    <p className="text-xs text-gray-400 mt-1">Biasanya garis miring  <code>/</code></p>
-                </div>
-                <div>
-                    <Input label="Kode Depan (Prefix)" value={prefixKode}
-                        onChange={e => setPrefixKode(e.target.value)}
-                        placeholder="YP.m/7" className="font-mono" />
-                    <p className="text-xs text-gray-400 mt-1">
-                        Contoh: <code className="bg-gray-100 dark:bg-gray-800 px-1 rounded">YP.m/7</code>. Aktifkan bagian "Prefix" di daftar bawah.
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5 sm:gap-4">
+                <div className="bg-gray-50/70 dark:bg-gray-800/40 p-3.5 rounded-2xl border border-gray-200/80 dark:border-gray-700/60 flex flex-col justify-between">
+                    <div>
+                        <Input
+                            label="Pemisah (Separator)"
+                            value={separator}
+                            onChange={e => setSeparator(e.target.value)}
+                            placeholder="/"
+                            className="font-mono text-center font-bold text-lg"
+                        />
+                    </div>
+                    <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-2">
+                        Karakter pemisah antar bagian nomor, biasanya <code>/</code> atau <code>-</code>.
                     </p>
                 </div>
-                <div>
-                    <Input label="Nomor Awal Surat" type="number" min="1" value={nomorAwal}
-                        onChange={e => setNomorAwal(Math.max(1, parseInt(e.target.value) || 1))}
-                        placeholder="1" className="font-mono" />
-                    <p className="text-xs text-gray-400 mt-1">
-                        Nomor awal urutan surat saat mulai berpindah ke aplikasi ini.
+
+                <div className="bg-gray-50/70 dark:bg-gray-800/40 p-3.5 rounded-2xl border border-gray-200/80 dark:border-gray-700/60 flex flex-col justify-between">
+                    <div>
+                        <Input
+                            label="Kode Depan (Prefix)"
+                            value={prefixKode}
+                            onChange={e => setPrefixKode(e.target.value)}
+                            placeholder="cth: 420 atau YP.m"
+                            className="font-mono"
+                        />
+                    </div>
+                    <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-2">
+                        Kode instansi/dinas di awal. Aktifkan bagian <strong>Prefix</strong> di bawah jika ingin ditampilkan.
+                    </p>
+                </div>
+
+                <div className="bg-gray-50/70 dark:bg-gray-800/40 p-3.5 rounded-2xl border border-gray-200/80 dark:border-gray-700/60 flex flex-col justify-between">
+                    <div>
+                        <div className="flex items-center justify-between mb-1">
+                            <label className="text-xs font-semibold text-gray-700 dark:text-gray-300">
+                                Nomor Awal Surat
+                            </label>
+                            {isManual ? (
+                                <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800">
+                                    Manual (0)
+                                </span>
+                            ) : (
+                                <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
+                                    Otomatis
+                                </span>
+                            )}
+                        </div>
+                        <input
+                            type="number"
+                            min="0"
+                            value={nomorAwal}
+                            onChange={e => {
+                                const val = e.target.value;
+                                if (val === '') setNomorAwal('');
+                                else setNomorAwal(Math.max(0, parseInt(val, 10) || 0));
+                            }}
+                            placeholder="0 = Manual"
+                            className="w-full rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-sky-500 font-mono font-bold"
+                        />
+                    </div>
+                    <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-2 leading-tight">
+                        {isManual ? (
+                            <span className="text-amber-600 dark:text-amber-400 font-medium">
+                                Nilai <strong>0</strong>: belum ada nomor awal. Saat tambah surat keluar, nomor surat diinput secara <strong>manual</strong>.
+                            </span>
+                        ) : (
+                            <span>
+                                Mulai nomor urut otomatis dari <strong>{Number(nomorAwal) < 1000 ? String(nomorAwal).padStart(4, '0') : nomorAwal}</strong>.
+                            </span>
+                        )}
                     </p>
                 </div>
             </div>
 
-            {/* Preview */}
-            <div className="rounded-xl bg-sky-50 dark:bg-sky-900/20 border border-sky-200 dark:border-sky-800 px-5 py-4">
-                <p className="text-xs text-sky-500 dark:text-sky-400 font-semibold uppercase tracking-wide mb-1.5">Pratinjau Nomor Surat</p>
-                <p className="font-mono text-2xl font-bold text-sky-700 dark:text-sky-300 tracking-wider">
-                    {currentPreview}
-                </p>
-                <p className="text-xs text-sky-400 dark:text-sky-500 mt-1">
-                    Contoh: No. urut {(Number(nomorAwal) || 1) < 1000 ? String(nomorAwal || 1).padStart(4, '0') : String(nomorAwal || 1)}, Surat Keputusan (SK), Kurikulum (KUR)
-                </p>
+            {/* Preview Box - Modern & Fully Responsive on Mobile */}
+            <div className="rounded-2xl bg-gradient-to-br from-sky-50/90 via-sky-50/30 to-white dark:from-sky-950/40 dark:via-gray-900 dark:to-gray-900 border border-sky-200/90 dark:border-sky-800/80 p-4 sm:p-5 shadow-sm">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-2">
+                    <div className="flex items-center gap-2">
+                        <Eye className="h-4 w-4 text-sky-500 shrink-0" />
+                        <span className="text-xs font-bold uppercase tracking-wider text-sky-600 dark:text-sky-400">
+                            Pratinjau Nomor Surat Tergenerate
+                        </span>
+                    </div>
+                    {isManual ? (
+                        <span className="self-start sm:self-auto inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-full bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800">
+                            Mode Input Manual (Nomor Awal = 0)
+                        </span>
+                    ) : (
+                        <span className="self-start sm:self-auto inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-full bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
+                            Mode Otomatis Aktif
+                        </span>
+                    )}
+                </div>
+
+                <div className="py-2.5">
+                    <p className="font-mono text-xl sm:text-2xl lg:text-3xl font-extrabold text-sky-800 dark:text-sky-200 tracking-wide break-all leading-tight">
+                        {currentPreview}
+                    </p>
+                </div>
+
+                <div className="pt-2 border-t border-sky-100 dark:border-sky-900/40 flex flex-col sm:flex-row sm:items-center justify-between gap-1 text-[11px] sm:text-xs text-gray-500 dark:text-gray-400">
+                    <p>
+                        {isManual ? (
+                            <>Simulasi format saat nomor diisi manual (contoh jenis: <strong>SK</strong>, departemen: <strong>KUR</strong>)</>
+                        ) : (
+                            <>Contoh nomor urut <strong>{Number(nomorAwal) < 1000 ? String(nomorAwal).padStart(4, '0') : nomorAwal}</strong>, jenis: <strong>SK</strong>, departemen: <strong>KUR</strong></>
+                        )}
+                    </p>
+                    <span className="text-sky-600 dark:text-sky-400 font-semibold">
+                        {currentBagian.length} bagian aktif
+                    </span>
+                </div>
             </div>
 
-            {/* Part list */}
+            {/* Part List - Mobile Optimized */}
             <div>
-                <p className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">
-                    Bagian Nomor Surat — centang yang diinginkan, atur urutan dengan tombol ▲▼
-                </p>
-                <div className="space-y-2">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 mb-3">
+                    <div>
+                        <h4 className="text-sm font-bold text-gray-900 dark:text-gray-100">
+                            Komponen Nomor Surat
+                        </h4>
+                        <p className="text-xs text-gray-500 dark:text-gray-400">
+                            Centang komponen yang diinginkan, gunakan tombol panah untuk mengubah urutan.
+                        </p>
+                    </div>
+                </div>
+
+                <div className="space-y-2.5">
                     {order.map((key, idx) => {
                         const part = ALL_PARTS.find(p => p.key === key);
                         if (!part) return null;
                         const isEnabled = enabled[key];
+                        const activeIndex = currentBagian.indexOf(key);
+
                         return (
-                            <div key={key}
-                                className={`flex items-center gap-3 rounded-xl border px-4 py-3 transition-colors ${
+                            <div
+                                key={key}
+                                className={`rounded-xl border transition-all duration-150 p-3 sm:p-3.5 flex items-center gap-2.5 sm:gap-3.5 ${
                                     isEnabled
-                                        ? 'border-sky-200 dark:border-sky-800 bg-white dark:bg-gray-900'
-                                        : 'border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 opacity-50'
-                                }`}>
-                                <GripVertical className="h-4 w-4 text-gray-300 dark:text-gray-600 shrink-0" />
-                                <input type="checkbox" checked={isEnabled}
-                                    onChange={e => setEnabled(p => ({ ...p, [key]: e.target.checked }))}
-                                    className="h-4 w-4 rounded border-gray-300 text-sky-600" />
-                                <div className="flex-1 min-w-0">
-                                    <div className="flex items-center gap-2 flex-wrap">
-                                        <span className="font-medium text-sm text-gray-800 dark:text-gray-200">{part.label}</span>
-                                        <span className="rounded-md bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 px-1.5 py-0.5 text-xs font-mono">
+                                        ? 'border-sky-300 dark:border-sky-700 bg-white dark:bg-gray-900 shadow-sm'
+                                        : 'border-gray-200 dark:border-gray-800 bg-gray-50/70 dark:bg-gray-800/40 opacity-60'
+                                }`}
+                            >
+                                {/* Position badge */}
+                                <div className="shrink-0 flex items-center justify-center">
+                                    {isEnabled ? (
+                                        <span className="h-6 w-6 rounded-full bg-sky-600 text-white font-bold text-xs flex items-center justify-center shadow-sm">
+                                            {activeIndex + 1}
+                                        </span>
+                                    ) : (
+                                        <span className="h-6 w-6 rounded-full bg-gray-200 dark:bg-gray-700 text-gray-400 font-bold text-xs flex items-center justify-center">
+                                            -
+                                        </span>
+                                    )}
+                                </div>
+
+                                {/* Checkbox */}
+                                <label className="shrink-0 flex items-center cursor-pointer p-1 -m-1">
+                                    <input
+                                        type="checkbox"
+                                        checked={isEnabled}
+                                        onChange={e => setEnabled(p => ({ ...p, [key]: e.target.checked }))}
+                                        className="h-4 w-4 rounded border-gray-300 dark:border-gray-600 text-sky-600 focus:ring-sky-500 cursor-pointer"
+                                    />
+                                </label>
+
+                                {/* Label & description */}
+                                <div
+                                    className="flex-1 min-w-0 cursor-pointer select-none"
+                                    onClick={() => setEnabled(p => ({ ...p, [key]: !p[key] }))}
+                                >
+                                    <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
+                                        <span className="font-semibold text-xs sm:text-sm text-gray-900 dark:text-gray-100">
+                                            {part.label}
+                                        </span>
+                                        <span className="rounded bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 px-1.5 py-0.5 text-[11px] font-mono">
                                             {part.example}
                                         </span>
                                         {key === 'prefix' && prefixKode && (
-                                            <span className="rounded-md bg-sky-100 dark:bg-sky-900/30 text-sky-600 dark:text-sky-400 px-1.5 py-0.5 text-xs font-mono font-bold">
+                                            <span className="rounded bg-sky-100 dark:bg-sky-900/40 text-sky-700 dark:text-sky-300 px-1.5 py-0.5 text-[11px] font-mono font-bold">
                                                 {prefixKode}
                                             </span>
                                         )}
+                                        {!isEnabled && (
+                                            <span className="text-[10px] uppercase font-semibold text-gray-400 dark:text-gray-500 bg-gray-100 dark:bg-gray-800/80 px-1.5 py-0.5 rounded">
+                                                Nonaktif
+                                            </span>
+                                        )}
                                     </div>
-                                    <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">{part.hint}</p>
+                                    <p className="text-[11px] sm:text-xs text-gray-500 dark:text-gray-400 mt-0.5 truncate sm:whitespace-normal">
+                                        {part.hint}
+                                    </p>
                                 </div>
-                                <div className="flex flex-col gap-0.5 shrink-0">
-                                    <button onClick={() => move(idx, -1)} disabled={idx === 0}
-                                        className="rounded p-0.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 disabled:opacity-20 transition-colors">
+
+                                {/* Move arrow buttons - large & touch friendly for mobile */}
+                                <div className="flex items-center gap-1 shrink-0">
+                                    <button
+                                        type="button"
+                                        onClick={() => move(idx, -1)}
+                                        disabled={idx === 0}
+                                        title="Pindah ke atas"
+                                        className="h-8 w-8 sm:h-8 sm:w-8 rounded-lg flex items-center justify-center text-gray-500 dark:text-gray-400 hover:text-sky-600 dark:hover:text-sky-400 hover:bg-sky-50 dark:hover:bg-sky-900/30 active:scale-95 disabled:opacity-20 disabled:pointer-events-none transition-all border border-gray-200 dark:border-gray-700 sm:border-transparent sm:hover:border-sky-200"
+                                    >
                                         <ChevronUp className="h-4 w-4" />
                                     </button>
-                                    <button onClick={() => move(idx, 1)} disabled={idx === order.length - 1}
-                                        className="rounded p-0.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 disabled:opacity-20 transition-colors">
+                                    <button
+                                        type="button"
+                                        onClick={() => move(idx, 1)}
+                                        disabled={idx === order.length - 1}
+                                        title="Pindah ke bawah"
+                                        className="h-8 w-8 sm:h-8 sm:w-8 rounded-lg flex items-center justify-center text-gray-500 dark:text-gray-400 hover:text-sky-600 dark:hover:text-sky-400 hover:bg-sky-50 dark:hover:bg-sky-900/30 active:scale-95 disabled:opacity-20 disabled:pointer-events-none transition-all border border-gray-200 dark:border-gray-700 sm:border-transparent sm:hover:border-sky-200"
+                                    >
                                         <ChevronDown className="h-4 w-4" />
                                     </button>
                                 </div>
@@ -443,11 +596,18 @@ function TabFormat({ pengaturan }) {
             </div>
 
             {currentBagian.length === 0 && (
-                <p className="text-sm text-red-500">Pilih minimal satu bagian untuk nomor surat.</p>
+                <div className="rounded-xl p-3 bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800 text-xs text-red-600 dark:text-red-400">
+                    Pilih minimal satu bagian untuk nomor surat.
+                </div>
             )}
 
-            <div className="flex justify-end">
-                <Button onClick={handleSave} loading={saving} disabled={currentBagian.length === 0}>
+            <div className="pt-2 flex flex-col sm:flex-row sm:justify-end gap-3">
+                <Button
+                    onClick={handleSave}
+                    loading={saving}
+                    disabled={currentBagian.length === 0}
+                    className="w-full sm:w-auto justify-center"
+                >
                     Simpan Format Nomor
                 </Button>
             </div>
@@ -480,27 +640,27 @@ export default function PengaturanSuratIndex({ pengaturan, sekolah, kode_departe
 
     return (
         <AppLayout title="Pengaturan Surat">
-            <div className="max-w-4xl mx-auto">
-                <div className="mb-6">
-                    <h2 className="text-lg font-bold text-gray-900 dark:text-gray-100 flex items-center gap-2">
+            <div className="max-w-4xl mx-auto px-1 sm:px-0">
+                <div className="mb-5 sm:mb-6">
+                    <h2 className="text-lg sm:text-xl font-bold text-gray-900 dark:text-gray-100 flex items-center gap-2">
                         <Settings2 className="h-5 w-5 text-sky-500" /> Pengaturan Surat
                     </h2>
-                    <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
+                    <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 mt-1">
                         Kelola KOP surat, kode departemen, kode jenis surat, dan format penomoran.
                     </p>
                 </div>
 
                 {/* Flash */}
                 {flash.success && (
-                    <div className="mb-4 flex items-center gap-2 rounded-xl bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 px-4 py-3 text-sm text-emerald-700 dark:text-emerald-400">
+                    <div className="mb-4 flex items-center gap-2 rounded-xl bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 px-4 py-3 text-xs sm:text-sm text-emerald-700 dark:text-emerald-400 shadow-sm">
                         <Check className="h-4 w-4 shrink-0" /> {flash.success}
                     </div>
                 )}
 
-                <Card>
-                    {/* Tab bar */}
-                    <div className="border-b border-gray-200 dark:border-gray-700 overflow-x-auto">
-                        <div className="flex px-2 gap-1 min-w-max">
+                <Card className="shadow-sm">
+                    {/* Tab bar - Touch scrollable on mobile */}
+                    <div className="border-b border-gray-200 dark:border-gray-700 overflow-x-auto scrollbar-none">
+                        <div className="flex px-2 sm:px-4 gap-1 min-w-max">
                             {TABS.map(t => (
                                 <TabBtn key={t.key} active={tab === t.key} onClick={() => setTab(t.key)} icon={t.icon}>
                                     {t.label}
@@ -509,7 +669,7 @@ export default function PengaturanSuratIndex({ pengaturan, sekolah, kode_departe
                         </div>
                     </div>
 
-                    <CardBody className="pt-6">
+                    <CardBody className="p-4 sm:p-6">
                         {tab === 'kop'    && <TabKop    pengaturan={pengaturan} sekolah={sekolah} />}
                         {tab === 'dept'   && (
                             <KodeTable
@@ -535,12 +695,12 @@ export default function PengaturanSuratIndex({ pengaturan, sekolah, kode_departe
 
                 {/* Format preview footer */}
                 {tab !== 'format' && (
-                    <div className="mt-4 flex items-center justify-between rounded-xl bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 px-4 py-3 text-sm">
+                    <div className="mt-4 flex flex-col sm:flex-row sm:items-center justify-between gap-2 rounded-2xl bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700/80 p-3.5 sm:px-4 sm:py-3 text-xs sm:text-sm">
                         <div className="flex items-center gap-2 text-gray-500 dark:text-gray-400">
-                            <Eye className="h-4 w-4" />
+                            <Eye className="h-4 w-4 shrink-0 text-sky-500" />
                             <span>Format nomor surat aktif:</span>
                         </div>
-                        <span className="font-mono font-bold text-sky-600 dark:text-sky-400">
+                        <span className="font-mono font-bold text-sky-600 dark:text-sky-400 break-all">
                             {previewNomor(pengaturan)}
                         </span>
                     </div>

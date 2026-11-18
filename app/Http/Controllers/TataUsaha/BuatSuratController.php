@@ -55,7 +55,7 @@ class BuatSuratController extends Controller
     private function nomorConfig(): array
     {
         $ps = PengaturanSurat::current();
-        $nomorAwal = max(1, (int) ($ps->nomor_awal_surat ?: 1));
+        $nomorAwal = (int) ($ps->nomor_awal_surat ?? 0);
         $nextSeq = $ps->getNextSeq();
 
         return [

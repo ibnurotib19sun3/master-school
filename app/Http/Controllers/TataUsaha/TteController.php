@@ -85,7 +85,9 @@ class TteController extends Controller
             Storage::disk('public')->delete($suratKeluar->file_tte);
         }
 
-        $path = $request->file('file_tte')->store('surat/tte', 'public');
+        $safeNomor = SuratKeluar::sanitizeNomorForFilename($suratKeluar->nomor_surat ?? 'surat');
+        $fileName  = "TTE-{$safeNomor}.pdf";
+        $path      = $request->file('file_tte')->storeAs('surat/tte', $fileName, 'public');
         $suratKeluar->update(['file_tte' => $path]);
 
         return response()->json([

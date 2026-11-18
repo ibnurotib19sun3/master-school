@@ -95,7 +95,11 @@ class PengaturanSurat extends Model
      */
     public function getNextSeq(): int
     {
-        $nomorAwal = max(1, (int) ($this->nomor_awal_surat ?: 1));
+        $nomorAwal = (int) ($this->nomor_awal_surat ?? 0);
+        if ($nomorAwal <= 0) {
+            return 0; // 0 menandakan belum ada nomor awal / penomoran diinput manual
+        }
+
         $startId   = (int) ($this->nomor_awal_surat_id ?? 0);
 
         // Ambil surat keluar tahun berjalan
@@ -134,7 +138,7 @@ class PengaturanSurat extends Model
         $date   = $date ? Carbon::parse($date) : now();
         $roman  = ['','I','II','III','IV','V','VI','VII','VIII','IX','X','XI','XII'];
         $sep    = $this->separator ?: '/';
-        $seqStr = $seq < 1000 ? str_pad($seq, 4, '0', STR_PAD_LEFT) : (string) $seq;
+        $seqStr = $seq <= 0 ? '' : ($seq < 1000 ? str_pad($seq, 4, '0', STR_PAD_LEFT) : (string) $seq);
 
         $parts = $this->format_bagian ?? ['seq', 'kode_jenis', 'kode_dept', 'bulan_romawi', 'tahun'];
         $map   = [

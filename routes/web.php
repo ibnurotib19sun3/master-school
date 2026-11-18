@@ -1102,6 +1102,8 @@ Route::middleware('auth')->group(function () {
         // Surat Keluar
         Route::get('surat-keluar',                        [\App\Http\Controllers\TataUsaha\SuratKeluarController::class, 'index'])->name('surat-keluar.index');
         Route::post('surat-keluar',                       [\App\Http\Controllers\TataUsaha\SuratKeluarController::class, 'store'])->name('surat-keluar.store');
+        Route::get('surat-keluar/{suratKeluar}/view-file', [\App\Http\Controllers\TataUsaha\SuratKeluarController::class, 'viewFile'])->name('surat-keluar.view-file');
+        Route::get('surat-keluar/{suratKeluar}/download',  [\App\Http\Controllers\TataUsaha\SuratKeluarController::class, 'downloadFile'])->name('surat-keluar.download');
         Route::put('surat-keluar/{suratKeluar}',          [\App\Http\Controllers\TataUsaha\SuratKeluarController::class, 'update'])->name('surat-keluar.update');
         Route::delete('surat-keluar/{suratKeluar}',       [\App\Http\Controllers\TataUsaha\SuratKeluarController::class, 'destroy'])->name('surat-keluar.destroy');
 

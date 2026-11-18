@@ -276,6 +276,7 @@ function StepNomor({ fmt, nextSeq, kodeDeptList, kodeJenisList, onLanjutkan, onS
 
 /* ─── Main Page ─── */
 export default function SuratKeluarIndex({ surat, filters, kode_departemen, kode_jenis, format_nomor, next_seq }) {
+    const isAutoNumbering = (Number(format_nomor?.nomor_awal_surat) > 0) && (Number(next_seq) > 0);
     const [showModal,    setShowModal]    = useState(false);
     const [step,         setStep]         = useState(1); // 1 = nomor builder, 2 = form
     const [editItem,     setEditItem]     = useState(null);
@@ -310,7 +311,11 @@ export default function SuratKeluarIndex({ surat, filters, kode_departemen, kode
         setEditItem(null);
         setFileObj(null);
         setClearFile(false);
-        setStep(1);
+        if (isAutoNumbering) {
+            setStep(1);
+        } else {
+            setStep(2); // ketika nomor awal 0, langsung input manual
+        }
         setShowModal(true);
     };
 
@@ -381,9 +386,13 @@ export default function SuratKeluarIndex({ surat, filters, kode_departemen, kode
         'Umum', 'Lainnya',
     ].filter((v, i, a) => a.indexOf(v) === i); // deduplicate
 
-    const modalTitle = step === 1
-        ? 'Buat Nomor Surat'
-        : editItem ? 'Edit Surat Keluar' : 'Form Surat Keluar';
+    const modalTitle = editItem
+        ? 'Edit Surat Keluar'
+        : !isAutoNumbering
+            ? 'Tambah Surat Keluar (Input Manual)'
+            : step === 1
+                ? 'Buat Nomor Surat'
+                : 'Form Surat Keluar';
 
     return (
         <AppLayout title="Surat Keluar">
@@ -488,7 +497,7 @@ export default function SuratKeluarIndex({ surat, filters, kode_departemen, kode
                                                   </span>
                                             }
                                             {item.file_url && (
-                                                <a href={item.file_url} target="_blank" rel="noreferrer"
+                                                <a href={item.file_view_url || item.file_url} target="_blank" rel="noreferrer"
                                                     className="inline-flex items-center gap-1 text-xs text-sky-600 dark:text-sky-400 hover:underline mt-0.5">
                                                     <Paperclip className="h-3 w-3" /> Lihat file
                                                 </a>
@@ -505,8 +514,8 @@ export default function SuratKeluarIndex({ surat, filters, kode_departemen, kode
                                         <td className="px-4 py-3">
                                             <div className="flex gap-1">
                                                 {item.file_url && (
-                                                    <a href={item.file_url} target="_blank" rel="noreferrer"
-                                                        className="rounded-lg p-1.5 bg-sky-50 text-sky-600 dark:bg-sky-900/30 dark:text-sky-400 hover:bg-sky-100 dark:hover:bg-sky-900/50 transition-colors" title="Download">
+                                                    <a href={item.file_download_url || item.file_url} download
+                                                        className="rounded-lg p-1.5 bg-sky-50 text-sky-600 dark:bg-sky-900/30 dark:text-sky-400 hover:bg-sky-100 dark:hover:bg-sky-900/50 transition-colors" title="Unduh File Surat">
                                                         <Download className="h-4 w-4" />
                                                     </a>
                                                 )}
@@ -553,8 +562,8 @@ export default function SuratKeluarIndex({ surat, filters, kode_departemen, kode
 
             {/* ── Modal ── */}
             <Modal show={showModal} onClose={closeModal} title={modalTitle} size="lg">
-                {/* Step indicator — only for tambah */}
-                {!editItem && (
+                {/* Step indicator — only for tambah dengan penomoran otomatis */}
+                {!editItem && isAutoNumbering && (
                     <div className="flex items-center gap-2 mb-5 px-1">
                         <div className={`flex items-center gap-1.5 text-xs font-semibold ${step === 1 ? 'text-sky-600 dark:text-sky-400' : 'text-gray-400'}`}>
                             <span className={`inline-flex items-center justify-center h-5 w-5 rounded-full text-[10px] font-bold ${step === 1 ? 'bg-sky-600 text-white' : 'bg-emerald-500 text-white'}`}>
@@ -590,18 +599,35 @@ export default function SuratKeluarIndex({ surat, filters, kode_departemen, kode
                     <form onSubmit={submit} className="space-y-4">
                         {/* Nomor badge / editable */}
                         <div className="rounded-xl bg-sky-50 dark:bg-sky-900/20 border border-sky-200 dark:border-sky-800 px-4 py-3">
-                            <div className="flex items-center gap-2 mb-2">
-                                <Hash className="h-4 w-4 text-sky-500 shrink-0" />
-                                <span className="text-xs font-semibold text-sky-600 dark:text-sky-400 uppercase tracking-wide">Nomor Surat</span>
+                            <div className="flex items-center justify-between gap-2 mb-2">
+                                <div className="flex items-center gap-2">
+                                    <Hash className="h-4 w-4 text-sky-500 shrink-0" />
+                                    <span className="text-xs font-semibold text-sky-600 dark:text-sky-400 uppercase tracking-wide">
+                                        Nomor Surat {!isAutoNumbering && '(Input Manual)'}
+                                    </span>
+                                </div>
+                                {!isAutoNumbering && (
+                                    <span className="text-[11px] font-medium px-2 py-0.5 rounded bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800">
+                                        Mode Manual
+                                    </span>
+                                )}
                             </div>
                             <input value={data.nomor_surat}
                                 onChange={e => setData('nomor_surat', e.target.value)}
-                                className="w-full font-mono text-lg font-bold text-sky-700 dark:text-sky-300 bg-transparent border-none outline-none focus:ring-0 placeholder-sky-300"
-                                placeholder="Nomor surat..." />
-                            {!editItem && (
+                                className="w-full font-mono text-base sm:text-lg font-bold text-sky-700 dark:text-sky-300 bg-white dark:bg-gray-800/80 border border-sky-200 dark:border-sky-700/60 rounded-xl px-3.5 py-2 outline-none focus:ring-2 focus:ring-sky-500 placeholder-sky-300 dark:placeholder-sky-700"
+                                placeholder={!isAutoNumbering ? "Ketik nomor surat lengkap, cth: 001/SMK/XI/2026..." : "Nomor surat..."}
+                                autoFocus={!isAutoNumbering}
+                                required
+                            />
+                            {!isAutoNumbering && (
+                                <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-1.5">
+                                    Nomor surat diinput secara manual karena pengaturan nomor awal diatur 0.
+                                </p>
+                            )}
+                            {isAutoNumbering && !editItem && (
                                 <button type="button" onClick={() => setStep(1)}
-                                    className="mt-1 inline-flex items-center gap-1 text-xs text-sky-500 hover:text-sky-700 dark:hover:text-sky-300 transition-colors">
-                                    <RefreshCw className="h-3 w-3" /> Ubah nomor
+                                    className="mt-2 inline-flex items-center gap-1 text-xs text-sky-500 hover:text-sky-700 dark:hover:text-sky-300 transition-colors">
+                                    <RefreshCw className="h-3 w-3" /> Ubah komponen nomor
                                 </button>
                             )}
                         </div>
@@ -645,13 +671,13 @@ export default function SuratKeluarIndex({ surat, filters, kode_departemen, kode
                         <FilePickerArea
                             file={fileObj}
                             setFile={setFileObj}
-                            existingUrl={editItem?.file_url}
+                            existingUrl={editItem?.file_view_url || editItem?.file_url}
                             existingName={editItem?.file_surat ? editItem.file_surat.split('/').pop() : null}
                             onClear={() => setClearFile(true)}
                         />
 
                         <div className="flex justify-between gap-3 pt-1">
-                            {!editItem ? (
+                            {!editItem && isAutoNumbering ? (
                                 <button type="button" onClick={() => setStep(1)}
                                     className="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 transition-colors">
                                     <ArrowLeft className="h-4 w-4" /> Kembali

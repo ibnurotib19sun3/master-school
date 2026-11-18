@@ -456,6 +456,9 @@ export default function BuatSurat({
     // builder di Surat Keluar — kecuali kalau sudah diedit manual atau ditautkan ke surat keluar.
     useEffect(() => {
         if (nomorEdited || linkedSuratKeluar) return;
+        if (!format_nomor?.nomor_awal_surat || Number(format_nomor.nomor_awal_surat) <= 0 || !next_seq) {
+            return;
+        }
         setNomor(buildNomor(format_nomor, next_seq, kodeJenis?.kode, kodeDept?.kode, tanggal));
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [kodeJenisId, kodeDeptId, tanggal, nomorEdited, tplId, linkedSuratKeluar]);
@@ -468,7 +471,11 @@ export default function BuatSurat({
     const resetNomor = () => {
         setNomorEdited(false);
         setLinkedSuratKeluar(null);
-        setNomor(buildNomor(format_nomor, next_seq, kodeJenis?.kode, kodeDept?.kode, tanggal));
+        if (Number(format_nomor?.nomor_awal_surat) > 0 && next_seq > 0) {
+            setNomor(buildNomor(format_nomor, next_seq, kodeJenis?.kode, kodeDept?.kode, tanggal));
+        } else {
+            setNomor('');
+        }
     };
 
     // Handler memilih data Surat Keluar dari picker modal

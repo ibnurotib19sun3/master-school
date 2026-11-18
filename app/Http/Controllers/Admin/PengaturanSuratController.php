@@ -52,15 +52,17 @@ class PengaturanSuratController extends Controller
         $data = $request->validate([
             'separator'        => 'required|string|max:5',
             'prefix_kode'      => 'nullable|string|max:100',
-            'nomor_awal_surat' => 'nullable|integer|min:1',
+            'nomor_awal_surat' => 'nullable|integer|min:0',
             'format_bagian'    => 'required|array|min:1',
             'format_bagian.*'  => 'string|in:prefix,seq,kode_jenis,kode_dept,kode_jenis_dept,kode_dept_jenis,bulan_romawi,tahun',
         ]);
         $currentPs = PengaturanSurat::current();
-        $nomorAwal = empty($data['nomor_awal_surat']) ? 1 : (int) $data['nomor_awal_surat'];
+        $nomorAwal = isset($data['nomor_awal_surat']) ? max(0, (int) $data['nomor_awal_surat']) : 0;
         $data['nomor_awal_surat'] = $nomorAwal;
 
-        if ($currentPs->nomor_awal_surat_id === null || (int) $currentPs->nomor_awal_surat !== $nomorAwal) {
+        if ($nomorAwal === 0) {
+            $data['nomor_awal_surat_id'] = null;
+        } elseif ($currentPs->nomor_awal_surat_id === null || (int) $currentPs->nomor_awal_surat !== $nomorAwal) {
             $data['nomor_awal_surat_id'] = SuratKeluar::max('id') ?? 0;
         }
 
