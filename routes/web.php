@@ -1135,6 +1135,12 @@ Route::middleware('auth')->group(function () {
         Route::get('kpi', [KpiTatausahaController::class, 'tuIndex'])->name('kpi.index');
     });
 
+    // Alias route surat keluar untuk kompatibilitas nama route
+    Route::middleware('role:tatausaha|kepala_tatausaha|super_admin|kepala_sekolah')->group(function () {
+        Route::get('surat-keluar/{suratKeluar}/view-file', [\App\Http\Controllers\TataUsaha\SuratKeluarController::class, 'viewFile'])->name('surat-keluar.view-file');
+        Route::get('surat-keluar/{suratKeluar}/download',  [\App\Http\Controllers\TataUsaha\SuratKeluarController::class, 'downloadFile'])->name('surat-keluar.download');
+    });
+
     // Portal Siswa
     Route::prefix('siswa')->name('siswa.')->middleware('role:siswa')->group(function () {
         Route::get('lms', [\App\Http\Controllers\Siswa\LmsController::class, 'index'])->name('lms.index');

@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\Route;
 
 class SuratKeluar extends Model
 {
@@ -56,12 +57,36 @@ class SuratKeluar extends Model
 
     public function getFileViewUrlAttribute(): ?string
     {
-        return $this->file_surat ? route('surat-keluar.view-file', $this->id) : null;
+        if (!$this->file_surat) {
+            return null;
+        }
+
+        if (Route::has('tatausaha.surat-keluar.view-file')) {
+            return route('tatausaha.surat-keluar.view-file', $this->id);
+        }
+
+        if (Route::has('surat-keluar.view-file')) {
+            return route('surat-keluar.view-file', $this->id);
+        }
+
+        return url('/tatausaha/surat-keluar/' . $this->id . '/view-file');
     }
 
     public function getFileDownloadUrlAttribute(): ?string
     {
-        return $this->file_surat ? route('surat-keluar.download', $this->id) : null;
+        if (!$this->file_surat) {
+            return null;
+        }
+
+        if (Route::has('tatausaha.surat-keluar.download')) {
+            return route('tatausaha.surat-keluar.download', $this->id);
+        }
+
+        if (Route::has('surat-keluar.download')) {
+            return route('surat-keluar.download', $this->id);
+        }
+
+        return url('/tatausaha/surat-keluar/' . $this->id . '/download');
     }
 
     protected $appends = ['file_url', 'file_tte_url', 'file_view_url', 'file_download_url'];
