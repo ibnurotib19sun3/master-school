@@ -23,13 +23,18 @@ const STATUS_LIST  = ['Draft', 'Terkirim'];
 // opsi gabungan kode_jenis_dept/kode_dept_jenis) — sebelumnya dua opsi gabungan
 // itu tidak dipetakan di sini, jadi nomor yang dihasilkan di layar beda dengan
 // yang sebenarnya dipakai backend untuk sekolah yang format nomornya pakai opsi itu.
-function buildNomor(fmt, seq, kodeJenis, kodeDept, tanggal) {
+function buildNomor(fmt, seq, kodeJenis, kodeDept, tanggal, isPlaceholder = false) {
     const d   = tanggal ? new Date(tanggal) : new Date();
     const sep = fmt?.separator || '/';
     kodeJenis = kodeJenis || '';
     kodeDept  = kodeDept  || '';
-    const num = parseInt(seq, 10) || 0;
-    const seqStr = num < 1000 ? String(num).padStart(4, '0') : String(num);
+    const num = parseInt(seq, 10);
+    let seqStr = '';
+    if (!isNaN(num) && num > 0) {
+        seqStr = num < 1000 ? String(num).padStart(4, '0') : String(num);
+    } else if (isPlaceholder && (!seq || num <= 0)) {
+        seqStr = '[No.Urut]';
+    }
     const map = {
         prefix:          fmt?.prefix_kode || '',
         seq:             seqStr,
@@ -90,19 +95,27 @@ function FilePickerArea({ file, setFile, existingUrl, existingName, onClear }) {
 
 /* ─── Step 1: Nomor Builder ─── */
 function StepNomor({ fmt, nextSeq, kodeDeptList, kodeJenisList, onLanjutkan, onSimpanNomor, onClose }) {
+    const isManualMode = !(Number(nextSeq) > 0);
     const [jenis,   setJenis]   = useState(kodeJenisList[0] ?? null);
     const [dept,    setDept]    = useState(kodeDeptList[0]  ?? null);
     const [tgl,     setTgl]     = useState(today);
-    const [seq,     setSeq]     = useState(nextSeq);
+    const [seq,     setSeq]     = useState(() => (Number(nextSeq) > 0 ? nextSeq : ''));
     const [edited,  setEdited]  = useState(false);
     const [nomorManual, setNomorManual] = useState('');
 
     const autoNomor = useMemo(
-        () => buildNomor(fmt, seq, jenis?.kode, dept?.kode, tgl),
+        () => buildNomor(fmt, seq, jenis?.kode, dept?.kode, tgl, false),
         [fmt, seq, jenis, dept, tgl]
     );
 
+    const previewNomor = useMemo(() => {
+        if (edited && nomorManual) return nomorManual;
+        if (seq && parseInt(seq, 10) > 0) return autoNomor;
+        return buildNomor(fmt, seq, jenis?.kode, dept?.kode, tgl, true);
+    }, [edited, nomorManual, seq, autoNomor, fmt, jenis, dept, tgl]);
+
     const nomor = edited ? nomorManual : autoNomor;
+    const canProceed = Boolean(edited ? nomorManual.trim() : (seq && parseInt(seq, 10) > 0 && autoNomor));
 
     const handleNomorChange = (v) => {
         setEdited(true);
@@ -153,21 +166,31 @@ function StepNomor({ fmt, nextSeq, kodeDeptList, kodeJenisList, onLanjutkan, onS
                 {/* No. Urut Surat */}
                 <div>
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                        No. Urut Surat <span className="text-xs text-sky-500 font-normal">(otomatis / ubah manual)</span>
+                        No. Urut Surat {Number(nextSeq) > 0 ? (
+                            <span className="text-xs text-sky-500 font-normal">(otomatis / ubah manual)</span>
+                        ) : (
+                            <span className="text-xs text-amber-600 dark:text-amber-400 font-normal">(input manual)</span>
+                        )}
                     </label>
                     <input
                         type="number"
                         min="1"
                         value={seq}
                         onChange={e => {
-                            const val = parseInt(e.target.value, 10);
-                            setSeq(isNaN(val) ? 1 : val);
+                            const val = e.target.value;
+                            setSeq(val === '' ? '' : Math.max(1, parseInt(val, 10) || 1));
                             setEdited(false);
                             setNomorManual('');
                         }}
-                        className="w-full rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-sky-500 font-mono"
-                        placeholder="1"
+                        className="w-full rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-sky-500 font-mono font-bold"
+                        placeholder="Contoh: 1"
+                        autoFocus={isManualMode}
                     />
+                    {isManualMode && (
+                        <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-1">
+                            Ketik nomor urut surat, nomor surat lengkap tetap tergenerate otomatis sesuai format.
+                        </p>
+                    )}
                 </div>
 
                 {/* Kode Departemen */}
@@ -209,10 +232,10 @@ function StepNomor({ fmt, nextSeq, kodeDeptList, kodeJenisList, onLanjutkan, onS
                     Nomor Surat Tergenerate
                 </p>
                 <p className="font-mono text-2xl sm:text-3xl font-bold text-sky-700 dark:text-sky-300 tracking-wide break-all">
-                    {autoNomor || <span className="text-gray-300 dark:text-gray-600">—</span>}
+                    {previewNomor || <span className="text-gray-300 dark:text-gray-600">—</span>}
                 </p>
                 <p className="text-xs text-sky-400 dark:text-sky-500 mt-2">
-                    No. urut: <strong>{(parseInt(seq, 10) || 0) < 1000 ? String(seq).padStart(4, '0') : String(seq)}</strong>
+                    No. urut: <strong>{seq && parseInt(seq, 10) > 0 ? ((parseInt(seq, 10) || 0) < 1000 ? String(seq).padStart(4, '0') : String(seq)) : <span className="text-amber-500 font-normal">(Ketik no. urut di atas)</span>}</strong>
                     {jenis && <> · Jenis: <strong>{jenis.kode}</strong></>}
                     {showDept && dept && <> · Dept: <strong>{dept.kode}</strong></>}
                 </p>
@@ -237,7 +260,7 @@ function StepNomor({ fmt, nextSeq, kodeDeptList, kodeJenisList, onLanjutkan, onS
                             ? 'border-amber-400 dark:border-amber-600 bg-amber-50 dark:bg-amber-900/10 text-gray-900 dark:text-gray-100'
                             : 'border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100'
                     }`}
-                    placeholder="Nomor surat..." />
+                    placeholder={previewNomor || "Nomor surat..."} />
                 {edited && (
                     <p className="text-xs text-amber-600 dark:text-amber-400 mt-1">Nomor telah diubah secara manual.</p>
                 )}
@@ -249,7 +272,7 @@ function StepNomor({ fmt, nextSeq, kodeDeptList, kodeJenisList, onLanjutkan, onS
                 <div className="flex gap-2 flex-wrap">
                     {/* Quick save — simpan nomor tanpa detail */}
                     <Button type="button" variant="secondary"
-                        disabled={!nomor}
+                        disabled={!canProceed}
                         onClick={() => onSimpanNomor({
                             nomor,
                             tgl_surat:  tgl,
@@ -259,7 +282,7 @@ function StepNomor({ fmt, nextSeq, kodeDeptList, kodeJenisList, onLanjutkan, onS
                         Simpan Nomor Saja
                     </Button>
                     <Button type="button" icon={ArrowRight}
-                        disabled={!nomor}
+                        disabled={!canProceed}
                         onClick={() => onLanjutkan({
                             nomor,
                             tgl_surat:  tgl,
@@ -276,7 +299,6 @@ function StepNomor({ fmt, nextSeq, kodeDeptList, kodeJenisList, onLanjutkan, onS
 
 /* ─── Main Page ─── */
 export default function SuratKeluarIndex({ surat, filters, kode_departemen, kode_jenis, format_nomor, next_seq }) {
-    const isAutoNumbering = (Number(format_nomor?.nomor_awal_surat) > 0) && (Number(next_seq) > 0);
     const [showModal,    setShowModal]    = useState(false);
     const [step,         setStep]         = useState(1); // 1 = nomor builder, 2 = form
     const [editItem,     setEditItem]     = useState(null);
@@ -311,11 +333,7 @@ export default function SuratKeluarIndex({ surat, filters, kode_departemen, kode
         setEditItem(null);
         setFileObj(null);
         setClearFile(false);
-        if (isAutoNumbering) {
-            setStep(1);
-        } else {
-            setStep(2); // ketika nomor awal 0, langsung input manual
-        }
+        setStep(1);
         setShowModal(true);
     };
 
@@ -386,13 +404,9 @@ export default function SuratKeluarIndex({ surat, filters, kode_departemen, kode
         'Umum', 'Lainnya',
     ].filter((v, i, a) => a.indexOf(v) === i); // deduplicate
 
-    const modalTitle = editItem
-        ? 'Edit Surat Keluar'
-        : !isAutoNumbering
-            ? 'Tambah Surat Keluar (Input Manual)'
-            : step === 1
-                ? 'Buat Nomor Surat'
-                : 'Form Surat Keluar';
+    const modalTitle = step === 1
+        ? 'Buat Nomor Surat'
+        : editItem ? 'Edit Surat Keluar' : 'Form Surat Keluar';
 
     return (
         <AppLayout title="Surat Keluar">
@@ -562,14 +576,14 @@ export default function SuratKeluarIndex({ surat, filters, kode_departemen, kode
 
             {/* ── Modal ── */}
             <Modal show={showModal} onClose={closeModal} title={modalTitle} size="lg">
-                {/* Step indicator — only for tambah dengan penomoran otomatis */}
-                {!editItem && isAutoNumbering && (
+                {/* Step indicator — only for tambah */}
+                {!editItem && (
                     <div className="flex items-center gap-2 mb-5 px-1">
                         <div className={`flex items-center gap-1.5 text-xs font-semibold ${step === 1 ? 'text-sky-600 dark:text-sky-400' : 'text-gray-400'}`}>
                             <span className={`inline-flex items-center justify-center h-5 w-5 rounded-full text-[10px] font-bold ${step === 1 ? 'bg-sky-600 text-white' : 'bg-emerald-500 text-white'}`}>
                                 {step > 1 ? <CheckCircle2 className="h-3.5 w-3.5" /> : '1'}
                             </span>
-                            Nomor Surat
+                            Buat Nomor
                         </div>
                         <div className="flex-1 h-px bg-gray-200 dark:bg-gray-700 mx-1" />
                         <div className={`flex items-center gap-1.5 text-xs font-semibold ${step === 2 ? 'text-sky-600 dark:text-sky-400' : 'text-gray-400'}`}>
@@ -582,7 +596,7 @@ export default function SuratKeluarIndex({ surat, filters, kode_departemen, kode
                 )}
 
                 {/* Step 1 — Nomor Builder */}
-                {step === 1 && (
+                {step === 1 && !editItem && (
                     <StepNomor
                         fmt={format_nomor}
                         nextSeq={next_seq}
@@ -599,35 +613,18 @@ export default function SuratKeluarIndex({ surat, filters, kode_departemen, kode
                     <form onSubmit={submit} className="space-y-4">
                         {/* Nomor badge / editable */}
                         <div className="rounded-xl bg-sky-50 dark:bg-sky-900/20 border border-sky-200 dark:border-sky-800 px-4 py-3">
-                            <div className="flex items-center justify-between gap-2 mb-2">
-                                <div className="flex items-center gap-2">
-                                    <Hash className="h-4 w-4 text-sky-500 shrink-0" />
-                                    <span className="text-xs font-semibold text-sky-600 dark:text-sky-400 uppercase tracking-wide">
-                                        Nomor Surat {!isAutoNumbering && '(Input Manual)'}
-                                    </span>
-                                </div>
-                                {!isAutoNumbering && (
-                                    <span className="text-[11px] font-medium px-2 py-0.5 rounded bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800">
-                                        Mode Manual
-                                    </span>
-                                )}
+                            <div className="flex items-center gap-2 mb-2">
+                                <Hash className="h-4 w-4 text-sky-500 shrink-0" />
+                                <span className="text-xs font-semibold text-sky-600 dark:text-sky-400 uppercase tracking-wide">Nomor Surat</span>
                             </div>
                             <input value={data.nomor_surat}
                                 onChange={e => setData('nomor_surat', e.target.value)}
-                                className="w-full font-mono text-base sm:text-lg font-bold text-sky-700 dark:text-sky-300 bg-white dark:bg-gray-800/80 border border-sky-200 dark:border-sky-700/60 rounded-xl px-3.5 py-2 outline-none focus:ring-2 focus:ring-sky-500 placeholder-sky-300 dark:placeholder-sky-700"
-                                placeholder={!isAutoNumbering ? "Ketik nomor surat lengkap, cth: 001/SMK/XI/2026..." : "Nomor surat..."}
-                                autoFocus={!isAutoNumbering}
-                                required
-                            />
-                            {!isAutoNumbering && (
-                                <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-1.5">
-                                    Nomor surat diinput secara manual karena pengaturan nomor awal diatur 0.
-                                </p>
-                            )}
-                            {isAutoNumbering && !editItem && (
+                                className="w-full font-mono text-lg font-bold text-sky-700 dark:text-sky-300 bg-transparent border-none outline-none focus:ring-0 placeholder-sky-300"
+                                placeholder="Nomor surat..." />
+                            {!editItem && (
                                 <button type="button" onClick={() => setStep(1)}
-                                    className="mt-2 inline-flex items-center gap-1 text-xs text-sky-500 hover:text-sky-700 dark:hover:text-sky-300 transition-colors">
-                                    <RefreshCw className="h-3 w-3" /> Ubah komponen nomor
+                                    className="mt-1 inline-flex items-center gap-1 text-xs text-sky-500 hover:text-sky-700 dark:hover:text-sky-300 transition-colors">
+                                    <RefreshCw className="h-3 w-3" /> Ubah nomor
                                 </button>
                             )}
                         </div>
@@ -677,7 +674,7 @@ export default function SuratKeluarIndex({ surat, filters, kode_departemen, kode
                         />
 
                         <div className="flex justify-between gap-3 pt-1">
-                            {!editItem && isAutoNumbering ? (
+                            {!editItem ? (
                                 <button type="button" onClick={() => setStep(1)}
                                     className="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 transition-colors">
                                     <ArrowLeft className="h-4 w-4" /> Kembali
@@ -685,7 +682,9 @@ export default function SuratKeluarIndex({ surat, filters, kode_departemen, kode
                             ) : (
                                 <Button type="button" variant="secondary" onClick={closeModal}>Batal</Button>
                             )}
-                            <Button type="submit" loading={processing}>Simpan</Button>
+                            <Button type="submit" loading={processing}>
+                                {editItem ? 'Simpan Perubahan' : 'Simpan Surat'}
+                            </Button>
                         </div>
                     </form>
                 )}
